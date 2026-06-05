@@ -46,7 +46,7 @@ export class ChildStepComponent implements OnInit {
       for (const def of this.customFieldDefs) {
         const control = new FormControl('', def.required ? Validators.required : []);
         this.customFieldControls[def.fieldName] = control;
-        this.form.addControl(`custom_${def.fieldName}`, control);
+        (this.form as FormGroup<any>).addControl(`custom_${def.fieldName}`, control);
       }
     });
   }
