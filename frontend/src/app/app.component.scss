@@ -1,0 +1,31 @@
+.app-container {
+  height: 100vh;
+}
+
+.sidenav {
+  width: 250px;
+}
+
+.sidenav-header {
+  padding: 16px;
+  text-align: center;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.spacer {
+  flex: 1;
+}
+
+main {
+  padding: 0;
+}
+
+.active {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+@media (max-width: 768px) {
+  .sidenav {
+    width: 200px;
+  }
+}
