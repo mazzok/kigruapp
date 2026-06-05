@@ -1,0 +1,27 @@
+.custom-fields-container {
+  padding: 16px;
+}
+
+.add-form {
+  margin-bottom: 24px;
+}
+
+.row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.row mat-form-field {
+  flex: 1;
+  min-width: 150px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+table {
+  width: 100%;
+}

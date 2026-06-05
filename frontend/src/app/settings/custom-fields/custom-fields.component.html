@@ -1,0 +1,92 @@
+<div class="custom-fields-container">
+  <h2>Benutzerdefinierte Felder</h2>
+
+  <form [formGroup]="form" (ngSubmit)="addField()" class="add-form">
+    <div class="row">
+      <mat-form-field appearance="outline">
+        <mat-label>Entität</mat-label>
+        <mat-select formControlName="entity">
+          @for (e of entityTypes; track e) {
+            <mat-option [value]="e">{{ e }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Feldname</mat-label>
+        <input matInput formControlName="fieldName">
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Label (DE)</mat-label>
+        <input matInput formControlName="labelDe">
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Label (EN)</mat-label>
+        <input matInput formControlName="labelEn">
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Typ</mat-label>
+        <mat-select formControlName="type">
+          @for (t of fieldTypes; track t) {
+            <mat-option [value]="t">{{ t }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    @if (form.value.type === 'SELECT') {
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Optionen (kommagetrennt)</mat-label>
+        <input matInput formControlName="options" placeholder="Ja, Nein">
+      </mat-form-field>
+    }
+
+    <div class="row">
+      <mat-checkbox formControlName="required">Pflichtfeld</mat-checkbox>
+      <button mat-raised-button color="primary" type="submit" [disabled]="!form.valid">
+        Feld hinzufügen
+      </button>
+    </div>
+  </form>
+
+  <table mat-table [dataSource]="dataSource" class="mat-elevation-z2">
+    <ng-container matColumnDef="entity">
+      <th mat-header-cell *matHeaderCellDef>Entität</th>
+      <td mat-cell *matCellDef="let row">{{ row.entity }}</td>
+    </ng-container>
+    <ng-container matColumnDef="fieldName">
+      <th mat-header-cell *matHeaderCellDef>Feldname</th>
+      <td mat-cell *matCellDef="let row">{{ row.fieldName }}</td>
+    </ng-container>
+    <ng-container matColumnDef="labelDe">
+      <th mat-header-cell *matHeaderCellDef>Label (DE)</th>
+      <td mat-cell *matCellDef="let row">{{ row.label?.de }}</td>
+    </ng-container>
+    <ng-container matColumnDef="labelEn">
+      <th mat-header-cell *matHeaderCellDef>Label (EN)</th>
+      <td mat-cell *matCellDef="let row">{{ row.label?.en }}</td>
+    </ng-container>
+    <ng-container matColumnDef="type">
+      <th mat-header-cell *matHeaderCellDef>Typ</th>
+      <td mat-cell *matCellDef="let row">{{ row.type }}</td>
+    </ng-container>
+    <ng-container matColumnDef="required">
+      <th mat-header-cell *matHeaderCellDef>Pflicht</th>
+      <td mat-cell *matCellDef="let row">{{ row.required ? '✓' : '' }}</td>
+    </ng-container>
+    <ng-container matColumnDef="actions">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let row">
+        <button mat-icon-button color="warn" (click)="deleteField(row.id)">
+          <mat-icon>delete</mat-icon>
+        </button>
+      </td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+    <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+  </table>
+</div>
