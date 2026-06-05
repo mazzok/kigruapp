@@ -1,6 +1,8 @@
 package at.kigruapp.resource;
 
 import at.kigruapp.entity.Parent;
+import at.kigruapp.security.KeycloakUserService;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -11,6 +13,9 @@ import java.util.List;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class ParentResource {
+
+    @Inject
+    KeycloakUserService keycloakUserService;
 
     @GET
     public List<Parent> list() {
@@ -29,6 +34,16 @@ public class ParentResource {
 
     @POST
     public Response create(Parent parent) {
+        if (parent.email != null && !parent.email.isBlank()) {
+            try {
+                String keycloakId = keycloakUserService.createUser(
+                    parent.email, parent.firstName, parent.lastName
+                );
+                parent.keycloakUserId = keycloakId;
+            } catch (Exception e) {
+                System.err.println("Keycloak user creation failed: " + e.getMessage());
+            }
+        }
         parent.persist();
         return Response.status(201).entity(parent).build();
     }

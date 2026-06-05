@@ -1,0 +1,28 @@
+{
+  "realm": "kigruapp",
+  "enabled": true,
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "resetPasswordAllowed": true,
+  "sslRequired": "none",
+  "clients": [
+    {
+      "clientId": "kigruapp-frontend",
+      "enabled": true,
+      "publicClient": true,
+      "redirectUris": ["*"],
+      "webOrigins": ["*"],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false
+    },
+    {
+      "clientId": "kigruapp-api",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "secret",
+      "bearerOnly": true,
+      "standardFlowEnabled": false,
+      "serviceAccountsEnabled": true
+    }
+  ]
+}
