@@ -1,0 +1,38 @@
+<h2 mat-dialog-title>Neues Kind</h2>
+
+<mat-dialog-content>
+  <mat-stepper #stepper linear>
+    <mat-step [completed]="familyStep?.isValid ?? false">
+      <ng-template matStepLabel>Familie</ng-template>
+      <app-family-step></app-family-step>
+    </mat-step>
+
+    <mat-step [completed]="childStep?.isValid ?? false">
+      <ng-template matStepLabel>Kind</ng-template>
+      <app-child-step></app-child-step>
+    </mat-step>
+
+    <mat-step [completed]="parentsStep?.isValid ?? false">
+      <ng-template matStepLabel>Eltern</ng-template>
+      <app-parents-step></app-parents-step>
+    </mat-step>
+  </mat-stepper>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="cancel()">Abbrechen</button>
+
+  @if (stepper?.selectedIndex > 0) {
+    <button mat-button matStepperPrevious>Zurück</button>
+  }
+
+  @if (stepper?.selectedIndex < 2) {
+    <button mat-raised-button color="primary" matStepperNext
+      [disabled]="(stepper?.selectedIndex === 0 && !familyStep?.isValid) ||
+                  (stepper?.selectedIndex === 1 && !childStep?.isValid)">Weiter</button>
+  } @else {
+    <button mat-raised-button color="primary"
+      [disabled]="!parentsStep?.isValid || submitting"
+      (click)="submit()">Familie erstellen</button>
+  }
+</mat-dialog-actions>

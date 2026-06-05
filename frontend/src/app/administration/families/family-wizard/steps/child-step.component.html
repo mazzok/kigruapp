@@ -1,0 +1,58 @@
+<div [formGroup]="form">
+  <div class="row">
+    <mat-form-field appearance="outline">
+      <mat-label>Vorname</mat-label>
+      <input matInput formControlName="firstName">
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Nachname</mat-label>
+      <input matInput formControlName="lastName">
+    </mat-form-field>
+  </div>
+
+  <div class="row">
+    <mat-form-field appearance="outline">
+      <mat-label>Geburtsdatum</mat-label>
+      <input matInput [matDatepicker]="dobPicker" formControlName="dateOfBirth">
+      <mat-datepicker-toggle matIconSuffix [for]="dobPicker"></mat-datepicker-toggle>
+      <mat-datepicker #dobPicker></mat-datepicker>
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Geschlecht</mat-label>
+      <mat-select formControlName="gender">
+        @for (opt of genderOptions; track opt.value) {
+          <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  <div class="row">
+    <mat-form-field appearance="outline">
+      <mat-label>Eintrittsdatum</mat-label>
+      <input matInput [matDatepicker]="entryPicker" formControlName="entryDate">
+      <mat-datepicker-toggle matIconSuffix [for]="entryPicker"></mat-datepicker-toggle>
+      <mat-datepicker #entryPicker></mat-datepicker>
+    </mat-form-field>
+  </div>
+
+  <mat-form-field appearance="outline" class="full-width">
+    <mat-label>Notizen</mat-label>
+    <textarea matInput formControlName="notes" rows="3"></textarea>
+  </mat-form-field>
+
+  @for (def of customFieldDefs; track def.fieldName) {
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>{{ def.label['de'] }}</mat-label>
+      @if (def.type === 'SELECT') {
+        <mat-select [formControl]="customFieldControls[def.fieldName]">
+          @for (opt of def.options; track opt) {
+            <mat-option [value]="opt">{{ opt }}</mat-option>
+          }
+        </mat-select>
+      } @else {
+        <input matInput [formControl]="customFieldControls[def.fieldName]">
+      }
+    </mat-form-field>
+  }
+</div>

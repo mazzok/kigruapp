@@ -1,0 +1,63 @@
+@for (parent of parentsArray.controls; track $index; let i = $index) {
+  <div class="parent-section">
+    <div class="parent-header">
+      <h4>Elternteil {{ i + 1 }}</h4>
+      @if (i > 0) {
+        <button mat-icon-button color="warn" (click)="removeParent(i)">
+          <mat-icon>delete</mat-icon>
+        </button>
+      }
+    </div>
+
+    <div [formGroup]="parent">
+      <div class="row">
+        <mat-form-field appearance="outline">
+          <mat-label>Vorname</mat-label>
+          <input matInput formControlName="firstName">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Nachname</mat-label>
+          <input matInput formControlName="lastName">
+        </mat-form-field>
+      </div>
+      <div class="row">
+        <mat-form-field appearance="outline">
+          <mat-label>Email</mat-label>
+          <input matInput formControlName="email" type="email">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Telefon</mat-label>
+          <input matInput formControlName="phone">
+        </mat-form-field>
+      </div>
+
+      @if (i > 0) {
+        <mat-checkbox
+          [checked]="reuseAddress[i] ?? false"
+          (change)="onReuseAddress(i, $event.checked)">
+          Adresse wiederverwenden
+        </mat-checkbox>
+      }
+
+      <div class="row">
+        <mat-form-field appearance="outline" class="street-field">
+          <mat-label>Strasse</mat-label>
+          <input matInput formControlName="street">
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="zip-field">
+          <mat-label>PLZ</mat-label>
+          <input matInput formControlName="zip">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Ort</mat-label>
+          <input matInput formControlName="city">
+        </mat-form-field>
+      </div>
+    </div>
+  </div>
+}
+
+<button mat-stroked-button (click)="addParent()">
+  <mat-icon>person_add</mat-icon>
+  <span>Elternteil hinzufügen</span>
+</button>
