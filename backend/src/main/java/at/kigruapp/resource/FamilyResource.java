@@ -1,5 +1,6 @@
 package at.kigruapp.resource;
 
+import at.kigruapp.entity.Child;
 import at.kigruapp.entity.Family;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -46,6 +47,12 @@ public class FamilyResource {
         family.customFields = update.customFields;
         family.update();
         return family;
+    }
+
+    @GET
+    @Path("/{id}/children")
+    public List<Child> listChildren(@PathParam("id") String id) {
+        return Child.findByFamilyId(new ObjectId(id));
     }
 
     @DELETE
