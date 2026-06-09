@@ -41,18 +41,5 @@
     <textarea matInput formControlName="notes" rows="3"></textarea>
   </mat-form-field>
 
-  @for (def of customFieldDefs; track def.fieldName) {
-    <mat-form-field appearance="outline" class="full-width">
-      <mat-label>{{ def.label['de'] }}</mat-label>
-      @if (def.type === 'SELECT') {
-        <mat-select [formControl]="customFieldControls[def.fieldName]">
-          @for (opt of def.options; track opt) {
-            <mat-option [value]="opt">{{ opt }}</mat-option>
-          }
-        </mat-select>
-      } @else {
-        <input matInput [formControl]="customFieldControls[def.fieldName]">
-      }
-    </mat-form-field>
-  }
+  <app-custom-fields-form #customFields entityType="CHILD"></app-custom-fields-form>
 </div>

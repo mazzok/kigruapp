@@ -1,38 +1,39 @@
 <h2 mat-dialog-title>Neues Kind</h2>
 
 <mat-dialog-content>
-  <mat-stepper #stepper linear>
-    <mat-step [completed]="familyStep?.isValid ?? false">
+  <mat-stepper #stepper>
+    <mat-step>
       <ng-template matStepLabel>Familie</ng-template>
       <app-family-step></app-family-step>
+      <div class="step-actions">
+        <button mat-raised-button color="primary" matStepperNext
+          [disabled]="!familyStep?.isValid">Weiter</button>
+      </div>
     </mat-step>
 
-    <mat-step [completed]="childStep?.isValid ?? false">
+    <mat-step>
       <ng-template matStepLabel>Kind</ng-template>
       <app-child-step></app-child-step>
+      <div class="step-actions">
+        <button mat-button matStepperPrevious>Zurück</button>
+        <button mat-raised-button color="primary" matStepperNext
+          [disabled]="!childStep?.isValid">Weiter</button>
+      </div>
     </mat-step>
 
-    <mat-step [completed]="parentsStep?.isValid ?? false">
+    <mat-step>
       <ng-template matStepLabel>Eltern</ng-template>
       <app-parents-step></app-parents-step>
+      <div class="step-actions">
+        <button mat-button matStepperPrevious>Zurück</button>
+        <button mat-raised-button color="primary"
+          [disabled]="!parentsStep?.isValid || submitting"
+          (click)="submit()">Familie erstellen</button>
+      </div>
     </mat-step>
   </mat-stepper>
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
   <button mat-button (click)="cancel()">Abbrechen</button>
-
-  @if (($any(stepper)?.selectedIndex ?? 0) > 0) {
-    <button mat-button matStepperPrevious>Zurück</button>
-  }
-
-  @if (($any(stepper)?.selectedIndex ?? 0) < 2) {
-    <button mat-raised-button color="primary" matStepperNext
-      [disabled]="(($any(stepper)?.selectedIndex ?? 0) === 0 && !familyStep.isValid) ||
-                  (($any(stepper)?.selectedIndex ?? 0) === 1 && !childStep.isValid)">Weiter</button>
-  } @else {
-    <button mat-raised-button color="primary"
-      [disabled]="!parentsStep.isValid || submitting"
-      (click)="submit()">Familie erstellen</button>
-  }
 </mat-dialog-actions>

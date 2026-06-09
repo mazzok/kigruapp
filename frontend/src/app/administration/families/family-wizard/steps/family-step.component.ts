@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatRadioModule } from '@angular/material/radio';
@@ -6,14 +6,21 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { FamilyService } from '../../services/family.service';
 import { Family } from '../../../../shared/models/family.model';
+import { CustomFieldsFormComponent } from '../../../../shared/components/custom-fields-form/custom-fields-form.component';
 
 @Component({
   selector: 'app-family-step',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, MatRadioModule, MatSelectModule, MatFormFieldModule],
+  imports: [
+    CommonModule, ReactiveFormsModule,
+    MatRadioModule, MatSelectModule, MatFormFieldModule,
+    CustomFieldsFormComponent,
+  ],
   templateUrl: './family-step.component.html',
 })
 export class FamilyStepComponent implements OnInit {
+  @ViewChild('customFields') customFieldsForm?: CustomFieldsFormComponent;
+
   form = new FormGroup({
     mode: new FormControl<'new' | 'existing'>('new', Validators.required),
     existingFamilyId: new FormControl<string>(''),
@@ -33,7 +40,7 @@ export class FamilyStepComponent implements OnInit {
     if (this.form.value.mode === 'existing') {
       return !!this.form.value.existingFamilyId;
     }
-    return true;
+    return this.customFieldsForm?.isValid ?? true;
   }
 
   get isNewFamily(): boolean {
@@ -42,5 +49,9 @@ export class FamilyStepComponent implements OnInit {
 
   get selectedFamilyId(): string | null {
     return this.form.value.mode === 'existing' ? this.form.value.existingFamilyId ?? null : null;
+  }
+
+  saveCustomFields(familyId: string) {
+    return this.customFieldsForm?.saveInstances(familyId);
   }
 }

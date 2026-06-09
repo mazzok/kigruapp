@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -6,8 +6,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
-import { FieldDefinitionService } from '../../../../settings/custom-fields/services/field-definition.service';
-import { FieldDefinition } from '../../../../shared/models/field-definition.model';
+import { CustomFieldsFormComponent } from '../../../../shared/components/custom-fields-form/custom-fields-form.component';
 
 @Component({
   selector: 'app-child-step',
@@ -16,10 +15,13 @@ import { FieldDefinition } from '../../../../shared/models/field-definition.mode
     CommonModule, ReactiveFormsModule,
     MatFormFieldModule, MatInputModule, MatSelectModule,
     MatDatepickerModule, MatNativeDateModule,
+    CustomFieldsFormComponent,
   ],
   templateUrl: './child-step.component.html',
 })
-export class ChildStepComponent implements OnInit {
+export class ChildStepComponent {
+  @ViewChild('customFields') customFieldsForm?: CustomFieldsFormComponent;
+
   form = new FormGroup({
     firstName: new FormControl('', Validators.required),
     lastName: new FormControl('', Validators.required),
@@ -29,38 +31,17 @@ export class ChildStepComponent implements OnInit {
     notes: new FormControl(''),
   });
 
-  customFieldDefs: FieldDefinition[] = [];
-  customFieldControls: Record<string, FormControl> = {};
-
   genderOptions = [
-    { value: 'male', label: 'männlich' },
-    { value: 'female', label: 'weiblich' },
-    { value: 'diverse', label: 'divers' },
+    { value: 'male', label: 'Bub' },
+    { value: 'female', label: 'Mädchen' },
   ];
 
-  constructor(private fieldDefService: FieldDefinitionService) {}
-
-  ngOnInit(): void {
-    this.fieldDefService.list().subscribe((defs) => {
-      this.customFieldDefs = defs.filter((d) => d.entity === 'CHILD');
-      for (const def of this.customFieldDefs) {
-        const control = new FormControl('', def.required ? Validators.required : []);
-        this.customFieldControls[def.fieldName] = control;
-        (this.form as FormGroup<any>).addControl(`custom_${def.fieldName}`, control);
-      }
-    });
-  }
-
   get isValid(): boolean {
-    return this.form.valid;
+    return this.form.valid && (this.customFieldsForm?.isValid ?? true);
   }
 
   getChildData(): Record<string, unknown> {
     const val = this.form.value;
-    const customFields: Record<string, unknown> = {};
-    for (const def of this.customFieldDefs) {
-      customFields[def.fieldName] = this.customFieldControls[def.fieldName].value;
-    }
     return {
       firstName: val.firstName,
       lastName: val.lastName,
@@ -68,7 +49,10 @@ export class ChildStepComponent implements OnInit {
       gender: val.gender,
       entryDate: val.entryDate?.toISOString().split('T')[0] ?? null,
       notes: val.notes,
-      customFields,
     };
+  }
+
+  saveCustomFields(childId: string) {
+    return this.customFieldsForm?.saveInstances(childId);
   }
 }

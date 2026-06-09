@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, QueryList, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -6,6 +6,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
+import { CustomFieldsFormComponent } from '../../../../shared/components/custom-fields-form/custom-fields-form.component';
 
 @Component({
   selector: 'app-parents-step',
@@ -14,10 +15,13 @@ import { MatIconModule } from '@angular/material/icon';
     CommonModule, ReactiveFormsModule,
     MatFormFieldModule, MatInputModule, MatButtonModule,
     MatCheckboxModule, MatIconModule,
+    CustomFieldsFormComponent,
   ],
   templateUrl: './parents-step.component.html',
 })
 export class ParentsStepComponent {
+  @ViewChildren('parentCustomFields') customFieldsForms!: QueryList<CustomFieldsFormComponent>;
+
   parentsArray = new FormArray<FormGroup>([]);
   reuseAddress: Record<number, boolean> = {};
 
@@ -75,5 +79,10 @@ export class ParentsStepComponent {
         },
       };
     });
+  }
+
+  saveCustomFields(parentIds: string[]) {
+    const forms = this.customFieldsForms.toArray();
+    return forms.map((form, i) => form.saveInstances(parentIds[i]));
   }
 }

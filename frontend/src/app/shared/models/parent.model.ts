@@ -14,5 +14,4 @@ export interface Parent {
   address?: Address;
   keycloakUserId?: string;
   permissions?: string[];
-  customFields?: Record<string, unknown>;
 }

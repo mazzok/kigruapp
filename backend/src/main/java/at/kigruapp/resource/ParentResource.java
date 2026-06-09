@@ -61,7 +61,6 @@ public class ParentResource {
         parent.phone = update.phone;
         parent.address = update.address;
         parent.permissions = update.permissions;
-        parent.customFields = update.customFields;
         parent.update();
         return parent;
     }

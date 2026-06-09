@@ -54,20 +54,41 @@ export class FamilyWizardComponent {
           this.familyService.create({ name: childData['lastName'] as string })
         );
         familyId = family.id!;
+
+        const familySave$ = this.familyStep.saveCustomFields(familyId);
+        if (familySave$) {
+          await lastValueFrom(familySave$);
+        }
       } else {
         familyId = this.familyStep.selectedFamilyId!;
       }
 
       const childData = this.childStep.getChildData();
-      await lastValueFrom(
+      const child = await lastValueFrom(
         this.childService.create({ ...childData, familyId } as Child)
       );
 
+      const childSave$ = this.childStep.saveCustomFields(child.id!);
+      if (childSave$) {
+        await lastValueFrom(childSave$);
+      }
+
       const parentsData = this.parentsStep.getParentsData();
+      const parentIds: string[] = [];
       for (const parentData of parentsData) {
-        await lastValueFrom(
+        const parent = await lastValueFrom(
           this.parentService.create({ ...parentData, familyId } as Parent)
         );
+        parentIds.push(parent.id!);
+      }
+
+      const parentSaves = this.parentsStep.saveCustomFields(parentIds);
+      if (parentSaves) {
+        for (const save$ of parentSaves) {
+          if (save$) {
+            await lastValueFrom(save$);
+          }
+        }
       }
 
       this.dialogRef.close(true);

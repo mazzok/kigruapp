@@ -45,7 +45,6 @@ public class FamilyResource {
             throw new NotFoundException();
         }
         family.name = update.name;
-        family.customFields = update.customFields;
         family.update();
         return family;
     }

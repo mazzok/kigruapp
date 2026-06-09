@@ -38,3 +38,10 @@
   flex: 0.5;
   min-width: 100px;
 }
+
+.step-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}

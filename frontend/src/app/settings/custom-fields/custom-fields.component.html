@@ -26,21 +26,28 @@
         <mat-label>Label (EN)</mat-label>
         <input matInput formControlName="labelEn">
       </mat-form-field>
+    </div>
+
+    <div class="row">
+      <mat-form-field appearance="outline">
+        <mat-label>Beschreibung</mat-label>
+        <input matInput formControlName="description">
+      </mat-form-field>
 
       <mat-form-field appearance="outline">
-        <mat-label>Typ</mat-label>
-        <mat-select formControlName="type">
-          @for (t of fieldTypes; track t) {
-            <mat-option [value]="t">{{ t }}</mat-option>
+        <mat-label>Werttyp</mat-label>
+        <mat-select formControlName="schemaType">
+          @for (t of schemaTypes; track t.value) {
+            <mat-option [value]="t.value">{{ t.label }}</mat-option>
           }
         </mat-select>
       </mat-form-field>
     </div>
 
-    @if (form.value.type === 'SELECT') {
+    @if (form.value.schemaType === 'select') {
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>Optionen (kommagetrennt)</mat-label>
-        <input matInput formControlName="options" placeholder="Ja, Nein">
+        <input matInput formControlName="options" placeholder="Ja, Nein, Vielleicht">
       </mat-form-field>
     }
 
@@ -65,28 +72,36 @@
       <th mat-header-cell *matHeaderCellDef>Label (DE)</th>
       <td mat-cell *matCellDef="let row">{{ row.label?.de }}</td>
     </ng-container>
-    <ng-container matColumnDef="labelEn">
-      <th mat-header-cell *matHeaderCellDef>Label (EN)</th>
-      <td mat-cell *matCellDef="let row">{{ row.label?.en }}</td>
+    <ng-container matColumnDef="description">
+      <th mat-header-cell *matHeaderCellDef>Beschreibung</th>
+      <td mat-cell *matCellDef="let row">{{ row.description }}</td>
     </ng-container>
-    <ng-container matColumnDef="type">
+    <ng-container matColumnDef="schemaType">
       <th mat-header-cell *matHeaderCellDef>Typ</th>
-      <td mat-cell *matCellDef="let row">{{ row.type }}</td>
+      <td mat-cell *matCellDef="let row">{{ getSchemaTypeLabel(row) }}</td>
     </ng-container>
     <ng-container matColumnDef="required">
       <th mat-header-cell *matHeaderCellDef>Pflicht</th>
       <td mat-cell *matCellDef="let row">{{ row.required ? '✓' : '' }}</td>
     </ng-container>
+    <ng-container matColumnDef="status">
+      <th mat-header-cell *matHeaderCellDef>Status</th>
+      <td mat-cell *matCellDef="let row" [class.outdated]="isOutdated(row)">
+        {{ isOutdated(row) ? 'Veraltet' : 'Aktiv' }}
+      </td>
+    </ng-container>
     <ng-container matColumnDef="actions">
       <th mat-header-cell *matHeaderCellDef></th>
       <td mat-cell *matCellDef="let row">
-        <button mat-icon-button color="warn" (click)="deleteField(row.id)">
-          <mat-icon>delete</mat-icon>
-        </button>
+        @if (!isOutdated(row)) {
+          <button mat-icon-button color="warn" (click)="outdateField(row.id)" title="Als veraltet markieren">
+            <mat-icon>archive</mat-icon>
+          </button>
+        }
       </td>
     </ng-container>
 
     <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-    <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+    <tr mat-row *matRowDef="let row; columns: displayedColumns;" [class.outdated-row]="isOutdated(row)"></tr>
   </table>
 </div>

@@ -49,7 +49,6 @@ public class ChildResource {
         child.entryDate = update.entryDate;
         child.exitDate = update.exitDate;
         child.notes = update.notes;
-        child.customFields = update.customFields;
         child.update();
         return child;
     }

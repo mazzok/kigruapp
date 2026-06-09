@@ -25,3 +25,12 @@
 table {
   width: 100%;
 }
+
+.outdated-row {
+  opacity: 0.5;
+}
+
+.outdated {
+  color: #999;
+  font-style: italic;
+}

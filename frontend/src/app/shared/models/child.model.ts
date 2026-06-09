@@ -8,5 +8,4 @@ export interface Child {
   entryDate?: string;
   exitDate?: string;
   notes?: string;
-  customFields?: Record<string, unknown>;
 }

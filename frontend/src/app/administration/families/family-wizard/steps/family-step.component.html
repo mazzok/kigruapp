@@ -14,4 +14,8 @@
       </mat-select>
     </mat-form-field>
   }
+
+  @if (form.value.mode === 'new') {
+    <app-custom-fields-form #customFields entityType="FAMILY"></app-custom-fields-form>
+  }
 </div>
