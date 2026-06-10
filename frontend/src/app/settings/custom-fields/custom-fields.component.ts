@@ -10,7 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatChipsModule } from '@angular/material/chips';
 import { FieldDefinitionService } from './services/field-definition.service';
-import { FieldDefinition, EntityType } from '../../shared/models/field-definition.model';
+import { FieldDefinition } from '../../shared/models/field-definition.model';
 
 type SchemaType = 'text' | 'number' | 'date' | 'boolean' | 'select';
 
@@ -27,10 +27,9 @@ type SchemaType = 'text' | 'number' | 'date' | 'boolean' | 'select';
   styleUrl: './custom-fields.component.scss',
 })
 export class CustomFieldsComponent implements OnInit {
-  displayedColumns = ['entity', 'fieldName', 'labelDe', 'description', 'schemaType', 'required', 'status', 'actions'];
+  displayedColumns = ['fieldName', 'labelDe', 'description', 'schemaType', 'required', 'status', 'actions'];
   dataSource = new MatTableDataSource<FieldDefinition>();
 
-  entityTypes: EntityType[] = ['CHILD', 'PARENT', 'FAMILY'];
   schemaTypes: { value: SchemaType; label: string }[] = [
     { value: 'text', label: 'Text' },
     { value: 'number', label: 'Zahl' },
@@ -40,7 +39,6 @@ export class CustomFieldsComponent implements OnInit {
   ];
 
   form = new FormGroup({
-    entity: new FormControl<EntityType>('CHILD', Validators.required),
     fieldName: new FormControl('', Validators.required),
     labelDe: new FormControl('', Validators.required),
     labelEn: new FormControl('', Validators.required),
@@ -48,6 +46,7 @@ export class CustomFieldsComponent implements OnInit {
     schemaType: new FormControl<SchemaType>('text', Validators.required),
     options: new FormControl(''),
     required: new FormControl(false),
+    keycloakMapping: new FormControl(''),
   });
 
   constructor(private fieldDefService: FieldDefinitionService) {}
@@ -69,16 +68,16 @@ export class CustomFieldsComponent implements OnInit {
     const jsonSchema = this.buildJsonSchema(val.schemaType!, val.options || '');
 
     const fieldDef: FieldDefinition = {
-      entity: val.entity!,
       fieldName: val.fieldName!,
       label: { de: val.labelDe!, en: val.labelEn! },
       description: val.description || undefined,
       jsonSchema,
       required: val.required!,
+      keycloakMapping: val.keycloakMapping || null,
     };
 
     this.fieldDefService.create(fieldDef).subscribe(() => {
-      this.form.reset({ entity: 'CHILD', schemaType: 'text', required: false });
+      this.form.reset({ schemaType: 'text', required: false });
       this.loadData();
     });
   }

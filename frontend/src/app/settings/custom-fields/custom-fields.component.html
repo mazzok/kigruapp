@@ -4,15 +4,6 @@
   <form [formGroup]="form" (ngSubmit)="addField()" class="add-form">
     <div class="row">
       <mat-form-field appearance="outline">
-        <mat-label>Entität</mat-label>
-        <mat-select formControlName="entity">
-          @for (e of entityTypes; track e) {
-            <mat-option [value]="e">{{ e }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
         <mat-label>Feldname</mat-label>
         <input matInput formControlName="fieldName">
       </mat-form-field>
@@ -42,6 +33,11 @@
           }
         </mat-select>
       </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Keycloak Mapping</mat-label>
+        <input matInput formControlName="keycloakMapping" placeholder="z.B. given_name">
+      </mat-form-field>
     </div>
 
     @if (form.value.schemaType === 'select') {
@@ -60,10 +56,6 @@
   </form>
 
   <table mat-table [dataSource]="dataSource" class="mat-elevation-z2">
-    <ng-container matColumnDef="entity">
-      <th mat-header-cell *matHeaderCellDef>Entität</th>
-      <td mat-cell *matCellDef="let row">{{ row.entity }}</td>
-    </ng-container>
     <ng-container matColumnDef="fieldName">
       <th mat-header-cell *matHeaderCellDef>Feldname</th>
       <td mat-cell *matCellDef="let row">{{ row.fieldName }}</td>
