@@ -1,58 +1,42 @@
-import { Component, ViewChild } from '@angular/core';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
-import { CustomFieldsFormComponent } from '../../../../shared/components/custom-fields-form/custom-fields-form.component';
+import { FieldDefinition } from '../../../../shared/models/field-definition.model';
+import { SectionInput } from '../../../../shared/models/person.model';
+import { FieldDefinitionService } from '../../../../settings/custom-fields/services/field-definition.service';
+import { SectionFormComponent } from '../../../../shared/components/section-form/section-form.component';
 
 @Component({
   selector: 'app-child-step',
   standalone: true,
-  imports: [
-    CommonModule, ReactiveFormsModule,
-    MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatDatepickerModule, MatNativeDateModule,
-    CustomFieldsFormComponent,
-  ],
-  templateUrl: './child-step.component.html',
+  imports: [CommonModule, SectionFormComponent],
+  template: `
+    <h3>Kind</h3>
+    @if (definitions.length > 0) {
+      <app-section-form
+        #sectionForm
+        [definitions]="definitions"
+      ></app-section-form>
+    }
+  `,
 })
-export class ChildStepComponent {
-  @ViewChild('customFields') customFieldsForm?: CustomFieldsFormComponent;
+export class ChildStepComponent implements OnInit {
+  @ViewChild('sectionForm') sectionForm?: SectionFormComponent;
 
-  form = new FormGroup({
-    firstName: new FormControl('', Validators.required),
-    lastName: new FormControl('', Validators.required),
-    dateOfBirth: new FormControl<Date | null>(null, Validators.required),
-    gender: new FormControl('', Validators.required),
-    entryDate: new FormControl<Date | null>(null),
-    notes: new FormControl(''),
-  });
+  definitions: FieldDefinition[] = [];
 
-  genderOptions = [
-    { value: 'male', label: 'Bub' },
-    { value: 'female', label: 'Mädchen' },
-  ];
+  constructor(private fieldDefService: FieldDefinitionService) {}
+
+  ngOnInit(): void {
+    this.fieldDefService.listActive().subscribe((defs) => {
+      this.definitions = defs;
+    });
+  }
 
   get isValid(): boolean {
-    return this.form.valid && (this.customFieldsForm?.isValid ?? true);
+    return this.sectionForm?.isValid ?? true;
   }
 
-  getChildData(): Record<string, unknown> {
-    const val = this.form.value;
-    return {
-      firstName: val.firstName,
-      lastName: val.lastName,
-      dateOfBirth: val.dateOfBirth?.toISOString().split('T')[0],
-      gender: val.gender,
-      entryDate: val.entryDate?.toISOString().split('T')[0] ?? null,
-      notes: val.notes,
-    };
-  }
-
-  saveCustomFields(childId: string) {
-    return this.customFieldsForm?.saveInstances(childId);
+  getBasicProperties(): SectionInput[] {
+    return this.sectionForm?.getValues() ?? [];
   }
 }

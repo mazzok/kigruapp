@@ -1,88 +1,76 @@
-import { Component, QueryList, ViewChildren } from '@angular/core';
+import { Component, OnInit, QueryList, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
-import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
-import { CustomFieldsFormComponent } from '../../../../shared/components/custom-fields-form/custom-fields-form.component';
+import { FieldDefinition } from '../../../../shared/models/field-definition.model';
+import { SectionInput } from '../../../../shared/models/person.model';
+import { FieldDefinitionService } from '../../../../settings/custom-fields/services/field-definition.service';
+import { SectionFormComponent } from '../../../../shared/components/section-form/section-form.component';
 
 @Component({
   selector: 'app-parents-step',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule,
-    MatFormFieldModule, MatInputModule, MatButtonModule,
-    MatCheckboxModule, MatIconModule,
-    CustomFieldsFormComponent,
+    CommonModule,
+    MatButtonModule,
+    MatIconModule,
+    SectionFormComponent,
   ],
-  templateUrl: './parents-step.component.html',
+  template: `
+    <h3>Elternteile</h3>
+    @for (idx of parentIndices; track idx) {
+      <div class="parent-block">
+        <h4>
+          Elternteil {{ idx + 1 }}
+          @if (idx > 0) {
+            <button mat-icon-button (click)="removeParent(idx)">
+              <mat-icon>delete</mat-icon>
+            </button>
+          }
+        </h4>
+        @if (definitions.length > 0) {
+          <app-section-form
+            #parentForm
+            [definitions]="definitions"
+          ></app-section-form>
+        }
+      </div>
+    }
+    <button mat-stroked-button (click)="addParent()">
+      <mat-icon>add</mat-icon> Elternteil hinzufuegen
+    </button>
+  `,
+  styles: [`.parent-block { margin-bottom: 24px; border-bottom: 1px solid #ccc; padding-bottom: 16px; }`],
 })
-export class ParentsStepComponent {
-  @ViewChildren('parentCustomFields') customFieldsForms!: QueryList<CustomFieldsFormComponent>;
+export class ParentsStepComponent implements OnInit {
+  @ViewChildren('parentForm') parentForms!: QueryList<SectionFormComponent>;
 
-  parentsArray = new FormArray<FormGroup>([]);
-  reuseAddress: Record<number, boolean> = {};
+  definitions: FieldDefinition[] = [];
+  parentIndices: number[] = [0];
 
-  constructor() {
-    this.addParent();
+  constructor(private fieldDefService: FieldDefinitionService) {}
+
+  ngOnInit(): void {
+    this.fieldDefService.listActive().subscribe((defs) => {
+      this.definitions = defs;
+    });
   }
 
   addParent(): void {
-    const group = new FormGroup({
-      firstName: new FormControl('', Validators.required),
-      lastName: new FormControl('', Validators.required),
-      email: new FormControl(''),
-      phone: new FormControl(''),
-      street: new FormControl(''),
-      zip: new FormControl(''),
-      city: new FormControl(''),
-    });
-    this.parentsArray.push(group);
+    this.parentIndices.push(this.parentIndices.length);
   }
 
   removeParent(index: number): void {
-    this.parentsArray.removeAt(index);
-    delete this.reuseAddress[index];
-  }
-
-  onReuseAddress(index: number, checked: boolean): void {
-    this.reuseAddress[index] = checked;
-    if (checked && index > 0) {
-      const first = this.parentsArray.at(0).value;
-      const current = this.parentsArray.at(index);
-      current.patchValue({
-        street: first.street,
-        zip: first.zip,
-        city: first.city,
-      });
-    }
+    this.parentIndices.splice(index, 1);
+    this.parentIndices = this.parentIndices.map((_, i) => i);
   }
 
   get isValid(): boolean {
-    return this.parentsArray.valid && this.parentsArray.length > 0;
+    return this.parentForms?.length > 0 &&
+      this.parentForms.toArray().every((f) => f.isValid);
   }
 
-  getParentsData(): Record<string, unknown>[] {
-    return this.parentsArray.controls.map((group) => {
-      const val = group.value;
-      return {
-        firstName: val.firstName,
-        lastName: val.lastName,
-        email: val.email || null,
-        phone: val.phone || null,
-        address: {
-          street: val.street || '',
-          zip: val.zip || '',
-          city: val.city || '',
-        },
-      };
-    });
-  }
-
-  saveCustomFields(parentIds: string[]) {
-    const forms = this.customFieldsForms.toArray();
-    return forms.map((form, i) => form.saveInstances(parentIds[i]));
+  getParentsBasicProperties(): SectionInput[][] {
+    return this.parentForms.toArray().map((f) => f.getValues());
   }
 }
