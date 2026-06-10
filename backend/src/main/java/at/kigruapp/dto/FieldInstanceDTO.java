@@ -10,6 +10,7 @@ public class FieldInstanceDTO {
     public String description;
     public Map<String, Object> jsonSchema;
     public boolean required;
+    public String keycloakMapping;
     public Object value;
     public boolean definitionOutdated;
 }

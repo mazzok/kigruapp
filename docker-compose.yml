@@ -30,7 +30,7 @@ services:
     environment:
       QUARKUS_MONGODB_CONNECTION_STRING: mongodb://mongodb:27017
       QUARKUS_MONGODB_DATABASE: kigruapp
-      QUARKUS_OIDC_AUTH_SERVER_URL: http://keycloak:8080/realms/kigruapp
+      QUARKUS_OIDC_AUTH_SERVER_URL: http://keycloak:8080/auth/realms/kigruapp
       QUARKUS_OIDC_CLIENT_ID: kigruapp-api
       OIDC_CLIENT_SECRET: secret
     depends_on:
@@ -41,8 +41,8 @@ services:
 
   mongodb:
     image: mongo:7
-    expose:
-      - "27017"
+    ports:
+      - "27017:27017"
     volumes:
       - mongodb_data:/data/db
     networks:
@@ -51,8 +51,8 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:25.0
     command: start-dev --import-realm
-    expose:
-      - "8080"
+    ports:
+      - "8443:8080"
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
