@@ -7,10 +7,8 @@ import { FamilyStepComponent } from './steps/family-step.component';
 import { ChildStepComponent } from './steps/child-step.component';
 import { ParentsStepComponent } from './steps/parents-step.component';
 import { FamilyService } from '../services/family.service';
-import { ChildService } from '../services/child.service';
-import { ParentService } from '../services/parent.service';
-import { Child } from '../../../shared/models/child.model';
-import { Parent } from '../../../shared/models/parent.model';
+import { PersonService } from '../../../shared/services/person.service';
+import { CreatePersonRequest } from '../../../shared/models/person.model';
 import { lastValueFrom } from 'rxjs';
 
 @Component({
@@ -35,8 +33,7 @@ export class FamilyWizardComponent {
   constructor(
     private dialogRef: MatDialogRef<FamilyWizardComponent>,
     private familyService: FamilyService,
-    private childService: ChildService,
-    private parentService: ParentService,
+    private personService: PersonService,
   ) {}
 
   cancel(): void {
@@ -49,46 +46,37 @@ export class FamilyWizardComponent {
     try {
       let familyId: string;
       if (this.familyStep.isNewFamily) {
-        const childData = this.childStep.getChildData();
         const family = await lastValueFrom(
-          this.familyService.create({ name: childData['lastName'] as string })
+          this.familyService.create({ name: 'Neue Familie' })
         );
         familyId = family.id!;
-
-        const familySave$ = this.familyStep.saveCustomFields(familyId);
-        if (familySave$) {
-          await lastValueFrom(familySave$);
-        }
       } else {
         familyId = this.familyStep.selectedFamilyId!;
       }
 
-      const childData = this.childStep.getChildData();
-      const child = await lastValueFrom(
-        this.childService.create({ ...childData, familyId } as Child)
-      );
+      const childRequest: CreatePersonRequest = {
+        familyId,
+        basicProperties: this.childStep.getBasicProperties(),
+        roles: [],
+        schedules: [],
+        duties: [],
+        finance: [],
+        customProperties: [],
+      };
+      await lastValueFrom(this.personService.create(childRequest));
 
-      const childSave$ = this.childStep.saveCustomFields(child.id!);
-      if (childSave$) {
-        await lastValueFrom(childSave$);
-      }
-
-      const parentsData = this.parentsStep.getParentsData();
-      const parentIds: string[] = [];
-      for (const parentData of parentsData) {
-        const parent = await lastValueFrom(
-          this.parentService.create({ ...parentData, familyId } as Parent)
-        );
-        parentIds.push(parent.id!);
-      }
-
-      const parentSaves = this.parentsStep.saveCustomFields(parentIds);
-      if (parentSaves) {
-        for (const save$ of parentSaves) {
-          if (save$) {
-            await lastValueFrom(save$);
-          }
-        }
+      const parentsProps = this.parentsStep.getParentsBasicProperties();
+      for (const parentProps of parentsProps) {
+        const parentRequest: CreatePersonRequest = {
+          familyId,
+          basicProperties: parentProps,
+          roles: [],
+          schedules: [],
+          duties: [],
+          finance: [],
+          customProperties: [],
+        };
+        await lastValueFrom(this.personService.create(parentRequest));
       }
 
       this.dialogRef.close(true);
