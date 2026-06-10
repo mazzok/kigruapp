@@ -4,9 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { MatTableModule, MatTableDataSource } from '@angular/material/table';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatButtonModule } from '@angular/material/button';
-import { ParentService } from '../../administration/families/services/parent.service';
+import { PersonService } from '../../shared/services/person.service';
 import { ApiService } from '../../core/services/api.service';
-import { Parent } from '../../shared/models/parent.model';
+import { Person } from '../../shared/models/person.model';
 
 const AVAILABLE_PERMISSIONS = [
   'families.read',
@@ -14,6 +14,12 @@ const AVAILABLE_PERMISSIONS = [
   'settings.admin',
   'permissions.manage',
 ];
+
+interface PermissionRow {
+  personId: string;
+  name: string;
+  permissions: string[];
+}
 
 @Component({
   selector: 'app-permissions',
@@ -25,35 +31,35 @@ const AVAILABLE_PERMISSIONS = [
 export class PermissionsComponent implements OnInit {
   displayedColumns = ['name', ...AVAILABLE_PERMISSIONS, 'actions'];
   availablePermissions = AVAILABLE_PERMISSIONS;
-  dataSource = new MatTableDataSource<Parent>();
+  dataSource = new MatTableDataSource<PermissionRow>();
 
-  constructor(private api: ApiService, private parentService: ParentService) {}
+  constructor(private api: ApiService, private personService: PersonService) {}
 
   ngOnInit(): void {
-    this.loadParents();
+    this.loadPersons();
   }
 
-  loadParents(): void {
-    this.api.get<Parent[]>('/parents').subscribe((parents) => {
-      this.dataSource.data = parents;
-    });
+  loadPersons(): void {
+    // TODO: Permissions need redesign for person architecture
+    // For now, this is a placeholder that loads an empty list
+    this.dataSource.data = [];
   }
 
-  hasPermission(parent: Parent, perm: string): boolean {
-    return parent.permissions?.includes(perm) ?? false;
+  hasPermission(row: PermissionRow, perm: string): boolean {
+    return row.permissions.includes(perm);
   }
 
-  togglePermission(parent: Parent, perm: string, checked: boolean): void {
-    const perms = new Set(parent.permissions ?? []);
+  togglePermission(row: PermissionRow, perm: string, checked: boolean): void {
+    const perms = new Set(row.permissions);
     if (checked) {
       perms.add(perm);
     } else {
       perms.delete(perm);
     }
-    parent.permissions = [...perms];
+    row.permissions = [...perms];
   }
 
-  save(parent: Parent): void {
-    this.parentService.update(parent.id!, parent).subscribe();
+  save(row: PermissionRow): void {
+    // TODO: Implement permission saving for person architecture
   }
 }

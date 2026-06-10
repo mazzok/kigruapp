@@ -1,8 +1,7 @@
 import { Injectable } from '@angular/core';
 import { ApiService } from '../../../core/services/api.service';
 import { Family } from '../../../shared/models/family.model';
-import { Child } from '../../../shared/models/child.model';
-import { Parent } from '../../../shared/models/parent.model';
+import { Person } from '../../../shared/models/person.model';
 import { Observable } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
@@ -29,11 +28,7 @@ export class FamilyService {
     return this.api.delete(`/families/${id}`);
   }
 
-  getChildren(familyId: string): Observable<Child[]> {
-    return this.api.get<Child[]>(`/families/${familyId}/children`);
-  }
-
-  getParents(familyId: string): Observable<Parent[]> {
-    return this.api.get<Parent[]>(`/families/${familyId}/parents`);
+  getPersons(familyId: string): Observable<Person[]> {
+    return this.api.get<Person[]>(`/families/${familyId}/persons`);
   }
 }
