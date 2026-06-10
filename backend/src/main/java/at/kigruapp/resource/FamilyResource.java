@@ -1,8 +1,7 @@
 package at.kigruapp.resource;
 
-import at.kigruapp.entity.Child;
 import at.kigruapp.entity.Family;
-import at.kigruapp.entity.Parent;
+import at.kigruapp.entity.Person;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -50,15 +49,13 @@ public class FamilyResource {
     }
 
     @GET
-    @Path("/{id}/children")
-    public List<Child> listChildren(@PathParam("id") String id) {
-        return Child.findByFamilyId(new ObjectId(id));
-    }
-
-    @GET
-    @Path("/{id}/parents")
-    public List<Parent> listParentsByFamily(@PathParam("id") String id) {
-        return Parent.findByFamilyId(new ObjectId(id));
+    @Path("/{id}/persons")
+    public List<Person> getPersons(@PathParam("id") String id) {
+        Family family = Family.findById(new ObjectId(id));
+        if (family == null) {
+            throw new NotFoundException();
+        }
+        return Person.findByFamilyId(family.id);
     }
 
     @DELETE
