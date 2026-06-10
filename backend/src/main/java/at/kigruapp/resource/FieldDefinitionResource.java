@@ -1,6 +1,5 @@
 package at.kigruapp.resource;
 
-import at.kigruapp.entity.EntityType;
 import at.kigruapp.entity.FieldDefinition;
 import at.kigruapp.service.JsonSchemaValidatorService;
 import jakarta.inject.Inject;
@@ -21,14 +20,21 @@ public class FieldDefinitionResource {
 
     @GET
     public List<FieldDefinition> list(
-            @QueryParam("entity") EntityType entity,
             @QueryParam("active") @DefaultValue("false") boolean activeOnly) {
-        if (entity != null && activeOnly) {
-            return FieldDefinition.findActiveByEntity(entity);
-        } else if (entity != null) {
-            return FieldDefinition.findByEntity(entity);
+        if (activeOnly) {
+            return FieldDefinition.findActive();
         }
         return FieldDefinition.listAll();
+    }
+
+    @GET
+    @Path("/{id}")
+    public FieldDefinition get(@PathParam("id") String id) {
+        FieldDefinition def = FieldDefinition.findById(new ObjectId(id));
+        if (def == null) {
+            throw new NotFoundException();
+        }
+        return def;
     }
 
     @POST
@@ -61,12 +67,12 @@ public class FieldDefinitionResource {
                 return Response.status(400).entity("Invalid JSON Schema: " + e.getMessage()).build();
             }
         }
-        fieldDef.entity = update.entity;
         fieldDef.fieldName = update.fieldName;
         fieldDef.label = update.label;
         fieldDef.description = update.description;
         fieldDef.jsonSchema = update.jsonSchema;
         fieldDef.required = update.required;
+        fieldDef.keycloakMapping = update.keycloakMapping;
         fieldDef.update();
         return Response.ok(fieldDef).build();
     }
