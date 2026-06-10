@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { ApiService } from '../../../core/services/api.service';
-import { EntityType, FieldDefinition } from '../../../shared/models/field-definition.model';
+import { FieldDefinition } from '../../../shared/models/field-definition.model';
 import { Observable } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
@@ -11,12 +11,8 @@ export class FieldDefinitionService {
     return this.api.get<FieldDefinition[]>('/field-definitions');
   }
 
-  listByEntity(entity: EntityType): Observable<FieldDefinition[]> {
-    return this.api.get<FieldDefinition[]>(`/field-definitions?entity=${entity}`);
-  }
-
-  listActive(entity: EntityType): Observable<FieldDefinition[]> {
-    return this.api.get<FieldDefinition[]>(`/field-definitions?entity=${entity}&active=true`);
+  listActive(): Observable<FieldDefinition[]> {
+    return this.api.get<FieldDefinition[]>('/field-definitions?active=true');
   }
 
   create(fieldDef: FieldDefinition): Observable<FieldDefinition> {

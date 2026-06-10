@@ -1,6 +1,5 @@
 import { Injectable } from '@angular/core';
 import { ApiService } from '../../core/services/api.service';
-import { EntityType } from '../models/field-definition.model';
 import { FieldInstanceDTO } from '../models/field-instance.model';
 import { Observable } from 'rxjs';
 
@@ -8,20 +7,11 @@ import { Observable } from 'rxjs';
 export class FieldInstanceService {
   constructor(private api: ApiService) {}
 
-  listForEntity(entityType: EntityType, entityId: string): Observable<FieldInstanceDTO[]> {
-    return this.api.get<FieldInstanceDTO[]>(
-      `/field-instances?entityType=${entityType}&entityId=${entityId}`
-    );
+  get(id: string): Observable<FieldInstanceDTO> {
+    return this.api.get<FieldInstanceDTO>(`/field-instances/${id}`);
   }
 
-  batchSave(
-    entityType: EntityType,
-    entityId: string,
-    instances: { definitionId: string; value: unknown }[]
-  ): Observable<unknown> {
-    return this.api.put(
-      `/field-instances/batch?entityType=${entityType}&entityId=${entityId}`,
-      instances
-    );
+  batchSave(instances: { definitionId: string; value: unknown }[]): Observable<unknown> {
+    return this.api.put('/field-instances/batch', instances);
   }
 }
