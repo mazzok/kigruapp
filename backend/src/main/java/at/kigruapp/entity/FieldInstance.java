@@ -1,19 +1,24 @@
 package at.kigruapp.entity;
 
-import io.quarkus.mongodb.panache.PanacheMongoEntity;
-import io.quarkus.mongodb.panache.common.MongoEntity;
+import org.bson.Document;
 import org.bson.types.ObjectId;
-import java.time.Instant;
-import java.util.List;
 
-@MongoEntity(collection = "field_instances")
-public class FieldInstance extends PanacheMongoEntity {
+/**
+ * FieldInstance uses raw MongoDB driver (not Panache) because
+ * the 'value' field can be any BSON type (string, object, array, etc.)
+ * and MongoDB's POJO codec cannot handle java.lang.Object.
+ */
+public class FieldInstance {
+    public ObjectId id;
     public ObjectId definitionId;
     public Object value;
-    public Instant createdAt;
-    public Instant updatedAt;
 
-    public static List<FieldInstance> findByDefinitionId(ObjectId definitionId) {
-        return list("definitionId", definitionId);
+    public static FieldInstance fromDocument(Document doc) {
+        if (doc == null) return null;
+        FieldInstance inst = new FieldInstance();
+        inst.id = doc.getObjectId("_id");
+        inst.definitionId = doc.getObjectId("definitionId");
+        inst.value = doc.get("value");
+        return inst;
     }
 }

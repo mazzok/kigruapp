@@ -18,7 +18,7 @@ public class FieldDefinition extends PanacheMongoEntity {
     public Instant outdatedAt;
 
     public static List<FieldDefinition> findActive() {
-        return list("outdatedAt = null");
+        return list("{'outdatedAt': null}");
     }
 
     public static FieldDefinition findByKeycloakMapping(String mapping) {

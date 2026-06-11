@@ -9,6 +9,7 @@ import jakarta.inject.Inject;
 import org.bson.Document;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import java.time.Instant;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -16,7 +17,7 @@ import java.util.Map;
 @Startup
 public class FieldDefinitionSeedMigration {
 
-    private static final String MIGRATION_ID = "seed-basic-property-definitions-v1";
+    private static final String MIGRATION_ID = "seed-basic-property-definitions-v2";
 
     @Inject
     MongoClient mongoClient;
@@ -33,7 +34,18 @@ public class FieldDefinitionSeedMigration {
         }
 
         MongoCollection<Document> defs = db.getCollection("field_definitions");
-        String now = Instant.now().toString();
+        Date now = Date.from(Instant.now());
+
+        // Fix v1 bug: createdAt was stored as String instead of BSON Date
+        for (Document doc : defs.find()) {
+            Object createdAt = doc.get("createdAt");
+            if (createdAt instanceof String) {
+                defs.updateOne(
+                        new Document("_id", doc.getObjectId("_id")),
+                        new Document("$set", new Document("createdAt", Date.from(Instant.parse((String) createdAt))))
+                );
+            }
+        }
 
         seedDef(defs, now, "personType",
                 Map.of("de", "Personentyp", "en", "Person Type"),
@@ -99,7 +111,7 @@ public class FieldDefinitionSeedMigration {
                 .append("executedAt", now));
     }
 
-    private void seedDef(MongoCollection<Document> defs, String now,
+    private void seedDef(MongoCollection<Document> defs, Date now,
                          String fieldName, Map<String, String> label,
                          Document jsonSchema, boolean required, String keycloakMapping) {
         if (defs.find(new Document("fieldName", fieldName)).first() != null) {

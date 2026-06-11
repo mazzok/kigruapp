@@ -11,6 +11,7 @@ import org.bson.types.ObjectId;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 @ApplicationScoped
@@ -36,7 +37,7 @@ public class PersonArchitectureMigration {
         MongoCollection<Document> defs = db.getCollection("field_definitions");
         MongoCollection<Document> instances = db.getCollection("field_instances");
         MongoCollection<Document> persons = db.getCollection("persons");
-        String now = Instant.now().toString();
+        Date now = Date.from(Instant.now());
 
         // Migrate parents
         MongoCollection<Document> parents = db.getCollection("parents");
@@ -130,7 +131,7 @@ public class PersonArchitectureMigration {
     }
 
     private void addFieldRef(List<Document> refs, MongoCollection<Document> defs,
-                             MongoCollection<Document> instances, String now,
+                             MongoCollection<Document> instances, Date now,
                              String fieldName, Object value) {
         if (value == null) return;
         Document defDoc = defs.find(new Document("fieldName", fieldName)).first();

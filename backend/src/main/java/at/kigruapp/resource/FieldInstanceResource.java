@@ -4,13 +4,18 @@ import at.kigruapp.dto.FieldInstanceDTO;
 import at.kigruapp.entity.FieldDefinition;
 import at.kigruapp.entity.FieldInstance;
 import at.kigruapp.service.JsonSchemaValidatorService;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoCollection;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.bson.Document;
 import org.bson.types.ObjectId;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 @Path("/api/v1/field-instances")
@@ -19,15 +24,26 @@ import java.util.List;
 public class FieldInstanceResource {
 
     @Inject
+    MongoClient mongoClient;
+
+    @ConfigProperty(name = "quarkus.mongodb.database")
+    String databaseName;
+
+    @Inject
     JsonSchemaValidatorService schemaValidator;
+
+    private MongoCollection<Document> getCollection() {
+        return mongoClient.getDatabase(databaseName).getCollection("field_instances");
+    }
 
     @GET
     @Path("/{id}")
     public FieldInstanceDTO get(@PathParam("id") String id) {
-        FieldInstance inst = FieldInstance.findById(new ObjectId(id));
-        if (inst == null) {
+        Document doc = getCollection().find(new Document("_id", new ObjectId(id))).first();
+        if (doc == null) {
             throw new NotFoundException();
         }
+        FieldInstance inst = FieldInstance.fromDocument(doc);
         FieldDefinition def = FieldDefinition.findById(inst.definitionId);
         return toDTO(def, inst);
     }
@@ -37,8 +53,9 @@ public class FieldInstanceResource {
     @PUT
     @Path("/batch")
     public Response batchUpsert(List<BatchItem> items) {
-        Instant now = Instant.now();
-        List<FieldInstance> results = new ArrayList<>();
+        Date now = Date.from(Instant.now());
+        MongoCollection<Document> coll = getCollection();
+        List<FieldInstanceDTO> results = new ArrayList<>();
 
         for (BatchItem item : items) {
             ObjectId defId = new ObjectId(item.definitionId());
@@ -57,13 +74,16 @@ public class FieldInstanceResource {
                 }
             }
 
-            FieldInstance inst = new FieldInstance();
-            inst.definitionId = defId;
-            inst.value = item.value();
-            inst.createdAt = now;
-            inst.updatedAt = now;
-            inst.persist();
-            results.add(inst);
+            ObjectId instId = new ObjectId();
+            Document doc = new Document("_id", instId)
+                    .append("definitionId", defId)
+                    .append("value", item.value())
+                    .append("createdAt", now)
+                    .append("updatedAt", now);
+            coll.insertOne(doc);
+
+            FieldInstance inst = FieldInstance.fromDocument(doc);
+            results.add(toDTO(def, inst));
         }
         return Response.ok(results).build();
     }

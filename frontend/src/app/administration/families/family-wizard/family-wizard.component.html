@@ -1,13 +1,13 @@
 <h2 mat-dialog-title>Neues Kind</h2>
 
 <mat-dialog-content>
-  <mat-stepper #stepper>
+  <mat-stepper #stepper (selectionChange)="onStepChange($event)">
     <mat-step>
       <ng-template matStepLabel>Familie</ng-template>
       <app-family-step></app-family-step>
       <div class="step-actions">
         <button mat-raised-button color="primary" matStepperNext
-          [disabled]="!familyStep?.isValid">Weiter</button>
+          [disabled]="familyStep ? !familyStep.isValid : true">Weiter</button>
       </div>
     </mat-step>
 
@@ -17,7 +17,7 @@
       <div class="step-actions">
         <button mat-button matStepperPrevious>Zurück</button>
         <button mat-raised-button color="primary" matStepperNext
-          [disabled]="!childStep?.isValid">Weiter</button>
+          [disabled]="childStep ? !childStep.isValid : true">Weiter</button>
       </div>
     </mat-step>
 
@@ -27,7 +27,7 @@
       <div class="step-actions">
         <button mat-button matStepperPrevious>Zurück</button>
         <button mat-raised-button color="primary"
-          [disabled]="!parentsStep?.isValid || submitting"
+          [disabled]="(parentsStep ? !parentsStep.isValid : true) || submitting"
           (click)="submit()">Familie erstellen</button>
       </div>
     </mat-step>

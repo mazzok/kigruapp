@@ -8,14 +8,20 @@ import at.kigruapp.entity.FieldRef;
 import at.kigruapp.entity.Person;
 import at.kigruapp.security.KeycloakUserService;
 import at.kigruapp.service.JsonSchemaValidatorService;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoCollection;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.bson.Document;
 import org.bson.types.ObjectId;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 @Path("/api/v1/persons")
 @Produces(MediaType.APPLICATION_JSON)
@@ -23,10 +29,20 @@ import java.util.List;
 public class PersonResource {
 
     @Inject
+    MongoClient mongoClient;
+
+    @ConfigProperty(name = "quarkus.mongodb.database")
+    String databaseName;
+
+    @Inject
     KeycloakUserService keycloakUserService;
 
     @Inject
     JsonSchemaValidatorService schemaValidator;
+
+    private MongoCollection<Document> getFieldInstancesCollection() {
+        return mongoClient.getDatabase(databaseName).getCollection("field_instances");
+    }
 
     @GET
     public List<Person> list(
@@ -72,6 +88,14 @@ public class PersonResource {
 
     @POST
     public Response create(CreatePersonRequest request) {
+        System.out.println("=== CREATE PERSON ===");
+        System.out.println("familyId: " + request.familyId());
+        System.out.println("basicProperties: " + (request.basicProperties() != null ? request.basicProperties().size() : "null"));
+        if (request.basicProperties() != null) {
+            for (SectionInput si : request.basicProperties()) {
+                System.out.println("  def=" + si.definitionId() + " value=" + si.value() + " valueType=" + (si.value() != null ? si.value().getClass().getName() : "null"));
+            }
+        }
         Instant now = Instant.now();
         Person person = new Person();
         person.familyId = new ObjectId(request.familyId());
@@ -86,16 +110,17 @@ public class PersonResource {
         person.customProperties = createFieldInstances(request.customProperties(), now);
 
         // Keycloak provisioning: find fields with keycloakMapping
+        MongoCollection<Document> instColl = getFieldInstancesCollection();
         String email = null, firstName = null, lastName = null;
         for (FieldRef ref : person.basicProperties) {
             FieldDefinition def = FieldDefinition.findById(ref.definitionId);
             if (def != null && def.keycloakMapping != null) {
-                FieldInstance inst = FieldInstance.findById(ref.fieldInstanceId);
-                if (inst != null && inst.value != null) {
+                Document instDoc = instColl.find(new Document("_id", ref.fieldInstanceId)).first();
+                if (instDoc != null && instDoc.get("value") != null) {
                     switch (def.keycloakMapping) {
-                        case "email" -> email = inst.value.toString();
-                        case "firstName" -> firstName = inst.value.toString();
-                        case "lastName" -> lastName = inst.value.toString();
+                        case "email" -> email = instDoc.get("value").toString();
+                        case "firstName" -> firstName = instDoc.get("value").toString();
+                        case "lastName" -> lastName = instDoc.get("value").toString();
                     }
                 }
             }
@@ -152,38 +177,43 @@ public class PersonResource {
         if (inputs == null || inputs.isEmpty()) {
             return new ArrayList<>();
         }
+        MongoCollection<Document> coll = getFieldInstancesCollection();
+        Date nowDate = Date.from(now);
         List<FieldRef> refs = new ArrayList<>();
         for (SectionInput input : inputs) {
+            if (isEmptyValue(input.value())) {
+                continue;
+            }
             ObjectId defId = new ObjectId(input.definitionId());
             FieldDefinition def = FieldDefinition.findById(defId);
             if (def == null) {
                 throw new BadRequestException("Definition not found: " + input.definitionId());
             }
-            if (input.value() != null) {
-                try {
-                    schemaValidator.validate(def.jsonSchema, input.value());
-                } catch (JsonSchemaValidatorService.ValidationException e) {
-                    throw new BadRequestException(def.fieldName + ": " + e.getMessage());
-                }
+            try {
+                schemaValidator.validate(def.jsonSchema, input.value());
+            } catch (JsonSchemaValidatorService.ValidationException e) {
+                System.err.println("VALIDATION FAILED for " + def.fieldName + ": " + e.getMessage());
+                System.err.println("  schema: " + def.jsonSchema);
+                System.err.println("  value: " + input.value() + " (" + (input.value() != null ? input.value().getClass().getName() : "null") + ")");
+                throw new BadRequestException(def.fieldName + ": " + e.getMessage());
             }
-            FieldInstance inst = new FieldInstance();
-            inst.definitionId = defId;
-            inst.value = input.value();
-            inst.createdAt = now;
-            inst.updatedAt = now;
-            inst.persist();
-            refs.add(new FieldRef(defId, inst.id));
+            ObjectId instId = new ObjectId();
+            Document doc = new Document("_id", instId)
+                    .append("definitionId", defId)
+                    .append("value", input.value())
+                    .append("createdAt", nowDate)
+                    .append("updatedAt", nowDate);
+            coll.insertOne(doc);
+            refs.add(new FieldRef(defId, instId));
         }
         return refs;
     }
 
     private void deleteFieldInstances(List<FieldRef> refs) {
         if (refs == null) return;
+        MongoCollection<Document> coll = getFieldInstancesCollection();
         for (FieldRef ref : refs) {
-            FieldInstance inst = FieldInstance.findById(ref.fieldInstanceId);
-            if (inst != null) {
-                inst.delete();
-            }
+            coll.deleteOne(new Document("_id", ref.fieldInstanceId));
         }
     }
 
@@ -207,14 +237,15 @@ public class PersonResource {
         if (refs == null || refs.isEmpty()) {
             return List.of();
         }
+        MongoCollection<Document> instColl = getFieldInstancesCollection();
         List<FieldInstanceDTO> dtos = new ArrayList<>();
         for (FieldRef ref : refs) {
             FieldDefinition def = FieldDefinition.findById(ref.definitionId);
-            FieldInstance inst = FieldInstance.findById(ref.fieldInstanceId);
-            if (def == null || inst == null) continue;
+            Document instDoc = instColl.find(new Document("_id", ref.fieldInstanceId)).first();
+            if (def == null || instDoc == null) continue;
 
             FieldInstanceDTO dto = new FieldInstanceDTO();
-            dto.id = inst.id.toHexString();
+            dto.id = instDoc.getObjectId("_id").toHexString();
             dto.definitionId = def.id.toHexString();
             dto.fieldName = def.fieldName;
             dto.label = def.label;
@@ -222,10 +253,20 @@ public class PersonResource {
             dto.jsonSchema = def.jsonSchema;
             dto.required = def.required;
             dto.keycloakMapping = def.keycloakMapping;
-            dto.value = inst.value;
+            dto.value = instDoc.get("value");
             dto.definitionOutdated = def.outdatedAt != null;
             dtos.add(dto);
         }
         return dtos;
+    }
+
+    @SuppressWarnings("unchecked")
+    private boolean isEmptyValue(Object value) {
+        if (value == null) return true;
+        if (value instanceof String s && s.isBlank()) return true;
+        if (value instanceof Map<?, ?> map) {
+            return map.values().stream().allMatch(v -> v == null || (v instanceof String s && s.isBlank()));
+        }
+        return false;
     }
 }

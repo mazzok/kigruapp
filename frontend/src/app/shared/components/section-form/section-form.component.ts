@@ -34,6 +34,16 @@ export class SectionFormComponent implements OnInit {
     return this.form.valid;
   }
 
+  setValueByFieldName(fieldName: string, value: unknown): void {
+    const dto = this.fieldDTOs.find((d) => d.fieldName === fieldName);
+    if (dto) {
+      const ctrl = this.controls[dto.definitionId];
+      if (ctrl && !ctrl.dirty) {
+        ctrl.setValue(value);
+      }
+    }
+  }
+
   getValues(): SectionInput[] {
     return this.fieldDTOs
       .filter((dto) => !dto.definitionOutdated)

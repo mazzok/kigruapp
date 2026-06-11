@@ -21,8 +21,34 @@
   min-width: 200px;
 }
 
-table {
+.empty-state {
+  text-align: center;
+  color: rgba(0, 0, 0, 0.54);
+  padding: 32px;
+}
+
+.family-icon {
+  margin-right: 8px;
+  color: rgba(0, 0, 0, 0.54);
+}
+
+.empty-family {
+  color: rgba(0, 0, 0, 0.54);
+  font-style: italic;
+  padding: 8px 0;
+}
+
+.persons-table {
   width: 100%;
+}
+
+.type-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+  margin-right: 4px;
+  color: rgba(0, 0, 0, 0.54);
 }
 
 @media (max-width: 768px) {
@@ -35,7 +61,7 @@ table {
     flex-direction: column;
   }
 
-  table {
+  .persons-table {
     display: block;
     overflow-x: auto;
   }

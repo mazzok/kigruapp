@@ -4,6 +4,29 @@
     <mat-radio-button value="existing">Bestehende Familie verwenden</mat-radio-button>
   </mat-radio-group>
 
+  @if (form.value.mode === 'new') {
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Familienname</mat-label>
+      <input matInput formControlName="newFamilyName" placeholder="z.B. Familie Müller">
+    </mat-form-field>
+  }
+
+  <h4>Adresse</h4>
+  <mat-form-field appearance="outline" class="full-width">
+    <mat-label>Straße</mat-label>
+    <input matInput formControlName="street">
+  </mat-form-field>
+  <div style="display: flex; gap: 16px;">
+    <mat-form-field appearance="outline">
+      <mat-label>PLZ</mat-label>
+      <input matInput formControlName="zip">
+    </mat-form-field>
+    <mat-form-field appearance="outline" style="flex: 1;">
+      <mat-label>Ort</mat-label>
+      <input matInput formControlName="city">
+    </mat-form-field>
+  </div>
+
   @if (form.value.mode === 'existing') {
     <mat-form-field appearance="outline" class="full-width">
       <mat-label>Familie auswählen</mat-label>

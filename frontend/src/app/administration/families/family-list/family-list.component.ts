@@ -1,30 +1,37 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatTableModule, MatTableDataSource } from '@angular/material/table';
-import { MatSortModule, MatSort } from '@angular/material/sort';
+import { MatExpansionModule } from '@angular/material/expansion';
+import { MatTableModule } from '@angular/material/table';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatChipsModule } from '@angular/material/chips';
 import { FamilyService } from '../services/family.service';
 import { PersonService } from '../../../shared/services/person.service';
 import { FamilyWizardComponent } from '../family-wizard/family-wizard.component';
+import { Family } from '../../../shared/models/family.model';
 import { PersonDTO } from '../../../shared/models/person.model';
 import { FieldInstanceDTO } from '../../../shared/models/field-instance.model';
 import { forkJoin } from 'rxjs';
 
-interface FamilyRow {
+interface PersonRow {
   type: string;
   name: string;
   email: string;
   phone: string;
+  dateOfBirth: string;
   street: string;
   zip: string;
   city: string;
-  dateOfBirth: string;
-  familyName: string;
-  exitDate: string;
+}
+
+interface FamilyNode {
+  family: Family;
+  persons: PersonRow[];
+  childCount: number;
+  parentCount: number;
 }
 
 @Component({
@@ -32,25 +39,22 @@ interface FamilyRow {
   standalone: true,
   imports: [
     CommonModule,
+    MatExpansionModule,
     MatTableModule,
-    MatSortModule,
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
     MatIconModule,
     MatDialogModule,
+    MatChipsModule,
   ],
   templateUrl: './family-list.component.html',
   styleUrl: './family-list.component.scss',
 })
 export class FamilyListComponent implements OnInit {
-  displayedColumns: string[] = [
-    'type', 'name', 'email', 'phone', 'street', 'zip', 'city',
-    'dateOfBirth', 'familyName', 'exitDate',
-  ];
-  dataSource = new MatTableDataSource<FamilyRow>();
-
-  @ViewChild(MatSort) sort!: MatSort;
+  familyNodes: FamilyNode[] = [];
+  filteredNodes: FamilyNode[] = [];
+  personColumns = ['type', 'name', 'email', 'phone', 'dateOfBirth', 'street', 'zip', 'city'];
 
   constructor(
     private familyService: FamilyService,
@@ -62,13 +66,18 @@ export class FamilyListComponent implements OnInit {
     this.loadData();
   }
 
-  ngAfterViewInit(): void {
-    this.dataSource.sort = this.sort;
-  }
-
   applyFilter(event: Event): void {
-    const value = (event.target as HTMLInputElement).value;
-    this.dataSource.filter = value.trim().toLowerCase();
+    const query = (event.target as HTMLInputElement).value.trim().toLowerCase();
+    if (!query) {
+      this.filteredNodes = this.familyNodes;
+      return;
+    }
+    this.filteredNodes = this.familyNodes.filter((node) => {
+      if (node.family.name.toLowerCase().includes(query)) return true;
+      return node.persons.some((p) =>
+        Object.values(p).some((v) => v.toLowerCase().includes(query))
+      );
+    });
   }
 
   openWizard(): void {
@@ -88,49 +97,66 @@ export class FamilyListComponent implements OnInit {
   private loadData(): void {
     this.familyService.list().subscribe((families) => {
       if (families.length === 0) {
-        this.dataSource.data = [];
+        this.familyNodes = [];
+        this.filteredNodes = [];
         return;
       }
 
-      const requests = families.map((f) =>
+      const requests = families.map((family) =>
         forkJoin({
-          family: [f],
-          persons: this.familyService.getPersons(f.id!),
+          family: [family],
+          persons: this.familyService.getPersons(family.id!),
         })
       );
 
       forkJoin(requests).subscribe((results) => {
-        const rows: FamilyRow[] = [];
-        const personIds: string[] = [];
-        const personFamilyMap = new Map<string, string>();
+        const allPersonIds: { familyIdx: number; personId: string }[] = [];
+        const familyData: { family: Family; personIds: string[] }[] = [];
 
-        for (const { family, persons } of results) {
-          for (const person of persons) {
-            if (person.id) {
-              personIds.push(person.id);
-              personFamilyMap.set(person.id, family.name);
-            }
-          }
+        for (let i = 0; i < results.length; i++) {
+          const { family, persons } = results[i];
+          const ids = persons.filter((p) => p.id).map((p) => p.id!);
+          familyData.push({ family, personIds: ids });
+          ids.forEach((id) => allPersonIds.push({ familyIdx: i, personId: id }));
         }
 
-        if (personIds.length === 0) {
-          this.dataSource.data = [];
+        if (allPersonIds.length === 0) {
+          this.familyNodes = familyData.map((fd) => ({
+            family: fd.family,
+            persons: [],
+            childCount: 0,
+            parentCount: 0,
+          }));
+          this.filteredNodes = this.familyNodes;
           return;
         }
 
-        const fullRequests = personIds.map((id) => this.personService.getFull(id));
+        const fullRequests = allPersonIds.map((e) => this.personService.getFull(e.personId));
         forkJoin(fullRequests).subscribe((fullPersons) => {
-          for (const person of fullPersons) {
-            rows.push(this.personToRow(person, personFamilyMap.get(person.id) ?? ''));
-          }
-          this.dataSource.data = rows;
+          const personsByFamily = new Map<number, PersonDTO[]>();
+          fullPersons.forEach((person, idx) => {
+            const fi = allPersonIds[idx].familyIdx;
+            if (!personsByFamily.has(fi)) personsByFamily.set(fi, []);
+            personsByFamily.get(fi)!.push(person);
+          });
+
+          this.familyNodes = familyData.map((fd, i) => {
+            const persons = (personsByFamily.get(i) ?? []).map((p) => this.personToRow(p));
+            return {
+              family: fd.family,
+              persons,
+              childCount: persons.filter((p) => p.type === 'Kind').length,
+              parentCount: persons.filter((p) => p.type === 'Elternteil').length,
+            };
+          });
+          this.filteredNodes = this.familyNodes;
         });
       });
     });
   }
 
-  private personToRow(person: PersonDTO, familyName: string): FamilyRow {
-    const getFieldValue = (fields: FieldInstanceDTO[], fieldName: string): string => {
+  private personToRow(person: PersonDTO): PersonRow {
+    const getField = (fields: FieldInstanceDTO[], fieldName: string): string => {
       const field = fields.find((f) => f.fieldName === fieldName);
       if (!field || field.value == null) return '';
       return String(field.value);
@@ -142,19 +168,19 @@ export class FamilyListComponent implements OnInit {
       return String((field.value as Record<string, unknown>)[subField] ?? '');
     };
 
-    const personType = getFieldValue(person.basicProperties, 'personType');
+    const personType = getField(person.basicProperties, 'personType');
+    const firstName = getField(person.basicProperties, 'firstName');
+    const lastName = getField(person.basicProperties, 'lastName');
 
     return {
       type: personType === 'PARENT' ? 'Elternteil' : 'Kind',
-      name: `${getFieldValue(person.basicProperties, 'lastName')} ${getFieldValue(person.basicProperties, 'firstName')}`.trim(),
-      email: getFieldValue(person.basicProperties, 'email'),
-      phone: getFieldValue(person.basicProperties, 'phone'),
+      name: `${lastName} ${firstName}`.trim(),
+      email: getField(person.basicProperties, 'email'),
+      phone: getField(person.basicProperties, 'phone'),
+      dateOfBirth: getField(person.basicProperties, 'dateOfBirth'),
       street: getAddressField(person.basicProperties, 'street'),
       zip: getAddressField(person.basicProperties, 'zip'),
       city: getAddressField(person.basicProperties, 'city'),
-      dateOfBirth: getFieldValue(person.basicProperties, 'dateOfBirth'),
-      familyName,
-      exitDate: getFieldValue(person.basicProperties, 'exitDate'),
     };
   }
 }

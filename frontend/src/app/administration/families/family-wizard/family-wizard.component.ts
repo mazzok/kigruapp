@@ -1,6 +1,7 @@
 import { Component, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatStepperModule, MatStepper } from '@angular/material/stepper';
+import { StepperSelectionEvent } from '@angular/cdk/stepper';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { FamilyStepComponent } from './steps/family-step.component';
@@ -36,6 +37,18 @@ export class FamilyWizardComponent {
     private personService: PersonService,
   ) {}
 
+  onStepChange(event: StepperSelectionEvent): void {
+    const name = this.familyStep.newFamilyName;
+    const address = this.familyStep.address;
+    if (!name && !address) return;
+
+    if (event.selectedIndex === 1) {
+      this.childStep.prefill(name, address);
+    } else if (event.selectedIndex === 2) {
+      this.parentsStep.prefill(name, address);
+    }
+  }
+
   cancel(): void {
     this.dialogRef.close(false);
   }
@@ -47,7 +60,10 @@ export class FamilyWizardComponent {
       let familyId: string;
       if (this.familyStep.isNewFamily) {
         const family = await lastValueFrom(
-          this.familyService.create({ name: 'Neue Familie' })
+          this.familyService.create({
+            name: this.familyStep.newFamilyName,
+            address: this.familyStep.address ?? undefined,
+          })
         );
         familyId = family.id!;
       } else {

@@ -43,16 +43,20 @@ import { SectionFormComponent } from '../../../../shared/components/section-form
   styles: [`.parent-block { margin-bottom: 24px; border-bottom: 1px solid #ccc; padding-bottom: 16px; }`],
 })
 export class ParentsStepComponent implements OnInit {
+  private static readonly ALLOWED_FIELDS = ['firstName', 'lastName', 'email', 'phone', 'dateOfBirth', 'address'];
+
   @ViewChildren('parentForm') parentForms!: QueryList<SectionFormComponent>;
 
   definitions: FieldDefinition[] = [];
+  private personTypeDef?: FieldDefinition;
   parentIndices: number[] = [0];
 
   constructor(private fieldDefService: FieldDefinitionService) {}
 
   ngOnInit(): void {
     this.fieldDefService.listActive().subscribe((defs) => {
-      this.definitions = defs;
+      this.personTypeDef = defs.find((d) => d.fieldName === 'personType');
+      this.definitions = defs.filter((d) => ParentsStepComponent.ALLOWED_FIELDS.includes(d.fieldName));
     });
   }
 
@@ -65,12 +69,27 @@ export class ParentsStepComponent implements OnInit {
     this.parentIndices = this.parentIndices.map((_, i) => i);
   }
 
+  prefill(lastName: string, address?: { street: string; zip: string; city: string } | null): void {
+    this.parentForms?.forEach((f) => {
+      f.setValueByFieldName('lastName', lastName);
+      if (address) {
+        f.setValueByFieldName('address', address);
+      }
+    });
+  }
+
   get isValid(): boolean {
     return this.parentForms?.length > 0 &&
       this.parentForms.toArray().every((f) => f.isValid);
   }
 
   getParentsBasicProperties(): SectionInput[][] {
-    return this.parentForms.toArray().map((f) => f.getValues());
+    return this.parentForms.toArray().map((f) => {
+      const values = f.getValues();
+      if (this.personTypeDef?.id) {
+        values.push({ definitionId: this.personTypeDef.id, value: 'PARENT' });
+      }
+      return values;
+    });
   }
 }

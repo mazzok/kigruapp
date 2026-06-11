@@ -44,6 +44,7 @@ public class FamilyResource {
             throw new NotFoundException();
         }
         family.name = update.name;
+        family.address = update.address;
         family.update();
         return family;
     }
