@@ -6,6 +6,7 @@ export interface FieldDefinition {
   jsonSchema: Record<string, unknown>;
   required: boolean;
   keycloakMapping?: string | null;
+  properties?: Record<string, unknown>;
   createdAt?: string;
   outdatedAt?: string | null;
 }

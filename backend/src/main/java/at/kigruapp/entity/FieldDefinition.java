@@ -14,6 +14,7 @@ public class FieldDefinition extends PanacheMongoEntity {
     public Map<String, Object> jsonSchema;
     public boolean required;
     public String keycloakMapping;
+    public Map<String, Object> properties;
     public Instant createdAt;
     public Instant outdatedAt;
 
