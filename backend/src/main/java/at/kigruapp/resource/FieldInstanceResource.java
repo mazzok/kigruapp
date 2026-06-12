@@ -50,6 +50,84 @@ public class FieldInstanceResource {
 
     public record BatchItem(String definitionId, Object value) {}
 
+    @POST
+    public Response create(BatchItem item) {
+        Date now = Date.from(Instant.now());
+        MongoCollection<Document> coll = getCollection();
+
+        ObjectId defId = new ObjectId(item.definitionId());
+        FieldDefinition def = FieldDefinition.findById(defId);
+        if (def == null) {
+            return Response.status(400).entity("Definition not found: " + item.definitionId()).build();
+        }
+        if (def.outdatedAt != null) {
+            return Response.status(400).entity("Definition is outdated: " + item.definitionId()).build();
+        }
+        if (item.value() != null) {
+            try {
+                schemaValidator.validate(def.jsonSchema, item.value());
+            } catch (JsonSchemaValidatorService.ValidationException e) {
+                return Response.status(400).entity(def.fieldName + ": " + e.getMessage()).build();
+            }
+        }
+
+        ObjectId instId = new ObjectId();
+        Document doc = new Document("_id", instId)
+                .append("definitionId", defId)
+                .append("value", item.value())
+                .append("createdAt", now)
+                .append("updatedAt", now);
+        coll.insertOne(doc);
+
+        FieldInstance inst = FieldInstance.fromDocument(doc);
+        return Response.status(201).entity(toDTO(def, inst)).build();
+    }
+
+    @PUT
+    @Path("/{id}")
+    public Response update(@PathParam("id") String id, BatchItem item) {
+        MongoCollection<Document> coll = getCollection();
+        Document existing = coll.find(new Document("_id", new ObjectId(id))).first();
+        if (existing == null) {
+            throw new NotFoundException();
+        }
+
+        ObjectId defId = new ObjectId(item.definitionId());
+        FieldDefinition def = FieldDefinition.findById(defId);
+        if (def == null) {
+            return Response.status(400).entity("Definition not found: " + item.definitionId()).build();
+        }
+        if (item.value() != null) {
+            try {
+                schemaValidator.validate(def.jsonSchema, item.value());
+            } catch (JsonSchemaValidatorService.ValidationException e) {
+                return Response.status(400).entity(def.fieldName + ": " + e.getMessage()).build();
+            }
+        }
+
+        Date now = Date.from(Instant.now());
+        coll.updateOne(
+                new Document("_id", new ObjectId(id)),
+                new Document("$set", new Document("value", item.value()).append("updatedAt", now))
+        );
+
+        Document updated = coll.find(new Document("_id", new ObjectId(id))).first();
+        FieldInstance inst = FieldInstance.fromDocument(updated);
+        return Response.ok(toDTO(def, inst)).build();
+    }
+
+    @DELETE
+    @Path("/{id}")
+    public Response delete(@PathParam("id") String id) {
+        MongoCollection<Document> coll = getCollection();
+        Document existing = coll.find(new Document("_id", new ObjectId(id))).first();
+        if (existing == null) {
+            throw new NotFoundException();
+        }
+        coll.deleteOne(new Document("_id", new ObjectId(id)));
+        return Response.noContent().build();
+    }
+
     @PUT
     @Path("/batch")
     public Response batchUpsert(List<BatchItem> items) {
