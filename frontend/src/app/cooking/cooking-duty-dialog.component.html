@@ -1,0 +1,59 @@
+<h2 mat-dialog-title>{{ isEdit ? 'Kocheinteilung bearbeiten' : 'Neuen Kochdienst eintragen' }}</h2>
+
+<mat-dialog-content>
+  <form [formGroup]="form">
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Wann</mat-label>
+      <input matInput [matDatepicker]="picker" formControlName="date">
+      <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+      <mat-datepicker #picker></mat-datepicker>
+    </mat-form-field>
+
+    <div class="checkbox-group">
+      <label class="group-label">Fuer welche Gruppen *</label>
+      @for (group of data.groups; track group.id) {
+        <mat-checkbox [formControlName]="'group_' + group.id">
+          <span class="color-dot" [style.background-color]="group.properties?.['color']"></span>
+          {{ group.label?.de }}
+        </mat-checkbox>
+      }
+    </div>
+
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Wer kocht</mat-label>
+      <mat-select formControlName="person">
+        @for (parent of data.familyParents; track parent.id) {
+          <mat-option [value]="parent.id">{{ getParentName(parent) }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Was wird gekocht</mat-label>
+      <textarea matInput formControlName="description" rows="3"></textarea>
+    </mat-form-field>
+
+    <div class="checkbox-group">
+      <label class="group-label">Essen ist</label>
+      @for (fp of data.foodProperties; track fp.id) {
+        <mat-checkbox [formControlName]="'food_' + fp.id">
+          <mat-icon class="food-icon">{{ fp.properties?.['icon'] }}</mat-icon>
+          {{ fp.label?.de }}
+        </mat-checkbox>
+      }
+    </div>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  @if (isEdit && canEdit) {
+    <button mat-button color="warn" (click)="deleteDuty()">Loeschen</button>
+  }
+  <button mat-button (click)="cancel()">Abbrechen</button>
+  @if (canEdit) {
+    <button mat-raised-button color="primary" (click)="save()"
+            [disabled]="!form.valid || !hasSelectedGroups()">
+      {{ isEdit ? 'Speichern' : 'Erstellen' }}
+    </button>
+  }
+</mat-dialog-actions>
