@@ -26,7 +26,7 @@
           [checked]="isGroupActive(group.id!)"
           (change)="toggleGroup(group.id!)">
           <span class="color-dot" [style.background-color]="group.properties?.['color']"></span>
-          {{ group.label?.de }}
+          {{ group.label['de'] }}
         </mat-checkbox>
       }
     </div>

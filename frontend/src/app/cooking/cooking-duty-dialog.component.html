@@ -14,7 +14,7 @@
       @for (group of data.groups; track group.id) {
         <mat-checkbox [formControlName]="'group_' + group.id">
           <span class="color-dot" [style.background-color]="group.properties?.['color']"></span>
-          {{ group.label?.de }}
+          {{ group.label['de'] }}
         </mat-checkbox>
       }
     </div>
@@ -38,7 +38,7 @@
       @for (fp of data.foodProperties; track fp.id) {
         <mat-checkbox [formControlName]="'food_' + fp.id">
           <mat-icon class="food-icon">{{ fp.properties?.['icon'] }}</mat-icon>
-          {{ fp.label?.de }}
+          {{ fp.label['de'] }}
         </mat-checkbox>
       }
     </div>
