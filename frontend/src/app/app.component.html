@@ -4,11 +4,19 @@
       <h3>KigruApp</h3>
     </div>
     <mat-nav-list>
+      <a mat-list-item routerLink="/cooking" routerLinkActive="active">
+        <mat-icon matListItemIcon>restaurant</mat-icon>
+        <span matListItemTitle>Kochen</span>
+      </a>
       <a mat-list-item routerLink="/administration/families" routerLinkActive="active">
         <mat-icon matListItemIcon>family_restroom</mat-icon>
         <span matListItemTitle>Familien</span>
       </a>
       <mat-divider></mat-divider>
+      <a mat-list-item routerLink="/settings/organisation" routerLinkActive="active">
+        <mat-icon matListItemIcon>business</mat-icon>
+        <span matListItemTitle>Organisation</span>
+      </a>
       <a mat-list-item routerLink="/settings/custom-fields" routerLinkActive="active">
         <mat-icon matListItemIcon>tune</mat-icon>
         <span matListItemTitle>Benutzerdefinierte Felder</span>

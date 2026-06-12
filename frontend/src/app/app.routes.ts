@@ -3,6 +3,12 @@ import { authGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   {
+    path: 'cooking',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./cooking/cooking.component').then((m) => m.CookingComponent),
+  },
+  {
     path: 'administration',
     canActivate: [authGuard],
     children: [
@@ -20,6 +26,13 @@ export const routes: Routes = [
     canActivate: [authGuard],
     children: [
       {
+        path: 'organisation',
+        loadComponent: () =>
+          import('./settings/organisation/organisation.component').then(
+            (m) => m.OrganisationComponent
+          ),
+      },
+      {
         path: 'custom-fields',
         loadComponent: () =>
           import('./settings/custom-fields/custom-fields.component').then(
@@ -35,5 +48,5 @@ export const routes: Routes = [
       },
     ],
   },
-  { path: '', redirectTo: 'administration/families', pathMatch: 'full' },
+  { path: '', redirectTo: 'cooking', pathMatch: 'full' },
 ];
