@@ -1,0 +1,30 @@
+.organisation-container {
+  padding: 24px;
+}
+
+.tab-content {
+  padding: 16px 0;
+}
+
+.add-form {
+  margin-bottom: 24px;
+
+  .row {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+}
+
+.color-swatch {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
+table {
+  width: 100%;
+}
