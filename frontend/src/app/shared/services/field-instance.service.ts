@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { ApiService } from '../../core/services/api.service';
-import { FieldInstanceDTO } from '../models/field-instance.model';
+import { FieldInstance, FieldInstanceDTO } from '../models/field-instance.model';
 import { Observable } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
@@ -9,6 +9,18 @@ export class FieldInstanceService {
 
   get(id: string): Observable<FieldInstanceDTO> {
     return this.api.get<FieldInstanceDTO>(`/field-instances/${id}`);
+  }
+
+  create(fieldInstance: FieldInstance): Observable<FieldInstance> {
+    return this.api.post<FieldInstance>('/field-instances', fieldInstance);
+  }
+
+  update(id: string, fieldInstance: FieldInstance): Observable<FieldInstance> {
+    return this.api.put<FieldInstance>(`/field-instances/${id}`, fieldInstance);
+  }
+
+  delete(id: string): Observable<void> {
+    return this.api.delete(`/field-instances/${id}`);
   }
 
   batchSave(instances: { definitionId: string; value: unknown }[]): Observable<unknown> {
