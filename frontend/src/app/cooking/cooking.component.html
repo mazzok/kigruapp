@@ -1,0 +1,46 @@
+<div class="cooking-container">
+  <div class="header">
+    <h2>Kochen</h2>
+    <button mat-raised-button color="primary" (click)="openCreateDialog()">
+      Neuen Kochdienst eintragen
+    </button>
+  </div>
+
+  <div class="controls">
+    <div class="navigation">
+      <button mat-icon-button (click)="previousMonth()">
+        <mat-icon>chevron_left</mat-icon>
+      </button>
+      <button mat-stroked-button (click)="today()">Heute</button>
+      <button mat-icon-button (click)="nextMonth()">
+        <mat-icon>chevron_right</mat-icon>
+      </button>
+      <span class="month-label">
+        {{ viewDate | date:'MMMM yyyy' }}
+      </span>
+    </div>
+
+    <div class="group-filters">
+      @for (group of groups; track group.id) {
+        <mat-checkbox
+          [checked]="isGroupActive(group.id!)"
+          (change)="toggleGroup(group.id!)">
+          <span class="color-dot" [style.background-color]="group.properties?.['color']"></span>
+          {{ group.label?.de }}
+        </mat-checkbox>
+      }
+    </div>
+  </div>
+
+  <div class="calendar-wrapper">
+    <mwl-calendar-month-view
+      [viewDate]="viewDate"
+      [events]="events"
+      [excludeDays]="excludeDays"
+      [refresh]="refresh"
+      (eventClicked)="onEventClicked($event.event)"
+      [locale]="'de'"
+      [weekStartsOn]="1">
+    </mwl-calendar-month-view>
+  </div>
+</div>
