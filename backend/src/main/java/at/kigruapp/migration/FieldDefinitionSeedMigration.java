@@ -17,7 +17,7 @@ import java.util.Map;
 @Startup
 public class FieldDefinitionSeedMigration {
 
-    private static final String MIGRATION_ID = "seed-basic-property-definitions-v2";
+    private static final String MIGRATION_ID = "seed-basic-property-definitions-v3";
 
     @Inject
     MongoClient mongoClient;
@@ -107,6 +107,49 @@ public class FieldDefinitionSeedMigration {
                         .append("required", List.of("street", "zip", "city")),
                 false, null);
 
+        // Cooking duty definition
+        seedDef(defs, now, "cookingDuty",
+                Map.of("de", "Kochdienst", "en", "Cooking Duty"),
+                new Document("type", "object")
+                        .append("properties", new Document()
+                                .append("date", new Document("type", "string").append("format", "date"))
+                                .append("groups", new Document("type", "array").append("items", new Document("type", "string")))
+                                .append("description", new Document("type", "string"))
+                                .append("foodProperties", new Document("type", "object")))
+                        .append("required", List.of("date", "groups")),
+                false, null);
+
+        // Food property definitions
+        seedDefWithProperties(defs, now, "food-property",
+                Map.of("de", "Glutenfrei", "en", "Gluten-free"),
+                new Document("type", "boolean"), false,
+                new Document("icon", "grain"));
+
+        seedDefWithProperties(defs, now, "food-property",
+                Map.of("de", "Weizenfrei", "en", "Wheat-free"),
+                new Document("type", "boolean"), false,
+                new Document("icon", "do_not_disturb"));
+
+        seedDefWithProperties(defs, now, "food-property",
+                Map.of("de", "Vegetarisch", "en", "Vegetarian"),
+                new Document("type", "boolean"), false,
+                new Document("icon", "eco"));
+
+        seedDefWithProperties(defs, now, "food-property",
+                Map.of("de", "Vegan", "en", "Vegan"),
+                new Document("type", "boolean"), false,
+                new Document("icon", "spa"));
+
+        seedDefWithProperties(defs, now, "food-property",
+                Map.of("de", "Ohne Milchprodukte", "en", "Dairy-free"),
+                new Document("type", "boolean"), false,
+                new Document("icon", "water_drop"));
+
+        seedDefWithProperties(defs, now, "food-property",
+                Map.of("de", "Histaminvertraeglich", "en", "Histamine-friendly"),
+                new Document("type", "boolean"), false,
+                new Document("icon", "health_and_safety"));
+
         migrations.insertOne(new Document("_id", MIGRATION_ID)
                 .append("executedAt", now));
     }
@@ -126,6 +169,24 @@ public class FieldDefinitionSeedMigration {
         if (keycloakMapping != null) {
             doc.append("keycloakMapping", keycloakMapping);
         }
+        defs.insertOne(doc);
+    }
+
+    private void seedDefWithProperties(MongoCollection<Document> defs, Date now,
+                                        String fieldName, Map<String, String> label,
+                                        Document jsonSchema, boolean required,
+                                        Document properties) {
+        String labelDe = label.get("de");
+        if (defs.find(new Document("fieldName", fieldName).append("label.de", labelDe)).first() != null) {
+            return;
+        }
+        Document doc = new Document()
+                .append("fieldName", fieldName)
+                .append("label", new Document(label))
+                .append("jsonSchema", jsonSchema)
+                .append("required", required)
+                .append("properties", properties)
+                .append("createdAt", now);
         defs.insertOne(doc);
     }
 }
