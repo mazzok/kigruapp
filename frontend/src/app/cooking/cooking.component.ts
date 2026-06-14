@@ -90,8 +90,8 @@ export class CookingComponent implements OnInit {
 
     const familyId = this.currentUserService.currentFamilyId;
     if (familyId) {
-      this.personService.list().subscribe((persons) => {
-        this.familyParents = persons.filter(p => p.familyId === familyId);
+      this.personService.list(familyId).subscribe((persons) => {
+        this.familyParents = persons.filter(p => !!p.id) as unknown as PersonDTO[];
       });
     }
   }
