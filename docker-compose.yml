@@ -31,8 +31,7 @@ services:
       QUARKUS_MONGODB_CONNECTION_STRING: mongodb://mongodb:27017
       QUARKUS_MONGODB_DATABASE: kigruapp
       QUARKUS_OIDC_AUTH_SERVER_URL: http://keycloak:8080/realms/kigruapp
-      QUARKUS_OIDC_CLIENT_ID: kigruapp-api
-      OIDC_CLIENT_SECRET: secret
+      QUARKUS_OIDC_CLIENT_ID: kigruapp-frontend
     depends_on:
       - mongodb
       - keycloak
