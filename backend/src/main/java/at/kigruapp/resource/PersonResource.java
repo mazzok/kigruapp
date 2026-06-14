@@ -59,16 +59,6 @@ public class PersonResource {
     }
 
     @GET
-    @Path("/{id}")
-    public Person get(@PathParam("id") String id) {
-        Person person = Person.findById(new ObjectId(id));
-        if (person == null) {
-            throw new NotFoundException();
-        }
-        return person;
-    }
-
-    @GET
     @Path("/me")
     public Response getMe() {
         at.kigruapp.entity.Person currentPerson = currentUserService.getCurrentPerson();
@@ -77,6 +67,16 @@ public class PersonResource {
         }
         PersonDTO dto = toFullDTO(currentPerson);
         return Response.ok(dto).build();
+    }
+
+    @GET
+    @Path("/{id}")
+    public Person get(@PathParam("id") String id) {
+        Person person = Person.findById(new ObjectId(id));
+        if (person == null) {
+            throw new NotFoundException();
+        }
+        return person;
     }
 
     @GET
