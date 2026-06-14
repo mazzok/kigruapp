@@ -1,49 +1,55 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
+import { adminGuard } from './core/guards/admin.guard';
 
 export const routes: Routes = [
+  {
+    path: 'setup',
+    loadComponent: () =>
+      import('./setup/setup.component').then(m => m.SetupComponent),
+  },
   {
     path: 'cooking',
     canActivate: [authGuard],
     loadComponent: () =>
-      import('./cooking/cooking.component').then((m) => m.CookingComponent),
+      import('./cooking/cooking.component').then(m => m.CookingComponent),
   },
   {
     path: 'administration',
-    canActivate: [authGuard],
+    canActivate: [authGuard, adminGuard],
     children: [
       {
         path: 'families',
         loadComponent: () =>
           import('./administration/families/family-list/family-list.component').then(
-            (m) => m.FamilyListComponent
+            m => m.FamilyListComponent
           ),
       },
     ],
   },
   {
     path: 'settings',
-    canActivate: [authGuard],
+    canActivate: [authGuard, adminGuard],
     children: [
       {
         path: 'organisation',
         loadComponent: () =>
           import('./settings/organisation/organisation.component').then(
-            (m) => m.OrganisationComponent
+            m => m.OrganisationComponent
           ),
       },
       {
         path: 'custom-fields',
         loadComponent: () =>
           import('./settings/custom-fields/custom-fields.component').then(
-            (m) => m.CustomFieldsComponent
+            m => m.CustomFieldsComponent
           ),
       },
       {
         path: 'permissions',
         loadComponent: () =>
           import('./settings/permissions/permissions.component').then(
-            (m) => m.PermissionsComponent
+            m => m.PermissionsComponent
           ),
       },
     ],
