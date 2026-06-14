@@ -74,11 +74,12 @@ public class SecurityFilter implements ContainerRequestFilter {
 
         if (path.equals("/api/v1/persons/me") && "GET".equals(method)) return true;
 
+        // Default: admin-only (safe default — deny non-admins for anything not explicitly whitelisted above)
         return false;
     }
 
     private boolean isWriteMethod(String method) {
-        return "POST".equals(method) || "PUT".equals(method) || "DELETE".equals(method);
+        return "POST".equals(method) || "PUT".equals(method) || "PATCH".equals(method) || "DELETE".equals(method);
     }
 
     private boolean checkCookingDutyFamily(String path, Person person) {
