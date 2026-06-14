@@ -55,6 +55,7 @@ services:
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HOSTNAME_URL: http://localhost:8443
     volumes:
       - ./infra/keycloak/kigruapp-realm.json:/opt/keycloak/data/import/kigruapp-realm.json
     networks:
