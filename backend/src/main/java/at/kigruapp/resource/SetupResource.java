@@ -43,7 +43,8 @@ public class SetupResource {
         if (request == null || request.familyName == null || request.familyName.isBlank()) {
             return Response.status(400).entity("{\"error\": \"familyName required\"}").build();
         }
-        if (request.keycloakUserId == null || request.email == null) {
+        if (request.keycloakUserId == null || request.keycloakUserId.isBlank() ||
+            request.email == null || request.email.isBlank()) {
             return Response.status(400).entity("{\"error\": \"keycloakUserId and email required\"}").build();
         }
 
