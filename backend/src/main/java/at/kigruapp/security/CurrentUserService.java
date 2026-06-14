@@ -32,8 +32,8 @@ public class CurrentUserService {
     @ConfigProperty(name = "quarkus.oidc.enabled", defaultValue = "true")
     public boolean oidcEnabled;
 
-    public Person cachedPerson;
-    private boolean resolved = false;
+    Person cachedPerson;
+    boolean resolved = false;
 
     public Person getCurrentPerson() {
         if (resolved) return cachedPerson;
@@ -45,10 +45,13 @@ public class CurrentUserService {
         }
 
         if (identity == null || identity.isAnonymous()) {
+            cachedPerson = null;
             return null;
         }
 
-        JsonWebToken jwt = (JsonWebToken) identity.getPrincipal();
+        if (!(identity.getPrincipal() instanceof JsonWebToken jwt)) {
+            return null;
+        }
         String sub = jwt.getSubject();
         String email = jwt.getClaim("email");
 

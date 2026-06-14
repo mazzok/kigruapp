@@ -6,8 +6,10 @@ import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
+import io.quarkus.security.identity.SecurityIdentity;
 import org.bson.Document;
 import org.bson.types.ObjectId;
+import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -34,6 +36,9 @@ class CurrentUserServiceTest {
     @Mock
     FindIterable<Document> findIterable;
 
+    @Mock
+    SecurityIdentity identity;
+
     CurrentUserService service;
 
     @BeforeEach
@@ -43,6 +48,9 @@ class CurrentUserServiceTest {
         service.mongoClient = mongoClient;
         service.databaseName = "testdb";
         service.oidcEnabled = false;
+        service.identity = identity;
+        service.resolved = false;
+        service.cachedPerson = null;
 
         when(mongoClient.getDatabase("testdb")).thenReturn(mongoDatabase);
         when(mongoDatabase.getCollection("fieldInstances")).thenReturn(mongoCollection);
@@ -57,27 +65,8 @@ class CurrentUserServiceTest {
         Person person = new Person();
         person.roles = List.of(roleRef);
 
-        // Pre-populate cache to bypass Panache static calls
         service.cachedPerson = person;
-        // Mark resolved so getCurrentPerson() returns the cached value
-        // We need to set resolved=true via reflection or restructure
-        // Instead, test isAdmin() after manually setting cachedPerson and calling getCurrentPerson
-        // The resolved flag is private — we trigger resolution by calling getCurrentPerson with oidcEnabled=false
-        // But that would invoke Panache. So we set resolved via the fact that cachedPerson is set
-        // and bypass by using the package-private access of the test.
-        // Since resolved is private, we directly call isAdmin() with the cache pre-set:
-        // getCurrentPerson() will be called inside isAdmin() — in dev mode it calls findFirstAdminOrFirstPerson()
-        // which calls Person.listAll() (Panache). We cannot easily bypass this without resolved=true.
-        // Solution: call getCurrentPerson() once to set resolved=true, but override cachedPerson after.
-        // We expose cachedPerson as public so we can set it. resolved is private and set inside getCurrentPerson().
-        // We use reflection to set resolved=true.
-        try {
-            var resolvedField = CurrentUserService.class.getDeclaredField("resolved");
-            resolvedField.setAccessible(true);
-            resolvedField.set(service, true);
-        } catch (Exception e) {
-            fail("Could not set resolved field: " + e.getMessage());
-        }
+        service.resolved = true;
 
         Document adminDoc = new Document("_id", roleInstanceId).append("value", "ADMIN");
         when(findIterable.first()).thenReturn(adminDoc);
@@ -91,13 +80,7 @@ class CurrentUserServiceTest {
         person.roles = List.of();
 
         service.cachedPerson = person;
-        try {
-            var resolvedField = CurrentUserService.class.getDeclaredField("resolved");
-            resolvedField.setAccessible(true);
-            resolvedField.set(service, true);
-        } catch (Exception e) {
-            fail("Could not set resolved field: " + e.getMessage());
-        }
+        service.resolved = true;
 
         assertFalse(service.isAdmin());
         // No MongoDB calls should happen when roles is empty
@@ -107,13 +90,7 @@ class CurrentUserServiceTest {
     @Test
     void isAdmin_returnsFalseWhenNullPerson() {
         service.cachedPerson = null;
-        try {
-            var resolvedField = CurrentUserService.class.getDeclaredField("resolved");
-            resolvedField.setAccessible(true);
-            resolvedField.set(service, true);
-        } catch (Exception e) {
-            fail("Could not set resolved field: " + e.getMessage());
-        }
+        service.resolved = true;
 
         assertFalse(service.isAdmin());
         verifyNoInteractions(mongoClient);
@@ -123,13 +100,7 @@ class CurrentUserServiceTest {
     void getCurrentPerson_returnsCachedValueWhenAlreadyResolved() {
         Person person = new Person();
         service.cachedPerson = person;
-        try {
-            var resolvedField = CurrentUserService.class.getDeclaredField("resolved");
-            resolvedField.setAccessible(true);
-            resolvedField.set(service, true);
-        } catch (Exception e) {
-            fail("Could not set resolved field: " + e.getMessage());
-        }
+        service.resolved = true;
 
         Person result = service.getCurrentPerson();
 
@@ -147,16 +118,25 @@ class CurrentUserServiceTest {
         person.roles = List.of(roleRef);
 
         service.cachedPerson = person;
-        try {
-            var resolvedField = CurrentUserService.class.getDeclaredField("resolved");
-            resolvedField.setAccessible(true);
-            resolvedField.set(service, true);
-        } catch (Exception e) {
-            fail("Could not set resolved field: " + e.getMessage());
-        }
+        service.resolved = true;
 
         when(findIterable.first()).thenReturn(null);
 
         assertFalse(service.isAdmin());
+    }
+
+    @Test
+    void getCurrentPerson_returnsNull_whenOidcEnabledAndAnonymous() {
+        service.oidcEnabled = true;
+        when(identity.isAnonymous()).thenReturn(true);
+        assertNull(service.getCurrentPerson());
+    }
+
+    @Test
+    void getCurrentPerson_returnsNull_whenPrincipalIsNotJwt() {
+        service.oidcEnabled = true;
+        when(identity.isAnonymous()).thenReturn(false);
+        when(identity.getPrincipal()).thenReturn(mock(java.security.Principal.class));
+        assertNull(service.getCurrentPerson());
     }
 }
