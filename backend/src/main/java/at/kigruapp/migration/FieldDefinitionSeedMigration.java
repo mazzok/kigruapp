@@ -17,7 +17,7 @@ import java.util.Map;
 @Startup
 public class FieldDefinitionSeedMigration {
 
-    private static final String MIGRATION_ID = "seed-basic-property-definitions-v3";
+    private static final String MIGRATION_ID = "seed-basic-property-definitions-v4";
 
     @Inject
     MongoClient mongoClient;
@@ -46,6 +46,11 @@ public class FieldDefinitionSeedMigration {
                 );
             }
         }
+
+        seedDef(defs, now, "role",
+                Map.of("de", "Rolle", "en", "Role"),
+                new Document("type", "string").append("enum", List.of("ADMIN", "PARENT")),
+                false, null);
 
         seedDef(defs, now, "personType",
                 Map.of("de", "Personentyp", "en", "Person Type"),

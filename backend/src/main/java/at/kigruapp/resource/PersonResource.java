@@ -6,6 +6,7 @@ import at.kigruapp.entity.FieldDefinition;
 import at.kigruapp.entity.FieldInstance;
 import at.kigruapp.entity.FieldRef;
 import at.kigruapp.entity.Person;
+import at.kigruapp.security.CurrentUserService;
 import at.kigruapp.security.KeycloakUserService;
 import at.kigruapp.service.JsonSchemaValidatorService;
 import com.mongodb.client.MongoClient;
@@ -38,6 +39,9 @@ public class PersonResource {
     KeycloakUserService keycloakUserService;
 
     @Inject
+    CurrentUserService currentUserService;
+
+    @Inject
     JsonSchemaValidatorService schemaValidator;
 
     private MongoCollection<Document> getFieldInstancesCollection() {
@@ -62,6 +66,17 @@ public class PersonResource {
             throw new NotFoundException();
         }
         return person;
+    }
+
+    @GET
+    @Path("/me")
+    public Response getMe() {
+        at.kigruapp.entity.Person currentPerson = currentUserService.getCurrentPerson();
+        if (currentPerson == null) {
+            return Response.status(403).build();
+        }
+        PersonDTO dto = toFullDTO(currentPerson);
+        return Response.ok(dto).build();
     }
 
     @GET
