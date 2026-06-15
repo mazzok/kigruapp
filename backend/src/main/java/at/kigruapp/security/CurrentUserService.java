@@ -84,7 +84,7 @@ public class CurrentUserService {
 
         MongoCollection<Document> col = mongoClient
             .getDatabase(databaseName)
-            .getCollection("fieldInstances");
+            .getCollection("field_instances");
 
         Document adminDoc = col.find(
             Filters.and(
@@ -105,7 +105,7 @@ public class CurrentUserService {
                     .collect(Collectors.toList());
                 MongoCollection<Document> col = mongoClient
                     .getDatabase(databaseName)
-                    .getCollection("fieldInstances");
+                    .getCollection("field_instances");
                 Document doc = col.find(
                     Filters.and(Filters.in("_id", ids), Filters.eq("value", "ADMIN"))
                 ).first();
@@ -118,7 +118,7 @@ public class CurrentUserService {
     private Person findPersonByEmail(String email) {
         MongoCollection<Document> col = mongoClient
             .getDatabase(databaseName)
-            .getCollection("fieldInstances");
+            .getCollection("field_instances");
         List<Document> emailDocs = col.find(Filters.eq("value", email))
             .into(new ArrayList<>());
         if (emailDocs.isEmpty()) return null;

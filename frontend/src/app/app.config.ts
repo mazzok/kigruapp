@@ -5,7 +5,7 @@ import { provideAnimationsAsync } from '@angular/platform-browser/animations/asy
 import { MAT_DATE_LOCALE } from '@angular/material/core';
 import { CalendarModule, DateAdapter } from 'angular-calendar';
 import { adapterFactory } from 'angular-calendar/date-adapters/date-fns';
-import { OAuthModule } from 'angular-oauth2-oidc';
+import { provideOAuthClient } from 'angular-oauth2-oidc';
 
 import { routes } from './app.routes';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
@@ -19,7 +19,7 @@ export const appConfig: ApplicationConfig = {
     provideAnimationsAsync(),
     { provide: MAT_DATE_LOCALE, useValue: 'de-AT' },
     { provide: LOCALE_ID, useValue: 'de-AT' },
-    importProvidersFrom(OAuthModule.forRoot()),
+    provideOAuthClient(),
     importProvidersFrom(
       CalendarModule.forRoot({ provide: DateAdapter, useFactory: adapterFactory })
     ),

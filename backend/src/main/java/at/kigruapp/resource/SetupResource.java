@@ -50,7 +50,7 @@ public class SetupResource {
 
         MongoCollection<Document> fieldInstancesCol = mongoClient
             .getDatabase(databaseName)
-            .getCollection("fieldInstances");
+            .getCollection("field_instances");
 
         // 1. Create Family
         Family family = new Family();
@@ -99,7 +99,7 @@ public class SetupResource {
 
     private ObjectId findFieldDefinitionId(String fieldName) {
         Document def = mongoClient.getDatabase(databaseName)
-            .getCollection("fieldDefinitions")
+            .getCollection("field_definitions")
             .find(new Document("fieldName", fieldName))
             .first();
         if (def == null) {

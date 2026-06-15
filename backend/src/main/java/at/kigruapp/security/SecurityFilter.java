@@ -101,7 +101,7 @@ public class SecurityFilter implements ContainerRequestFilter {
         if (!ObjectId.isValid(id)) return false;
 
         Document instance = mongoClient.getDatabase(databaseName)
-            .getCollection("fieldInstances")
+            .getCollection("field_instances")
             .find(Filters.eq("_id", new ObjectId(id)))
             .first();
 
