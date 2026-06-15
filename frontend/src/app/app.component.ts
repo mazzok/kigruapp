@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { MatSidenavModule } from '@angular/material/sidenav';
@@ -7,6 +7,7 @@ import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { AuthService } from './core/services/auth.service';
+import { CurrentUserService } from './core/services/current-user.service';
 
 @Component({
   selector: 'app-root',
@@ -19,6 +20,15 @@ import { AuthService } from './core/services/auth.service';
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })
-export class AppComponent {
-  constructor(public auth: AuthService) {}
+export class AppComponent implements OnInit {
+  constructor(
+    public auth: AuthService,
+    public currentUser: CurrentUserService,
+  ) {}
+
+  ngOnInit(): void {
+    if (this.auth.isAuthenticated) {
+      this.currentUser.loadCurrentUser().subscribe();
+    }
+  }
 }

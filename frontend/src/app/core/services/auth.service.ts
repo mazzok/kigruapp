@@ -1,26 +1,49 @@
 import { Injectable } from '@angular/core';
+import { OAuthService, AuthConfig } from 'angular-oauth2-oidc';
 
-// TODO: Re-integrate angular-oauth2-oidc when upgrading to a compatible version
-// For now, auth is stubbed to allow the app to load without Keycloak
+const authConfig: AuthConfig = {
+  issuer: 'http://localhost:8443/realms/kigruapp',
+  redirectUri: window.location.origin + '/',
+  clientId: 'kigruapp-frontend',
+  responseType: 'code',
+  scope: 'openid profile email',
+  showDebugInformation: false,
+  requireHttps: false,
+};
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
+  constructor(private oauthService: OAuthService) {}
 
-  async login(): Promise<boolean> {
-    return true;
+  async configure(): Promise<void> {
+    this.oauthService.configure(authConfig);
+    await this.oauthService.loadDiscoveryDocumentAndTryLogin();
+    this.oauthService.setupAutomaticSilentRefresh();
   }
 
-  logout(): void {}
+  login(): void {
+    this.oauthService.initCodeFlow();
+  }
+
+  logout(): void {
+    this.oauthService.logOut();
+  }
 
   get accessToken(): string {
-    return '';
+    return this.oauthService.getAccessToken() ?? '';
   }
 
   get isAuthenticated(): boolean {
-    return false;
+    return this.oauthService.hasValidAccessToken();
   }
 
   get userName(): string {
-    return '';
+    const claims = this.oauthService.getIdentityClaims() as Record<string, string> | null;
+    return claims?.['preferred_username'] ?? '';
+  }
+
+  get userEmail(): string {
+    const claims = this.oauthService.getIdentityClaims() as Record<string, string> | null;
+    return claims?.['email'] ?? '';
   }
 }

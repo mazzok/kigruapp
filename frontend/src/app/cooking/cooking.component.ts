@@ -10,6 +10,7 @@ import { OrganisationService } from '../shared/services/organisation.service';
 import { CookingDutyService } from './services/cooking-duty.service';
 import { PersonService } from '../shared/services/person.service';
 import { FieldInstanceService } from '../shared/services/field-instance.service';
+import { CurrentUserService } from '../core/services/current-user.service';
 import { FieldDefinition } from '../shared/models/field-definition.model';
 import { CookingDutyDTO } from '../shared/models/organisation.model';
 import { PersonDTO, SectionInput } from '../shared/models/person.model';
@@ -54,10 +55,23 @@ export class CookingComponent implements OnInit {
     private cookingDutyService: CookingDutyService,
     private personService: PersonService,
     private fieldInstanceService: FieldInstanceService,
+    private currentUserService: CurrentUserService,
     private dialog: MatDialog,
   ) {}
 
   ngOnInit(): void {
+    const person = this.currentUserService.currentPerson;
+    if (person) {
+      this.currentFamilyId = person.familyId;
+      this.currentPersonId = person.id;
+    } else {
+      this.currentUserService.currentPerson$.subscribe(p => {
+        if (p) {
+          this.currentFamilyId = p.familyId;
+          this.currentPersonId = p.id;
+        }
+      });
+    }
     this.loadOrganisationData();
   }
 
@@ -74,10 +88,12 @@ export class CookingComponent implements OnInit {
       this.foodProperties = cooking?.definitions ?? [];
     });
 
-    // TODO: Load current user's family and parents when auth is implemented
-    this.personService.list().subscribe((persons) => {
-      // This will be refined when auth provides the current user's familyId
-    });
+    const familyId = this.currentUserService.currentFamilyId;
+    if (familyId) {
+      this.personService.list(familyId).subscribe((persons) => {
+        this.familyParents = persons.filter(p => !!p.id) as unknown as PersonDTO[];
+      });
+    }
   }
 
   loadDuties(): void {
@@ -156,7 +172,7 @@ export class CookingComponent implements OnInit {
 
   onEventClicked(event: CalendarEvent): void {
     const duty = event.meta as CookingDutyDTO;
-    const canEdit = duty.familyId === this.currentFamilyId; // TODO: also check admin role
+    const canEdit = duty.familyId === this.currentFamilyId || this.currentUserService.isAdmin;
     this.openDialog(duty, canEdit);
   }
 

@@ -1,28 +1,36 @@
 {
   "realm": "kigruapp",
   "enabled": true,
-  "registrationAllowed": false,
+  "sslRequired": "external",
+  "registrationAllowed": true,
   "loginWithEmailAllowed": true,
+  "registrationEmailAsUsername": true,
   "resetPasswordAllowed": true,
-  "sslRequired": "none",
+  "rememberMe": true,
+  "accessTokenLifespan": 300,
   "clients": [
     {
       "clientId": "kigruapp-frontend",
+      "name": "KigruApp Frontend",
       "enabled": true,
       "publicClient": true,
-      "redirectUris": ["*"],
-      "webOrigins": ["*"],
+      "protocol": "openid-connect",
       "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": false
-    },
-    {
-      "clientId": "kigruapp-api",
-      "enabled": true,
-      "publicClient": false,
-      "secret": "secret",
-      "bearerOnly": true,
-      "standardFlowEnabled": false,
-      "serviceAccountsEnabled": true
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "redirectUris": [
+        "http://localhost:4200/*",
+        "http://localhost:4200"
+      ],
+      "webOrigins": [
+        "http://localhost:4200"
+      ],
+      "rootUrl": "http://localhost:4200",
+      "adminUrl": "http://localhost:4200"
     }
   ]
 }
