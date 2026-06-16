@@ -78,11 +78,24 @@ public class SetupResource {
         fieldInstancesCol.insertOne(roleInstance);
         ObjectId roleInstanceId = roleInstance.getObjectId("_id");
 
+        // 3b. Create personType PARENT FieldInstance
+        ObjectId personTypeDefId = findFieldDefinitionId("personType");
+        Document personTypeInstance = new Document()
+            .append("definitionId", personTypeDefId)
+            .append("value", "PARENT")
+            .append("createdAt", Instant.now())
+            .append("updatedAt", Instant.now());
+        fieldInstancesCol.insertOne(personTypeInstance);
+        ObjectId personTypeInstanceId = personTypeInstance.getObjectId("_id");
+
         // 4. Create Person
         Person person = new Person();
         person.familyId = (ObjectId) family.id;
         person.keycloakUserId = request.keycloakUserId;
-        person.basicProperties = new ArrayList<>(List.of(new FieldRef(emailDefId, emailInstanceId)));
+        person.basicProperties = new ArrayList<>(List.of(
+            new FieldRef(emailDefId, emailInstanceId),
+            new FieldRef(personTypeDefId, personTypeInstanceId)
+        ));
         person.roles = new ArrayList<>(List.of(new FieldRef(roleDefId, roleInstanceId)));
         person.schedules = new ArrayList<>();
         person.duties = new ArrayList<>();
