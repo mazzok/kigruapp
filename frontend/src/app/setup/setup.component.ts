@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -8,7 +8,10 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatStepperModule } from '@angular/material/stepper';
+import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from '../core/services/auth.service';
+import { ParentsStepComponent } from '../administration/families/family-wizard/steps/parents-step.component';
 
 @Component({
   selector: 'app-setup',
@@ -17,16 +20,21 @@ import { AuthService } from '../core/services/auth.service';
     CommonModule, FormsModule,
     MatCardModule, MatButtonModule,
     MatFormFieldModule, MatInputModule,
-    MatProgressSpinnerModule,
+    MatProgressSpinnerModule, MatStepperModule, MatIconModule,
+    ParentsStepComponent,
   ],
   templateUrl: './setup.component.html',
   styleUrl: './setup.component.scss',
 })
 export class SetupComponent implements OnInit {
+  @ViewChild(ParentsStepComponent) parentsStep?: ParentsStepComponent;
+
   familyName = '';
   loading = false;
   error = '';
   setupComplete = false;
+
+  keycloakPrefill: { firstName: string; lastName: string; email: string } | null = null;
 
   constructor(
     public auth: AuthService,
@@ -37,6 +45,7 @@ export class SetupComponent implements OnInit {
   ngOnInit(): void {
     if (this.auth.isAuthenticated) {
       this.checkAndAutoSetup();
+      this.loadKeycloakData();
     }
   }
 
@@ -46,6 +55,20 @@ export class SetupComponent implements OnInit {
         this.router.navigate(['/cooking']);
       }
     });
+  }
+
+  private loadKeycloakData(): void {
+    const oauthSvc = (this.auth as unknown as {
+      oauthService: { getIdentityClaims: () => Record<string, string> | null }
+    }).oauthService;
+    const claims = oauthSvc?.getIdentityClaims?.() ?? null;
+    if (claims) {
+      this.keycloakPrefill = {
+        firstName: claims['given_name'] ?? '',
+        lastName: claims['family_name'] ?? '',
+        email: this.auth.userEmail ?? claims['email'] ?? '',
+      };
+    }
   }
 
   loginWithKeycloak(): void {
@@ -60,14 +83,20 @@ export class SetupComponent implements OnInit {
     this.loading = true;
     this.error = '';
 
-    const oauthSvc = (this.auth as unknown as { oauthService: { getIdentityClaims: () => Record<string, string> | null } }).oauthService;
+    const oauthSvc = (this.auth as unknown as {
+      oauthService: { getIdentityClaims: () => Record<string, string> | null }
+    }).oauthService;
     const claims = oauthSvc?.getIdentityClaims?.() ?? null;
+
+    const parentProperties = this.parentsStep?.getParentsBasicProperties?.()?.[0] ?? [];
+
     const body = {
       familyName: this.familyName.trim(),
       keycloakUserId: claims?.['sub'] ?? '',
       email: this.auth.userEmail,
       firstName: claims?.['given_name'] ?? '',
       lastName: claims?.['family_name'] ?? '',
+      parentProperties,
     };
 
     this.http.post('/api/v1/setup', body).subscribe({

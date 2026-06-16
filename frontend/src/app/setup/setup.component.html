@@ -1,38 +1,65 @@
-<div class="setup-container">
-  <mat-card class="setup-card">
-    <mat-card-header>
-      <mat-card-title>Willkommen bei KigruApp</mat-card-title>
-      <mat-card-subtitle>Ersteinrichtung</mat-card-subtitle>
-    </mat-card-header>
+<mat-card style="max-width: 640px; margin: 48px auto;">
+  <mat-card-header>
+    <mat-card-title>Willkommen — Ersteinrichtung</mat-card-title>
+  </mat-card-header>
 
-    <mat-card-content>
-      @if (!auth.isAuthenticated) {
-        <p>Melde dich mit deinem Keycloak-Konto an, um die App einzurichten.</p>
-        <p class="hint">Falls du noch kein Konto hast, kannst du dich auf der Keycloak-Seite registrieren.</p>
-        <button mat-raised-button color="primary" (click)="loginWithKeycloak()">
-          Mit Keycloak anmelden
-        </button>
-      } @else if (!setupComplete) {
-        <p>Angemeldet als <strong>{{ auth.userName }}</strong>.</p>
-        <p>Gib einen Namen für deine Familie ein:</p>
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Familienname</mat-label>
-          <input matInput [(ngModel)]="familyName" placeholder="z.B. Familie Müller" />
-        </mat-form-field>
-        @if (error) {
-          <p class="error">{{ error }}</p>
-        }
-        <button mat-raised-button color="primary" [disabled]="loading" (click)="submitSetup()">
-          @if (loading) {
-            <mat-spinner diameter="20"></mat-spinner>
-          } @else {
-            App einrichten
+  <mat-card-content>
+
+    @if (!auth.isAuthenticated) {
+      <p style="margin-top: 16px;">Bitte melden Sie sich an, um die Einrichtung zu starten.</p>
+      <button mat-raised-button color="primary" (click)="loginWithKeycloak()">
+        Mit Keycloak anmelden
+      </button>
+    }
+
+    @if (auth.isAuthenticated && !setupComplete) {
+      <mat-stepper orientation="vertical" style="margin-top: 8px;">
+
+        <!-- Step 1: Familienname -->
+        <mat-step label="Familie">
+          <mat-form-field appearance="outline" style="width: 100%; margin-top: 16px;">
+            <mat-label>Familienname</mat-label>
+            <input matInput [(ngModel)]="familyName" placeholder="z.B. Müller">
+          </mat-form-field>
+          @if (error) {
+            <p style="color: red;">{{ error }}</p>
           }
-        </button>
-      } @else {
-        <p>Einrichtung abgeschlossen! Du wirst weitergeleitet...</p>
-        <mat-spinner diameter="40"></mat-spinner>
-      }
-    </mat-card-content>
-  </mat-card>
-</div>
+          <div style="margin-top: 8px;">
+            <button mat-raised-button color="primary" [disabled]="!familyName.trim()" matStepperNext>
+              Weiter
+            </button>
+          </div>
+        </mat-step>
+
+        <!-- Step 2: Elternteil-Daten -->
+        <mat-step label="Ihre Daten">
+          <div style="margin-top: 16px;">
+            <app-parents-step [keycloakPrefill]="keycloakPrefill"></app-parents-step>
+          </div>
+          <div style="margin-top: 16px; display: flex; gap: 8px; align-items: center;">
+            <button mat-button matStepperPrevious>Zurück</button>
+            <button mat-raised-button color="primary" (click)="submitSetup()" [disabled]="loading">
+              @if (loading) {
+                <mat-progress-spinner diameter="20" mode="indeterminate"></mat-progress-spinner>
+              } @else {
+                Einrichtung abschließen
+              }
+            </button>
+          </div>
+          @if (error) {
+            <p style="color: red; margin-top: 8px;">{{ error }}</p>
+          }
+        </mat-step>
+
+      </mat-stepper>
+    }
+
+    @if (setupComplete) {
+      <div style="text-align: center; padding: 32px;">
+        <mat-icon style="font-size: 48px; width: 48px; height: 48px; color: green;">check_circle</mat-icon>
+        <p>Einrichtung abgeschlossen! Sie werden weitergeleitet…</p>
+      </div>
+    }
+
+  </mat-card-content>
+</mat-card>
