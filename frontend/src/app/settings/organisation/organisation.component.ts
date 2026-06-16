@@ -7,6 +7,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { IconPickerDialogComponent } from '../../shared/components/icon-picker/icon-picker-dialog.component';
 import { OrganisationService } from '../../shared/services/organisation.service';
 import { FieldDefinitionService } from '../custom-fields/services/field-definition.service';
 import { OrganisationDTO, DutyEntryDTO } from '../../shared/models/organisation.model';
@@ -19,6 +21,7 @@ import { FieldDefinition } from '../../shared/models/field-definition.model';
     CommonModule, ReactiveFormsModule,
     MatTabsModule, MatTableModule, MatFormFieldModule,
     MatInputModule, MatButtonModule, MatIconModule,
+    MatDialogModule, IconPickerDialogComponent,
   ],
   templateUrl: './organisation.component.html',
   styleUrl: './organisation.component.scss',
@@ -45,6 +48,7 @@ export class OrganisationComponent implements OnInit {
   constructor(
     private orgService: OrganisationService,
     private fieldDefService: FieldDefinitionService,
+    private dialog: MatDialog,
   ) {}
 
   ngOnInit(): void {
@@ -129,6 +133,16 @@ export class OrganisationComponent implements OnInit {
         this.loadDutySettings();
       });
     });
+  }
+
+  openIconPicker(): void {
+    this.dialog.open(IconPickerDialogComponent, { width: '620px' })
+      .afterClosed()
+      .subscribe(iconName => {
+        if (iconName) {
+          this.dutyForm.get('icon')!.setValue(iconName);
+        }
+      });
   }
 
   deleteFoodProperty(def: FieldDefinition): void {

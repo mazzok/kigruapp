@@ -57,10 +57,15 @@
               <mat-label>Bezeichnung</mat-label>
               <input matInput formControlName="labelDe">
             </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Icon (Material Icon)</mat-label>
-              <input matInput formControlName="icon">
-            </mat-form-field>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <mat-form-field style="flex: 1;" appearance="outline">
+                <mat-label>Icon (Material Icon)</mat-label>
+                <input matInput formControlName="icon">
+              </mat-form-field>
+              <button mat-icon-button type="button" (click)="openIconPicker()" title="Icon auswählen">
+                <mat-icon>image_search</mat-icon>
+              </button>
+            </div>
             <button mat-raised-button color="primary" type="submit" [disabled]="!dutyForm.valid">
               Eigenschaft hinzufuegen
             </button>
