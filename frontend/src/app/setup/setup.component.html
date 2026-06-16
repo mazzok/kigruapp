@@ -13,10 +13,10 @@
     }
 
     @if (auth.isAuthenticated && !setupComplete) {
-      <mat-stepper orientation="vertical" style="margin-top: 8px;">
+      <mat-stepper orientation="vertical" style="margin-top: 8px;" [linear]="true">
 
         <!-- Step 1: Familienname -->
-        <mat-step label="Familie">
+        <mat-step label="Familie" [completed]="!!familyName.trim()">
           <mat-form-field appearance="outline" style="width: 100%; margin-top: 16px;">
             <mat-label>Familienname</mat-label>
             <input matInput [(ngModel)]="familyName" placeholder="z.B. Müller">

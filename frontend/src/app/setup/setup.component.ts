@@ -88,14 +88,19 @@ export class SetupComponent implements OnInit {
     }).oauthService;
     const claims = oauthSvc?.getIdentityClaims?.() ?? null;
 
-    const parentProperties = this.parentsStep?.getParentsBasicProperties?.()?.[0] ?? [];
+    const parentProperties = this.parentsStep?.getParentsBasicProperties?.()?.[0];
+    if (!parentProperties) {
+      this.loading = false;
+      this.error = 'Bitte füllen Sie die Elterndaten aus.';
+      return;
+    }
 
     const body = {
       familyName: this.familyName.trim(),
       keycloakUserId: claims?.['sub'] ?? '',
-      email: this.auth.userEmail,
-      firstName: claims?.['given_name'] ?? '',
-      lastName: claims?.['family_name'] ?? '',
+      email: this.keycloakPrefill?.email ?? this.auth.userEmail ?? '',
+      firstName: this.keycloakPrefill?.firstName ?? '',
+      lastName: this.keycloakPrefill?.lastName ?? '',
       parentProperties,
     };
 
