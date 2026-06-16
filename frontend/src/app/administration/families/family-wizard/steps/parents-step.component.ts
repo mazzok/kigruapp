@@ -1,4 +1,4 @@
-import { Component, OnInit, QueryList, ViewChildren } from '@angular/core';
+import { Component, Input, OnInit, QueryList, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -46,6 +46,7 @@ export class ParentsStepComponent implements OnInit {
   private static readonly ALLOWED_FIELDS = ['firstName', 'lastName', 'email', 'phone', 'dateOfBirth', 'address'];
 
   @ViewChildren('parentForm') parentForms!: QueryList<SectionFormComponent>;
+  @Input() keycloakPrefill: { firstName: string; lastName: string; email: string } | null = null;
 
   definitions: FieldDefinition[] = [];
   private personTypeDef?: FieldDefinition;
@@ -57,6 +58,9 @@ export class ParentsStepComponent implements OnInit {
     this.fieldDefService.listActive().subscribe((defs) => {
       this.personTypeDef = defs.find((d) => d.fieldName === 'personType');
       this.definitions = defs.filter((d) => ParentsStepComponent.ALLOWED_FIELDS.includes(d.fieldName));
+      if (this.keycloakPrefill) {
+        setTimeout(() => this.applyKeycloakPrefill(), 0);
+      }
     });
   }
 
@@ -67,6 +71,14 @@ export class ParentsStepComponent implements OnInit {
   removeParent(index: number): void {
     this.parentIndices.splice(index, 1);
     this.parentIndices = this.parentIndices.map((_, i) => i);
+  }
+
+  private applyKeycloakPrefill(): void {
+    const first = this.parentForms?.first;
+    if (!first || !this.keycloakPrefill) return;
+    first.setValueByFieldName('firstName', this.keycloakPrefill.firstName);
+    first.setValueByFieldName('lastName', this.keycloakPrefill.lastName);
+    first.setValueByFieldName('email', this.keycloakPrefill.email);
   }
 
   prefill(lastName: string, address?: { street: string; zip: string; city: string } | null): void {
