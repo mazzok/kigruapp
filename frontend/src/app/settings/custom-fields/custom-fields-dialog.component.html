@@ -1,0 +1,62 @@
+<h2 mat-dialog-title>{{ isEditMode ? 'Feld bearbeiten' : 'Neues Feld hinzufügen' }}</h2>
+
+<mat-dialog-content style="min-width: 480px;">
+  <form [formGroup]="form" style="display: flex; flex-direction: column; gap: 8px; padding-top: 8px;">
+
+    <mat-form-field appearance="outline">
+      <mat-label>Feldname (technisch)</mat-label>
+      <input matInput formControlName="fieldName" placeholder="z.B. allergies">
+      @if (isEditMode) {
+        <mat-hint>Technischer Name kann nicht geändert werden</mat-hint>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Bezeichnung (Deutsch)</mat-label>
+      <input matInput formControlName="labelDe" placeholder="z.B. Allergien">
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Bezeichnung (Englisch)</mat-label>
+      <input matInput formControlName="labelEn" placeholder="z.B. Allergies">
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Beschreibung</mat-label>
+      <textarea matInput formControlName="description" rows="2"></textarea>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Feldtyp</mat-label>
+      <mat-select formControlName="schemaType">
+        <mat-option value="text">Text</mat-option>
+        <mat-option value="number">Zahl</mat-option>
+        <mat-option value="date">Datum</mat-option>
+        <mat-option value="boolean">Ja/Nein</mat-option>
+        <mat-option value="select">Auswahlliste</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    @if (isSelectType) {
+      <mat-form-field appearance="outline">
+        <mat-label>Optionen (kommagetrennt)</mat-label>
+        <input matInput formControlName="options" placeholder="Option A, Option B, Option C">
+      </mat-form-field>
+    }
+
+    <mat-form-field appearance="outline">
+      <mat-label>Keycloak-Attribut (optional)</mat-label>
+      <input matInput formControlName="keycloakMapping" placeholder="z.B. given_name">
+    </mat-form-field>
+
+    <mat-checkbox formControlName="required">Pflichtfeld</mat-checkbox>
+
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="cancel()">Abbrechen</button>
+  <button mat-raised-button color="primary" (click)="submit()" [disabled]="form.invalid">
+    {{ isEditMode ? 'Speichern' : 'Hinzufügen' }}
+  </button>
+</mat-dialog-actions>
