@@ -5,7 +5,6 @@ import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/materia
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
@@ -38,7 +37,7 @@ export interface CookingDutyDialogResult {
   imports: [
     CommonModule, ReactiveFormsModule,
     MatDialogModule, MatFormFieldModule, MatInputModule,
-    MatDatepickerModule, MatNativeDateModule, MatCheckboxModule,
+    MatDatepickerModule, MatCheckboxModule,
     MatSelectModule, MatButtonModule, MatIconModule,
   ],
   templateUrl: './cooking-duty-dialog.component.html',
