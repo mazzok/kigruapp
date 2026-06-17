@@ -47,10 +47,16 @@ export class SectionFormComponent implements OnInit {
   getValues(): SectionInput[] {
     return this.fieldDTOs
       .filter((dto) => !dto.definitionOutdated)
-      .map((dto) => ({
-        definitionId: dto.definitionId,
-        value: this.controls[dto.definitionId]?.value ?? null,
-      }));
+      .map((dto) => {
+        let value: unknown = this.controls[dto.definitionId]?.value ?? null;
+        if (value instanceof Date && dto.jsonSchema?.['format'] === 'date') {
+          const y = value.getFullYear();
+          const m = String(value.getMonth() + 1).padStart(2, '0');
+          const d = String(value.getDate()).padStart(2, '0');
+          value = `${y}-${m}-${d}`;
+        }
+        return { definitionId: dto.definitionId, value };
+      });
   }
 
   private buildForm(): void {
