@@ -12,6 +12,7 @@ public class PersonDTO {
     public List<FieldInstanceDTO> duties;
     public List<FieldInstanceDTO> finance;
     public List<FieldInstanceDTO> customProperties;
+    public List<FieldInstanceDTO> organisationalUnit;
     public String createdAt;
     public String updatedAt;
 }

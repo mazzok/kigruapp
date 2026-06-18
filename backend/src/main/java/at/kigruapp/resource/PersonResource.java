@@ -96,7 +96,8 @@ public class PersonResource {
         List<SectionInput> schedules,
         List<SectionInput> duties,
         List<SectionInput> finance,
-        List<SectionInput> customProperties
+        List<SectionInput> customProperties,
+        List<SectionInput> organisationalUnit
     ) {}
 
     public record SectionInput(String definitionId, Object value) {}
@@ -123,6 +124,7 @@ public class PersonResource {
         person.duties = createFieldInstances(request.duties(), now);
         person.finance = createFieldInstances(request.finance(), now);
         person.customProperties = createFieldInstances(request.customProperties(), now);
+        person.organisationalUnit = createFieldInstances(request.organisationalUnit(), now);
 
         // Keycloak provisioning: find fields with keycloakMapping
         MongoCollection<Document> instColl = getFieldInstancesCollection();
@@ -166,6 +168,7 @@ public class PersonResource {
         person.duties = update.duties;
         person.finance = update.finance;
         person.customProperties = update.customProperties;
+        person.organisationalUnit = update.organisationalUnit != null ? update.organisationalUnit : new ArrayList<>();
         person.updatedAt = Instant.now();
         person.update();
         return Response.ok(person).build();
@@ -243,6 +246,7 @@ public class PersonResource {
         dto.duties = resolveRefs(person.duties);
         dto.finance = resolveRefs(person.finance);
         dto.customProperties = resolveRefs(person.customProperties);
+        dto.organisationalUnit = resolveRefs(person.organisationalUnit != null ? person.organisationalUnit : List.of());
         dto.createdAt = person.createdAt != null ? person.createdAt.toString() : null;
         dto.updatedAt = person.updatedAt != null ? person.updatedAt.toString() : null;
         return dto;
