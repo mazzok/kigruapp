@@ -90,7 +90,6 @@ export class PlatzzuweisungComponent implements OnInit {
       // Build map: definitionId → fieldInstanceId by fetching field_instances
       // The instanceId for each group is stored on the ChildDTO from the backend
       // We'll resolve it by looking at existing children's groupInstanceId
-      this.buildInstanceMap();
       this.checkDone();
     });
   }
@@ -98,7 +97,10 @@ export class PlatzzuweisungComponent implements OnInit {
   private loaded = 0;
   private checkDone(): void {
     this.loaded++;
-    if (this.loaded >= 2) this.loading = false;
+    if (this.loaded >= 2) {
+      this.buildInstanceMap();
+      this.loading = false;
+    }
   }
 
   private buildInstanceMap(): void {
