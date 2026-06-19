@@ -11,8 +11,8 @@ export class FieldInstanceService {
     return this.api.get<FieldInstanceDTO>(`/field-instances/${id}`);
   }
 
-  create(fieldInstance: FieldInstance): Observable<FieldInstance> {
-    return this.api.post<FieldInstance>('/field-instances', fieldInstance);
+  create(definitionId: string, value: unknown): Observable<{ id: string }> {
+    return this.api.post<{ id: string }>('/field-instances', { definitionId, value });
   }
 
   update(id: string, fieldInstance: FieldInstance): Observable<FieldInstance> {

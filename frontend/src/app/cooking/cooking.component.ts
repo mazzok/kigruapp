@@ -214,10 +214,7 @@ export class CookingComponent implements OnInit {
       foodProperties: result.foodProperties,
     };
 
-    this.fieldInstanceService.create({
-      definitionId: this.cookingDutyDefId,
-      value,
-    }).subscribe(() => {
+    this.fieldInstanceService.create(this.cookingDutyDefId, value).subscribe(() => {
       this.loadDuties();
     });
   }

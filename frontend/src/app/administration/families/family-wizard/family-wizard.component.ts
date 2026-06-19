@@ -78,10 +78,11 @@ export class FamilyWizardComponent {
         duties: [],
         finance: [],
         customProperties: [],
+        organisationalUnit: [],
       };
       await lastValueFrom(this.personService.create(childRequest));
 
-      const parentsProps = this.parentsStep.getParentsBasicProperties();
+      const parentsProps = this.parentsStep?.getParentsBasicProperties() ?? [];
       for (const parentProps of parentsProps) {
         const parentRequest: CreatePersonRequest = {
           familyId,
@@ -91,6 +92,7 @@ export class FamilyWizardComponent {
           duties: [],
           finance: [],
           customProperties: [],
+          organisationalUnit: [],
         };
         await lastValueFrom(this.personService.create(parentRequest));
       }

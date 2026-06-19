@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { ApiService } from '../../core/services/api.service';
-import { Person, CreatePersonRequest, PersonDTO } from '../models/person.model';
+import { Person, CreatePersonRequest, PersonDTO, ChildDTO } from '../models/person.model';
 import { Observable } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
@@ -20,8 +20,16 @@ export class PersonService {
     return this.api.get<PersonDTO>(`/persons/${id}/full`);
   }
 
+  getChildren(): Observable<ChildDTO[]> {
+    return this.api.get<ChildDTO[]>('/persons/children');
+  }
+
   create(request: CreatePersonRequest): Observable<Person> {
     return this.api.post<Person>('/persons', request);
+  }
+
+  assignGroup(personId: string, definitionId: string, fieldInstanceId: string): Observable<void> {
+    return this.api.patch<void>(`/persons/${personId}/group`, { definitionId, fieldInstanceId });
   }
 
   update(id: string, person: Person): Observable<Person> {
