@@ -89,6 +89,17 @@ public class PersonResource {
         return toFullDTO(person);
     }
 
+    public record ChildDTO(
+        String id,
+        String firstName,
+        String lastName,
+        String dateOfBirth,
+        String groupDefinitionId,
+        String groupInstanceId
+    ) {}
+
+    public record GroupAssignmentRequest(String definitionId, String fieldInstanceId) {}
+
     public record CreatePersonRequest(
         String familyId,
         List<SectionInput> basicProperties,
@@ -277,6 +288,108 @@ public class PersonResource {
             dtos.add(dto);
         }
         return dtos;
+    }
+
+    @GET
+    @Path("/children")
+    public List<ChildDTO> listChildren() {
+        List<Person> all = Person.listAll();
+        List<ChildDTO> result = new ArrayList<>();
+        for (Person person : all) {
+            if (!isChild(person)) continue;
+            result.add(toChildDTO(person));
+        }
+        return result;
+    }
+
+    @PATCH
+    @Path("/{id}/group")
+    public Response patchGroup(@PathParam("id") String id, GroupAssignmentRequest request) {
+        Person person = Person.findById(new ObjectId(id));
+        if (person == null) throw new NotFoundException();
+
+        ObjectId defId = new ObjectId(request.definitionId());
+        ObjectId instId = new ObjectId(request.fieldInstanceId());
+
+        if (person.organisationalUnit == null) {
+            person.organisationalUnit = new ArrayList<>();
+        }
+
+        boolean found = false;
+        for (FieldRef ref : person.organisationalUnit) {
+            FieldDefinition def = FieldDefinition.findById(ref.definitionId);
+            if (def != null && "group".equals(def.fieldName)) {
+                ref.definitionId = defId;
+                ref.fieldInstanceId = instId;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            person.organisationalUnit.add(new FieldRef(defId, instId));
+        }
+
+        person.updatedAt = Instant.now();
+        person.update();
+        return Response.noContent().build();
+    }
+
+    private boolean isChild(Person person) {
+        if (person.roles == null) return false;
+        MongoCollection<Document> instColl = getFieldInstancesCollection();
+        for (FieldRef ref : person.roles) {
+            FieldDefinition def = FieldDefinition.findById(ref.definitionId);
+            if (def != null && "personType".equals(def.fieldName)) {
+                Document inst = instColl.find(new Document("_id", ref.fieldInstanceId)).first();
+                if (inst != null && "CHILD".equals(inst.get("value"))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private ChildDTO toChildDTO(Person person) {
+        String firstName = resolveBasicValue(person, "firstName");
+        String lastName = resolveBasicValue(person, "lastName");
+        String dateOfBirth = resolveBasicValue(person, "dateOfBirth");
+
+        String groupDefinitionId = null;
+        String groupInstanceId = null;
+        if (person.organisationalUnit != null) {
+            for (FieldRef ref : person.organisationalUnit) {
+                FieldDefinition def = FieldDefinition.findById(ref.definitionId);
+                if (def != null && "group".equals(def.fieldName)) {
+                    groupDefinitionId = ref.definitionId.toHexString();
+                    groupInstanceId = ref.fieldInstanceId.toHexString();
+                    break;
+                }
+            }
+        }
+
+        return new ChildDTO(
+            person.id.toHexString(),
+            firstName,
+            lastName,
+            dateOfBirth,
+            groupDefinitionId,
+            groupInstanceId
+        );
+    }
+
+    private String resolveBasicValue(Person person, String fieldName) {
+        if (person.basicProperties == null) return null;
+        MongoCollection<Document> instColl = getFieldInstancesCollection();
+        for (FieldRef ref : person.basicProperties) {
+            FieldDefinition def = FieldDefinition.findById(ref.definitionId);
+            if (def != null && fieldName.equals(def.fieldName)) {
+                Document inst = instColl.find(new Document("_id", ref.fieldInstanceId)).first();
+                if (inst != null && inst.get("value") != null) {
+                    return inst.get("value").toString();
+                }
+            }
+        }
+        return null;
     }
 
     @SuppressWarnings("unchecked")
