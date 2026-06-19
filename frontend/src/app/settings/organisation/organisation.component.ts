@@ -9,8 +9,10 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { IconPickerDialogComponent } from '../../shared/components/icon-picker/icon-picker-dialog.component';
+import { switchMap, map } from 'rxjs/operators';
 import { OrganisationService } from '../../shared/services/organisation.service';
 import { FieldDefinitionService } from '../custom-fields/services/field-definition.service';
+import { FieldInstanceService } from '../../shared/services/field-instance.service';
 import { OrganisationDTO, DutyEntryDTO } from '../../shared/models/organisation.model';
 import { FieldDefinition } from '../../shared/models/field-definition.model';
 
@@ -48,6 +50,7 @@ export class OrganisationComponent implements OnInit {
   constructor(
     private orgService: OrganisationService,
     private fieldDefService: FieldDefinitionService,
+    private fieldInstanceService: FieldInstanceService,
     private dialog: MatDialog,
   ) {}
 
@@ -78,7 +81,13 @@ export class OrganisationComponent implements OnInit {
       properties: { color },
     };
 
-    this.fieldDefService.create(newDef).subscribe((created) => {
+    this.fieldDefService.create(newDef).pipe(
+      switchMap((created) =>
+        this.fieldInstanceService.create(created.id!, true).pipe(
+          map(() => created)
+        )
+      )
+    ).subscribe((created) => {
       const updatedIds = [...this.groupsOrg!.definitions.map((d) => d.id!), created.id!];
       this.orgService.update(this.groupsOrg!.id, { definitionIds: updatedIds }).subscribe(() => {
         this.groupForm.reset({ color: '#4285f4' });
