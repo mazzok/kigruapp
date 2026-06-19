@@ -25,6 +25,13 @@ export const routes: Routes = [
             m => m.FamilyListComponent
           ),
       },
+      {
+        path: 'platzzuweisung',
+        loadComponent: () =>
+          import('./administration/platzzuweisung/platzzuweisung.component').then(
+            m => m.PlatzzuweisungComponent
+          ),
+      },
     ],
   },
   {
