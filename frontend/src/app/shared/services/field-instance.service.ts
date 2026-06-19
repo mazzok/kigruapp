@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { ApiService } from '../../core/services/api.service';
 import { FieldInstance, FieldInstanceDTO } from '../models/field-instance.model';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 @Injectable({ providedIn: 'root' })
 export class FieldInstanceService {
@@ -25,5 +26,11 @@ export class FieldInstanceService {
 
   batchSave(instances: { definitionId: string; value: unknown }[]): Observable<unknown> {
     return this.api.put('/field-instances/batch', instances);
+  }
+
+  getByDefinitionId(definitionId: string): Observable<{ id: string } | null> {
+    return this.api.get<{ id: string }>(`/field-instances/by-definition/${definitionId}`).pipe(
+      catchError(() => of(null))
+    );
   }
 }

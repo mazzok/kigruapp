@@ -4,8 +4,11 @@ import { MatTableModule } from '@angular/material/table';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { PersonService } from '../../shared/services/person.service';
 import { OrganisationService } from '../../shared/services/organisation.service';
+import { FieldInstanceService } from '../../shared/services/field-instance.service';
 import { ChildDTO } from '../../shared/models/person.model';
 import { FieldDefinition } from '../../shared/models/field-definition.model';
 
@@ -77,6 +80,7 @@ export class PlatzzuweisungComponent implements OnInit {
   constructor(
     private personService: PersonService,
     private orgService: OrganisationService,
+    private fieldInstanceService: FieldInstanceService,
   ) {}
 
   ngOnInit(): void {
@@ -87,10 +91,19 @@ export class PlatzzuweisungComponent implements OnInit {
 
     this.orgService.getByTag('groups').subscribe((org) => {
       this.groups = org.definitions.filter((d) => !d.outdatedAt);
-      // Build map: definitionId → fieldInstanceId by fetching field_instances
-      // The instanceId for each group is stored on the ChildDTO from the backend
-      // We'll resolve it by looking at existing children's groupInstanceId
-      this.checkDone();
+      if (this.groups.length === 0) {
+        this.checkDone();
+        return;
+      }
+      const lookups = this.groups.map((g) =>
+        this.fieldInstanceService.getByDefinitionId(g.id!).pipe(catchError(() => of(null)))
+      );
+      forkJoin(lookups).subscribe((instances) => {
+        instances.forEach((inst, i) => {
+          if (inst) this.instanceIdByDefId.set(this.groups[i].id!, inst.id);
+        });
+        this.checkDone();
+      });
     });
   }
 
@@ -98,17 +111,13 @@ export class PlatzzuweisungComponent implements OnInit {
   private checkDone(): void {
     this.loaded++;
     if (this.loaded >= 2) {
-      this.buildInstanceMap();
-      this.loading = false;
-    }
-  }
-
-  private buildInstanceMap(): void {
-    // Collect known mappings from already-assigned children
-    for (const child of this.children) {
-      if (child.groupDefinitionId && child.groupInstanceId) {
-        this.instanceIdByDefId.set(child.groupDefinitionId, child.groupInstanceId);
+      // Supplement server-fetched map with any additional assignments from children
+      for (const child of this.children) {
+        if (child.groupDefinitionId && child.groupInstanceId) {
+          this.instanceIdByDefId.set(child.groupDefinitionId, child.groupInstanceId);
+        }
       }
+      this.loading = false;
     }
   }
 

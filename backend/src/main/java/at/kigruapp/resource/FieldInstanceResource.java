@@ -37,6 +37,14 @@ public class FieldInstanceResource {
     }
 
     @GET
+    @Path("/by-definition/{definitionId}")
+    public Response getByDefinitionId(@PathParam("definitionId") String definitionId) {
+        Document found = getCollection().find(new Document("definitionId", new ObjectId(definitionId))).first();
+        if (found == null) return Response.status(404).build();
+        return Response.ok(new Document("id", found.getObjectId("_id").toHexString()).toJson()).build();
+    }
+
+    @GET
     @Path("/{id}")
     public FieldInstanceDTO get(@PathParam("id") String id) {
         Document doc = getCollection().find(new Document("_id", new ObjectId(id))).first();
