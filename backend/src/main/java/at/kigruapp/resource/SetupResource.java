@@ -68,6 +68,26 @@ public class SetupResource {
         fieldInstancesCol.insertOne(emailInstance);
         ObjectId emailInstanceId = emailInstance.getObjectId("_id");
 
+        // 2b. Create firstName FieldInstance
+        ObjectId firstNameDefId = findFieldDefinitionId("firstName");
+        Document firstNameInstance = new Document()
+            .append("definitionId", firstNameDefId)
+            .append("value", request.firstName != null ? request.firstName : "")
+            .append("createdAt", Instant.now())
+            .append("updatedAt", Instant.now());
+        fieldInstancesCol.insertOne(firstNameInstance);
+        ObjectId firstNameInstanceId = firstNameInstance.getObjectId("_id");
+
+        // 2c. Create lastName FieldInstance
+        ObjectId lastNameDefId = findFieldDefinitionId("lastName");
+        Document lastNameInstance = new Document()
+            .append("definitionId", lastNameDefId)
+            .append("value", request.lastName != null ? request.lastName : "")
+            .append("createdAt", Instant.now())
+            .append("updatedAt", Instant.now());
+        fieldInstancesCol.insertOne(lastNameInstance);
+        ObjectId lastNameInstanceId = lastNameInstance.getObjectId("_id");
+
         // 3. Create ADMIN role FieldInstance
         ObjectId roleDefId = findFieldDefinitionId("role");
         Document roleInstance = new Document()
@@ -93,6 +113,8 @@ public class SetupResource {
         person.familyId = (ObjectId) family.id;
         person.keycloakUserId = request.keycloakUserId;
         person.basicProperties = new ArrayList<>(List.of(
+            new FieldRef(firstNameDefId, firstNameInstanceId),
+            new FieldRef(lastNameDefId, lastNameInstanceId),
             new FieldRef(emailDefId, emailInstanceId),
             new FieldRef(personTypeDefId, personTypeInstanceId)
         ));
