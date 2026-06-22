@@ -168,19 +168,29 @@ public class PersonResource {
 
     @PUT
     @Path("/{id}")
-    public Response update(@PathParam("id") String id, Person update) {
+    public Response update(@PathParam("id") String id, CreatePersonRequest request) {
         Person person = Person.findById(new ObjectId(id));
         if (person == null) {
             throw new NotFoundException();
         }
-        person.basicProperties = update.basicProperties;
-        person.roles = update.roles;
-        person.schedules = update.schedules;
-        person.duties = update.duties;
-        person.finance = update.finance;
-        person.customProperties = update.customProperties;
-        person.organisationalUnit = update.organisationalUnit != null ? update.organisationalUnit : new ArrayList<>();
-        person.updatedAt = Instant.now();
+        // Delete all existing field instances for this person
+        deleteFieldInstances(person.basicProperties);
+        deleteFieldInstances(person.roles);
+        deleteFieldInstances(person.schedules);
+        deleteFieldInstances(person.duties);
+        deleteFieldInstances(person.finance);
+        deleteFieldInstances(person.customProperties);
+        deleteFieldInstances(person.organisationalUnit);
+        // Create fresh field instances from request
+        Instant now = Instant.now();
+        person.basicProperties = createFieldInstances(request.basicProperties(), now);
+        person.roles = createFieldInstances(request.roles(), now);
+        person.schedules = createFieldInstances(request.schedules(), now);
+        person.duties = createFieldInstances(request.duties(), now);
+        person.finance = createFieldInstances(request.finance(), now);
+        person.customProperties = createFieldInstances(request.customProperties(), now);
+        person.organisationalUnit = createFieldInstances(request.organisationalUnit(), now);
+        person.updatedAt = now;
         person.update();
         return Response.ok(person).build();
     }
@@ -335,9 +345,9 @@ public class PersonResource {
     }
 
     private boolean isChild(Person person) {
-        if (person.roles == null) return false;
+        if (person.basicProperties == null) return false;
         MongoCollection<Document> instColl = getFieldInstancesCollection();
-        for (FieldRef ref : person.roles) {
+        for (FieldRef ref : person.basicProperties) {
             FieldDefinition def = FieldDefinition.findById(ref.definitionId);
             if (def != null && "personType".equals(def.fieldName)) {
                 Document inst = instColl.find(new Document("_id", ref.fieldInstanceId)).first();
