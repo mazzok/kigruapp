@@ -31,6 +31,12 @@
           </mat-panel-description>
         </mat-expansion-panel-header>
 
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 8px;">
+          <button mat-stroked-button (click)="openEditWizard(node.family.id!); $event.stopPropagation()">
+            <mat-icon>edit</mat-icon> Bearbeiten
+          </button>
+        </div>
+
         @if (node.persons.length === 0) {
           <p class="empty-family">Keine Personen in dieser Familie.</p>
         } @else {
