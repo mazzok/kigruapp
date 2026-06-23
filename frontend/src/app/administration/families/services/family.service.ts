@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { ApiService } from '../../../core/services/api.service';
-import { Family } from '../../../shared/models/family.model';
+import { Family, FamilyAddress } from '../../../shared/models/family.model';
 import { Person } from '../../../shared/models/person.model';
 import { Observable } from 'rxjs';
 
@@ -20,8 +20,8 @@ export class FamilyService {
     return this.api.post<Family>('/families', family);
   }
 
-  update(id: string, family: Family): Observable<Family> {
-    return this.api.put<Family>(`/families/${id}`, family);
+  update(id: string, data: { name: string; address?: FamilyAddress }): Observable<Family> {
+    return this.api.put<Family>(`/families/${id}`, data);
   }
 
   delete(id: string): Observable<void> {
