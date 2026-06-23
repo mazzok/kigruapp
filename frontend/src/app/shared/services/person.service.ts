@@ -32,8 +32,8 @@ export class PersonService {
     return this.api.patch<void>(`/persons/${personId}/group`, { definitionId, fieldInstanceId });
   }
 
-  update(id: string, person: Person): Observable<Person> {
-    return this.api.put<Person>(`/persons/${id}`, person);
+  update(id: string, request: CreatePersonRequest): Observable<Person> {
+    return this.api.put<Person>(`/persons/${id}`, request);
   }
 
   delete(id: string): Observable<void> {
