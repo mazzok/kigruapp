@@ -173,23 +173,36 @@ public class PersonResource {
         if (person == null) {
             throw new NotFoundException();
         }
-        // Delete all existing field instances for this person
-        deleteFieldInstances(person.basicProperties);
-        deleteFieldInstances(person.roles);
-        deleteFieldInstances(person.schedules);
-        deleteFieldInstances(person.duties);
-        deleteFieldInstances(person.finance);
-        deleteFieldInstances(person.customProperties);
-        deleteFieldInstances(person.organisationalUnit);
-        // Create fresh field instances from request
+        // Only replace sections that are explicitly provided (non-null) in the request
         Instant now = Instant.now();
-        person.basicProperties = createFieldInstances(request.basicProperties(), now);
-        person.roles = createFieldInstances(request.roles(), now);
-        person.schedules = createFieldInstances(request.schedules(), now);
-        person.duties = createFieldInstances(request.duties(), now);
-        person.finance = createFieldInstances(request.finance(), now);
-        person.customProperties = createFieldInstances(request.customProperties(), now);
-        person.organisationalUnit = createFieldInstances(request.organisationalUnit(), now);
+        if (request.basicProperties() != null) {
+            deleteFieldInstances(person.basicProperties);
+            person.basicProperties = createFieldInstances(request.basicProperties(), now);
+        }
+        if (request.roles() != null) {
+            deleteFieldInstances(person.roles);
+            person.roles = createFieldInstances(request.roles(), now);
+        }
+        if (request.schedules() != null) {
+            deleteFieldInstances(person.schedules);
+            person.schedules = createFieldInstances(request.schedules(), now);
+        }
+        if (request.duties() != null) {
+            deleteFieldInstances(person.duties);
+            person.duties = createFieldInstances(request.duties(), now);
+        }
+        if (request.finance() != null) {
+            deleteFieldInstances(person.finance);
+            person.finance = createFieldInstances(request.finance(), now);
+        }
+        if (request.customProperties() != null) {
+            deleteFieldInstances(person.customProperties);
+            person.customProperties = createFieldInstances(request.customProperties(), now);
+        }
+        if (request.organisationalUnit() != null) {
+            deleteFieldInstances(person.organisationalUnit);
+            person.organisationalUnit = createFieldInstances(request.organisationalUnit(), now);
+        }
         person.updatedAt = now;
         person.update();
         return Response.ok(person).build();

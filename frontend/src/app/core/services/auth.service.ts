@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { OAuthService, AuthConfig } from 'angular-oauth2-oidc';
+import { filter, map, Observable } from 'rxjs';
 
 const authConfig: AuthConfig = {
   issuer: 'http://localhost:8443/realms/kigruapp',
@@ -35,6 +36,14 @@ export class AuthService {
 
   get isAuthenticated(): boolean {
     return this.oauthService.hasValidAccessToken();
+  }
+
+  /** Emits once whenever a new token is received (post-redirect login or silent refresh) */
+  get tokenReceived$(): Observable<void> {
+    return this.oauthService.events.pipe(
+      filter(e => e.type === 'token_received' || e.type === 'token_refreshed'),
+      map(() => undefined),
+    );
   }
 
   get userName(): string {

@@ -9,12 +9,13 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { IconPickerDialogComponent } from '../../shared/components/icon-picker/icon-picker-dialog.component';
-import { switchMap, map } from 'rxjs/operators';
+import { switchMap } from 'rxjs/operators';
 import { OrganisationService } from '../../shared/services/organisation.service';
 import { FieldDefinitionService } from '../custom-fields/services/field-definition.service';
 import { FieldInstanceService } from '../../shared/services/field-instance.service';
 import { OrganisationDTO, DutyEntryDTO } from '../../shared/models/organisation.model';
 import { FieldDefinition } from '../../shared/models/field-definition.model';
+import { FieldInstanceDTO } from '../../shared/models/field-instance.model';
 
 @Component({
   selector: 'app-organisation',
@@ -31,7 +32,8 @@ import { FieldDefinition } from '../../shared/models/field-definition.model';
 export class OrganisationComponent implements OnInit {
   // Groups tab
   groupsOrg: OrganisationDTO | null = null;
-  groupsDataSource = new MatTableDataSource<FieldDefinition>();
+  private groupDefinitionId: string | null = null;
+  groupsDataSource = new MatTableDataSource<FieldInstanceDTO>();
   groupColumns = ['label', 'color', 'actions'];
   groupForm = new FormGroup({
     labelDe: new FormControl('', Validators.required),
@@ -64,7 +66,16 @@ export class OrganisationComponent implements OnInit {
   loadGroups(): void {
     this.orgService.getByTag('groups').subscribe((org) => {
       this.groupsOrg = org;
-      this.groupsDataSource.data = org.definitions;
+      const templateDef = org.definitions.find((d) => d.fieldName === 'group' && !d.outdatedAt);
+      if (!templateDef) {
+        this.groupDefinitionId = null;
+        this.groupsDataSource.data = [];
+        return;
+      }
+      this.groupDefinitionId = templateDef.id!;
+      this.fieldInstanceService.listByDefinitionId(templateDef.id!).subscribe((instances) => {
+        this.groupsDataSource.data = instances;
+      });
     });
   }
 
@@ -72,37 +83,38 @@ export class OrganisationComponent implements OnInit {
     if (!this.groupForm.valid || !this.groupsOrg) return;
     const labelDe = this.groupForm.value.labelDe!;
     const color = this.groupForm.value.color!;
+    const value = { label: labelDe, color };
 
-    const newDef: FieldDefinition = {
-      fieldName: 'group',
-      label: { de: labelDe },
-      jsonSchema: { type: 'string' },
-      required: false,
-      properties: { color },
-    };
-
-    this.fieldDefService.create(newDef).pipe(
-      switchMap((created) =>
-        this.fieldInstanceService.create(created.id!, true).pipe(
-          map(() => created)
-        )
-      )
-    ).subscribe((created) => {
-      const updatedIds = [...this.groupsOrg!.definitions.map((d) => d.id!), created.id!];
-      this.orgService.update(this.groupsOrg!.id, { definitionIds: updatedIds }).subscribe(() => {
+    if (this.groupDefinitionId) {
+      this.fieldInstanceService.create(this.groupDefinitionId, value).subscribe(() => {
         this.groupForm.reset({ color: '#4285f4' });
         this.loadGroups();
       });
-    });
-  }
-
-  deleteGroup(def: FieldDefinition): void {
-    if (!this.groupsOrg) return;
-    this.fieldDefService.outdate(def.id!).subscribe(() => {
-      const updatedIds = this.groupsOrg!.definitions.filter((d) => d.id !== def.id).map((d) => d.id!);
-      this.orgService.update(this.groupsOrg!.id, { definitionIds: updatedIds }).subscribe(() => {
+    } else {
+      const templateDef: FieldDefinition = {
+        fieldName: 'group',
+        label: { de: 'Gruppen' },
+        jsonSchema: { type: 'object', properties: { label: { type: 'string' }, color: { type: 'string' } } },
+        required: false,
+      };
+      this.fieldDefService.create(templateDef).pipe(
+        switchMap((created) => {
+          this.groupDefinitionId = created.id!;
+          const updatedIds = [...this.groupsOrg!.definitions.map((d) => d.id!), created.id!];
+          return this.orgService.update(this.groupsOrg!.id, { definitionIds: updatedIds }).pipe(
+            switchMap(() => this.fieldInstanceService.create(created.id!, value))
+          );
+        })
+      ).subscribe(() => {
+        this.groupForm.reset({ color: '#4285f4' });
         this.loadGroups();
       });
+    }
+  }
+
+  deleteGroup(instance: FieldInstanceDTO): void {
+    this.fieldInstanceService.delete(instance.id!).subscribe(() => {
+      this.loadGroups();
     });
   }
 

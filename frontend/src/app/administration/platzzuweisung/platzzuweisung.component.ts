@@ -4,13 +4,11 @@ import { MatTableModule } from '@angular/material/table';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { forkJoin, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
 import { PersonService } from '../../shared/services/person.service';
 import { OrganisationService } from '../../shared/services/organisation.service';
 import { FieldInstanceService } from '../../shared/services/field-instance.service';
 import { ChildDTO } from '../../shared/models/person.model';
-import { FieldDefinition } from '../../shared/models/field-definition.model';
+import { FieldInstanceDTO } from '../../shared/models/field-instance.model';
 
 @Component({
   selector: 'app-platzzuweisung',
@@ -45,12 +43,12 @@ import { FieldDefinition } from '../../shared/models/field-definition.model';
             <th mat-header-cell *matHeaderCellDef>Gruppe</th>
             <td mat-cell *matCellDef="let child">
               <mat-select
-                [value]="child.groupDefinitionId"
+                [value]="child.groupInstanceId"
                 (selectionChange)="onGroupChange(child, $event.value)"
                 placeholder="—">
                 <mat-option [value]="null">—</mat-option>
                 @for (group of groups; track group.id) {
-                  <mat-option [value]="group.id">{{ group.label['de'] }}</mat-option>
+                  <mat-option [value]="group.id">{{ $any(group.value).label }}</mat-option>
                 }
               </mat-select>
             </td>
@@ -71,11 +69,9 @@ import { FieldDefinition } from '../../shared/models/field-definition.model';
 export class PlatzzuweisungComponent implements OnInit {
   displayedColumns = ['name', 'alter', 'gruppe'];
   children: ChildDTO[] = [];
-  groups: FieldDefinition[] = [];
+  groups: FieldInstanceDTO[] = [];
   loading = true;
-
-  // Map from groupDefinitionId → fieldInstanceId (looked up from groups org)
-  private instanceIdByDefId = new Map<string, string>();
+  private groupDefinitionId: string | null = null;
 
   constructor(
     private personService: PersonService,
@@ -90,18 +86,14 @@ export class PlatzzuweisungComponent implements OnInit {
     });
 
     this.orgService.getByTag('groups').subscribe((org) => {
-      this.groups = org.definitions.filter((d) => !d.outdatedAt);
-      if (this.groups.length === 0) {
+      const templateDef = org.definitions.find((d) => d.fieldName === 'group' && !d.outdatedAt);
+      if (!templateDef) {
         this.checkDone();
         return;
       }
-      const lookups = this.groups.map((g) =>
-        this.fieldInstanceService.getByDefinitionId(g.id!).pipe(catchError(() => of(null)))
-      );
-      forkJoin(lookups).subscribe((instances) => {
-        instances.forEach((inst, i) => {
-          if (inst) this.instanceIdByDefId.set(this.groups[i].id!, inst.id);
-        });
+      this.groupDefinitionId = templateDef.id!;
+      this.fieldInstanceService.listByDefinitionId(templateDef.id!).subscribe((instances) => {
+        this.groups = instances;
         this.checkDone();
       });
     });
@@ -110,15 +102,7 @@ export class PlatzzuweisungComponent implements OnInit {
   private loaded = 0;
   private checkDone(): void {
     this.loaded++;
-    if (this.loaded >= 2) {
-      // Supplement server-fetched map with any additional assignments from children
-      for (const child of this.children) {
-        if (child.groupDefinitionId && child.groupInstanceId) {
-          this.instanceIdByDefId.set(child.groupDefinitionId, child.groupInstanceId);
-        }
-      }
-      this.loading = false;
-    }
+    if (this.loaded >= 2) this.loading = false;
   }
 
   getAge(dateOfBirth: string | null): number | null {
@@ -133,18 +117,11 @@ export class PlatzzuweisungComponent implements OnInit {
     return age;
   }
 
-  onGroupChange(child: ChildDTO, groupDefinitionId: string | null): void {
-    if (!groupDefinitionId) return; // removing group is out of scope
-
-    const fieldInstanceId = this.instanceIdByDefId.get(groupDefinitionId);
-    if (!fieldInstanceId) {
-      console.error('No FieldInstance found for group definition', groupDefinitionId);
-      return;
-    }
-
-    this.personService.assignGroup(child.id, groupDefinitionId, fieldInstanceId).subscribe(() => {
-      child.groupDefinitionId = groupDefinitionId;
-      child.groupInstanceId = fieldInstanceId;
+  onGroupChange(child: ChildDTO, groupInstanceId: string | null): void {
+    if (!groupInstanceId || !this.groupDefinitionId) return;
+    this.personService.assignGroup(child.id, this.groupDefinitionId, groupInstanceId).subscribe(() => {
+      child.groupDefinitionId = this.groupDefinitionId!;
+      child.groupInstanceId = groupInstanceId;
     });
   }
 }

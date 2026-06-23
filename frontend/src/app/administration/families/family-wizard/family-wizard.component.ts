@@ -167,7 +167,7 @@ export class FamilyWizardComponent implements OnInit {
       const req: CreatePersonRequest = {
         familyId,
         basicProperties: child.basicProperties,
-        roles: [], schedules: [], duties: [], finance: [], customProperties: [], organisationalUnit: [],
+        // roles/schedules/duties/finance/customProperties intentionally omitted to preserve existing values
       };
       if (child.id) {
         await lastValueFrom(this.personService.update(child.id, req));
@@ -182,7 +182,7 @@ export class FamilyWizardComponent implements OnInit {
       const req: CreatePersonRequest = {
         familyId,
         basicProperties: parent.basicProperties,
-        roles: [], schedules: [], duties: [], finance: [], customProperties: [], organisationalUnit: [],
+        // roles/schedules/duties/finance/customProperties intentionally omitted to preserve existing values
       };
       if (parent.id) {
         await lastValueFrom(this.personService.update(parent.id, req));
