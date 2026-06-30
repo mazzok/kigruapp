@@ -16,6 +16,7 @@ export interface Person {
   finance: FieldRef[];
   customProperties: FieldRef[];
   organisationalUnit: FieldRef[];
+  assignedDuty: FieldRef[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -47,6 +48,7 @@ export interface PersonDTO {
   finance: FieldInstanceDTO[];
   customProperties: FieldInstanceDTO[];
   organisationalUnit: FieldInstanceDTO[];
+  assignedDuty: FieldInstanceDTO[];
   createdAt?: string;
   updatedAt?: string;
 }

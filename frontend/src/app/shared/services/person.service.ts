@@ -32,6 +32,10 @@ export class PersonService {
     return this.api.patch<void>(`/persons/${personId}/group`, { definitionId, fieldInstanceId });
   }
 
+  assignTeam(personId: string, definitionId: string, fieldInstanceId: string): Observable<void> {
+    return this.api.patch<void>(`/persons/${personId}/assigned-duty`, { definitionId, fieldInstanceId });
+  }
+
   update(id: string, request: CreatePersonRequest): Observable<Person> {
     return this.api.put<Person>(`/persons/${id}`, request);
   }
