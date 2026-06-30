@@ -40,6 +40,15 @@ export class OrganisationComponent implements OnInit {
     color: new FormControl('#4285f4', Validators.required),
   });
 
+  // Parent Teams tab
+  parentTeamsOrg: OrganisationDTO | null = null;
+  private parentTeamsDefinitionId: string | null = null;
+  parentTeamsDataSource = new MatTableDataSource<FieldInstanceDTO>();
+  parentTeamsColumns = ['label', 'actions'];
+  parentTeamsForm = new FormGroup({
+    labelDe: new FormControl('', Validators.required),
+  });
+
   // Duty settings tab
   dutySettingsOrg: OrganisationDTO | null = null;
   cookingDataSource = new MatTableDataSource<FieldDefinition>();
@@ -59,6 +68,7 @@ export class OrganisationComponent implements OnInit {
   ngOnInit(): void {
     this.loadGroups();
     this.loadDutySettings();
+    this.loadParentTeams();
   }
 
   // --- Groups ---
@@ -176,6 +186,69 @@ export class OrganisationComponent implements OnInit {
       this.orgService.update(this.dutySettingsOrg!.id, { definitionIds: [], entries }).subscribe(() => {
         this.loadDutySettings();
       });
+    });
+  }
+
+  // --- Parent Teams ---
+
+  loadParentTeams(): void {
+    this.orgService.getByTag('parent-teams').subscribe({
+      next: (org) => {
+        this.parentTeamsOrg = org;
+        const templateDef = org.definitions.find((d) => d.fieldName === 'parent-team' && !d.outdatedAt);
+        if (!templateDef) {
+          this.parentTeamsDefinitionId = null;
+          this.parentTeamsDataSource.data = [];
+          return;
+        }
+        this.parentTeamsDefinitionId = templateDef.id!;
+        this.fieldInstanceService.listByDefinitionId(templateDef.id!).subscribe((instances) => {
+          this.parentTeamsDataSource.data = instances;
+        });
+      },
+      error: () => {
+        this.parentTeamsOrg = null;
+        this.parentTeamsDefinitionId = null;
+        this.parentTeamsDataSource.data = [];
+      },
+    });
+  }
+
+  addParentTeam(): void {
+    if (!this.parentTeamsForm.valid || !this.parentTeamsOrg) return;
+    const labelDe = this.parentTeamsForm.value.labelDe!;
+    const value = { label: labelDe };
+
+    if (this.parentTeamsDefinitionId) {
+      this.fieldInstanceService.create(this.parentTeamsDefinitionId, value).subscribe(() => {
+        this.parentTeamsForm.reset();
+        this.loadParentTeams();
+      });
+    } else {
+      const templateDef: FieldDefinition = {
+        fieldName: 'parent-team',
+        label: { de: 'Elterneinteilung' },
+        jsonSchema: { type: 'object', properties: { label: { type: 'string' } } },
+        required: false,
+      };
+      this.fieldDefService.create(templateDef).pipe(
+        switchMap((created) => {
+          this.parentTeamsDefinitionId = created.id!;
+          const updatedIds = [...this.parentTeamsOrg!.definitions.map((d) => d.id!), created.id!];
+          return this.orgService.update(this.parentTeamsOrg!.id, { definitionIds: updatedIds }).pipe(
+            switchMap(() => this.fieldInstanceService.create(created.id!, value))
+          );
+        })
+      ).subscribe(() => {
+        this.parentTeamsForm.reset();
+        this.loadParentTeams();
+      });
+    }
+  }
+
+  deleteParentTeam(instance: FieldInstanceDTO): void {
+    this.fieldInstanceService.delete(instance.id!).subscribe(() => {
+      this.loadParentTeams();
     });
   }
 }
