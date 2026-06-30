@@ -100,6 +100,8 @@ public class PersonResource {
 
     public record GroupAssignmentRequest(String definitionId, String fieldInstanceId) {}
 
+    public record TeamAssignmentRequest(String definitionId, String fieldInstanceId) {}
+
     public record CreatePersonRequest(
         String familyId,
         List<SectionInput> basicProperties,
@@ -281,6 +283,7 @@ public class PersonResource {
         dto.finance = resolveRefs(person.finance);
         dto.customProperties = resolveRefs(person.customProperties);
         dto.organisationalUnit = resolveRefs(person.organisationalUnit != null ? person.organisationalUnit : List.of());
+        dto.assignedDuty = resolveRefs(person.assignedDuty != null ? person.assignedDuty : List.of());
         dto.createdAt = person.createdAt != null ? person.createdAt.toString() : null;
         dto.updatedAt = person.updatedAt != null ? person.updatedAt.toString() : null;
         return dto;
@@ -350,6 +353,29 @@ public class PersonResource {
         }
         if (!found) {
             person.organisationalUnit.add(new FieldRef(defId, instId));
+        }
+
+        person.updatedAt = Instant.now();
+        person.update();
+        return Response.noContent().build();
+    }
+
+    @PATCH
+    @Path("/{id}/assigned-duty")
+    public Response patchAssignedDuty(@PathParam("id") String id, TeamAssignmentRequest request) {
+        Person person = Person.findById(new ObjectId(id));
+        if (person == null) throw new NotFoundException();
+
+        ObjectId defId = new ObjectId(request.definitionId());
+        ObjectId instId = new ObjectId(request.fieldInstanceId());
+
+        if (person.assignedDuty == null) {
+            person.assignedDuty = new ArrayList<>();
+        }
+
+        boolean removed = person.assignedDuty.removeIf(ref -> ref.fieldInstanceId.equals(instId));
+        if (!removed) {
+            person.assignedDuty.add(new FieldRef(defId, instId));
         }
 
         person.updatedAt = Instant.now();
