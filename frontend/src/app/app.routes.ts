@@ -32,6 +32,13 @@ export const routes: Routes = [
             m => m.PlatzzuweisungComponent
           ),
       },
+      {
+        path: 'elterneinteilung',
+        loadComponent: () =>
+          import('./administration/elterneinteilung/elterneinteilung.component').then(
+            m => m.ElterneinteilungComponent
+          ),
+      },
     ],
   },
   {

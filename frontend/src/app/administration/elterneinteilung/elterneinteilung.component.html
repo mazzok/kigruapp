@@ -1,0 +1,54 @@
+<div class="elterneinteilung-container">
+  <h2>Elterneinteilung</h2>
+
+  <div *ngIf="loading" class="loading">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <ng-container *ngIf="!loading">
+    <div class="filter-row" *ngIf="teams.length > 0">
+      <mat-form-field appearance="outline">
+        <mat-label>Filter nach Team</mat-label>
+        <mat-select [(ngModel)]="filterTeamId" (ngModelChange)="onFilterChange()">
+          <mat-option [value]="null">Alle anzeigen</mat-option>
+          <mat-option *ngFor="let team of teams" [value]="team.id">
+            {{ getTeamLabel(team) }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <p *ngIf="teams.length === 0" class="empty-state">
+      Keine Teams konfiguriert. Bitte zuerst Teams unter
+      <strong>Einstellungen &gt; Organisation &gt; Elterneinteilung</strong> anlegen.
+    </p>
+
+    <table mat-table [dataSource]="displayedParents" class="mat-elevation-z2" *ngIf="teams.length > 0">
+      <ng-container matColumnDef="name">
+        <th mat-header-cell *matHeaderCellDef>Elternteil</th>
+        <td mat-cell *matCellDef="let row">{{ row.name }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="teams">
+        <th mat-header-cell *matHeaderCellDef>Teams</th>
+        <td mat-cell *matCellDef="let row">
+          <mat-chip-set>
+            <mat-chip
+              *ngFor="let team of teams"
+              [class.chip-assigned]="isAssigned(row.person, team)"
+              (click)="toggleTeam(row, team)">
+              {{ getTeamLabel(team) }}
+            </mat-chip>
+          </mat-chip-set>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+    </table>
+
+    <p *ngIf="teams.length > 0 && displayedParents.length === 0" class="empty-state">
+      Keine Eltern gefunden.
+    </p>
+  </ng-container>
+</div>

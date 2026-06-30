@@ -1,0 +1,29 @@
+.elterneinteilung-container {
+  padding: 24px;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  padding: 48px;
+}
+
+.filter-row {
+  margin-bottom: 16px;
+}
+
+.empty-state {
+  color: rgba(0, 0, 0, 0.54);
+  text-align: center;
+  padding: 24px;
+}
+
+.chip-assigned {
+  background-color: #1976d2 !important;
+  color: white !important;
+  cursor: pointer;
+}
+
+mat-chip {
+  cursor: pointer;
+}
