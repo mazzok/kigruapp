@@ -7,6 +7,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatExpansionModule } from '@angular/material/expansion';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { IconPickerDialogComponent } from '../../shared/components/icon-picker/icon-picker-dialog.component';
 import { switchMap } from 'rxjs/operators';
@@ -24,7 +25,7 @@ import { FieldInstanceDTO } from '../../shared/models/field-instance.model';
     CommonModule, ReactiveFormsModule,
     MatTabsModule, MatTableModule, MatFormFieldModule,
     MatInputModule, MatButtonModule, MatIconModule,
-    MatDialogModule, IconPickerDialogComponent,
+    MatExpansionModule, MatDialogModule, IconPickerDialogComponent,
   ],
   templateUrl: './organisation.component.html',
   styleUrl: './organisation.component.scss',
@@ -43,10 +44,20 @@ export class OrganisationComponent implements OnInit {
   // Parent Teams tab
   parentTeamsOrg: OrganisationDTO | null = null;
   private parentTeamsDefinitionId: string | null = null;
-  parentTeamsDataSource = new MatTableDataSource<FieldInstanceDTO>();
-  parentTeamsColumns = ['label', 'actions'];
+  parentTeams: FieldInstanceDTO[] = [];
   parentTeamsForm = new FormGroup({
     labelDe: new FormControl('', Validators.required),
+  });
+
+  // Parent Team Roles
+  private parentTeamRolesOrg: OrganisationDTO | null = null;
+  parentTeamRolesDefinitionId: string | null = null;
+  rolesByTeamId: Map<string, FieldInstanceDTO[]> = new Map();
+  roleColumns = ['label', 'min', 'max', 'roleActions'];
+  addRoleForm = new FormGroup({
+    labelDe: new FormControl('', Validators.required),
+    min: new FormControl<number | null>(null),
+    max: new FormControl<number | null>(null),
   });
 
   // Duty settings tab
@@ -198,18 +209,19 @@ export class OrganisationComponent implements OnInit {
         const templateDef = org.definitions.find((d) => d.fieldName === 'parent-team' && !d.outdatedAt);
         if (!templateDef) {
           this.parentTeamsDefinitionId = null;
-          this.parentTeamsDataSource.data = [];
+          this.parentTeams = [];
           return;
         }
         this.parentTeamsDefinitionId = templateDef.id!;
         this.fieldInstanceService.listByDefinitionId(templateDef.id!).subscribe((instances) => {
-          this.parentTeamsDataSource.data = instances;
+          this.parentTeams = instances;
+          this.loadParentTeamRoles();
         });
       },
       error: () => {
         this.parentTeamsOrg = null;
         this.parentTeamsDefinitionId = null;
-        this.parentTeamsDataSource.data = [];
+        this.parentTeams = [];
       },
     });
   }
@@ -250,5 +262,101 @@ export class OrganisationComponent implements OnInit {
     this.fieldInstanceService.delete(instance.id!).subscribe(() => {
       this.loadParentTeams();
     });
+  }
+
+  // --- Parent Team Roles ---
+
+  loadParentTeamRoles(): void {
+    this.orgService.getByTag('parent-team-roles').subscribe({
+      next: (org) => {
+        this.parentTeamRolesOrg = org;
+        const def = org.definitions.find((d) => d.fieldName === 'parent-team-role' && !d.outdatedAt);
+        this.parentTeamRolesDefinitionId = def?.id ?? null;
+        if (!def) {
+          this.rolesByTeamId = new Map();
+          return;
+        }
+        this.fieldInstanceService.listByDefinitionId(def.id!).subscribe((roles) => {
+          const map = new Map<string, FieldInstanceDTO[]>();
+          for (const role of roles) {
+            const teamId = (role.value as Record<string, unknown>)?.['teamInstanceId'] as string;
+            if (teamId) {
+              if (!map.has(teamId)) map.set(teamId, []);
+              map.get(teamId)!.push(role);
+            }
+          }
+          this.rolesByTeamId = map;
+        });
+      },
+      error: () => {
+        this.parentTeamRolesOrg = null;
+        this.parentTeamRolesDefinitionId = null;
+        this.rolesByTeamId = new Map();
+      },
+    });
+  }
+
+  getRolesForTeam(team: FieldInstanceDTO): FieldInstanceDTO[] {
+    return this.rolesByTeamId.get(team.id!) ?? [];
+  }
+
+  addRole(team: FieldInstanceDTO): void {
+    if (!this.addRoleForm.valid) return;
+    const { labelDe, min, max } = this.addRoleForm.value;
+    const value: Record<string, unknown> = { label: labelDe!, teamInstanceId: team.id! };
+    if (min != null) value['min'] = min;
+    if (max != null) value['max'] = max;
+
+    const doCreate = (defId: string) => {
+      this.fieldInstanceService.create(defId, value).subscribe(() => {
+        this.addRoleForm.reset();
+        this.loadParentTeamRoles();
+      });
+    };
+
+    if (this.parentTeamRolesDefinitionId) {
+      doCreate(this.parentTeamRolesDefinitionId);
+    } else {
+      const templateDef: FieldDefinition = {
+        fieldName: 'parent-team-role',
+        label: { de: 'Elterneinteilung Rolle' },
+        jsonSchema: {
+          type: 'object',
+          properties: {
+            label: { type: 'string' },
+            teamInstanceId: { type: 'string' },
+            min: { type: 'number' },
+            max: { type: 'number' },
+          },
+        },
+        required: false,
+      };
+      this.fieldDefService.create(templateDef).pipe(
+        switchMap((created) => {
+          this.parentTeamRolesDefinitionId = created.id!;
+          const org = this.parentTeamRolesOrg;
+          if (org) {
+            const updatedIds = [...org.definitions.map((d) => d.id!), created.id!];
+            return this.orgService.update(org.id, { definitionIds: updatedIds }).pipe(
+              switchMap(() => this.fieldInstanceService.create(created.id!, value))
+            );
+          }
+          return this.fieldInstanceService.create(created.id!, value);
+        })
+      ).subscribe(() => {
+        this.addRoleForm.reset();
+        this.loadParentTeamRoles();
+      });
+    }
+  }
+
+  deleteRole(role: FieldInstanceDTO): void {
+    this.fieldInstanceService.delete(role.id!).subscribe(() => {
+      this.loadParentTeamRoles();
+    });
+  }
+
+  onPanelOpened(): void {
+    this.addRoleForm.reset();
   }
 }
