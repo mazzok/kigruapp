@@ -102,6 +102,8 @@ public class PersonResource {
 
     public record TeamAssignmentRequest(String definitionId, String fieldInstanceId) {}
 
+    public record RoleAssignmentRequest(String definitionId, String fieldInstanceId) {}
+
     public record CreatePersonRequest(
         String familyId,
         List<SectionInput> basicProperties,
@@ -284,6 +286,7 @@ public class PersonResource {
         dto.customProperties = resolveRefs(person.customProperties);
         dto.organisationalUnit = resolveRefs(person.organisationalUnit != null ? person.organisationalUnit : List.of());
         dto.assignedDuty = resolveRefs(person.assignedDuty != null ? person.assignedDuty : List.of());
+        dto.assignedRole = resolveRefs(person.assignedRole != null ? person.assignedRole : List.of());
         dto.createdAt = person.createdAt != null ? person.createdAt.toString() : null;
         dto.updatedAt = person.updatedAt != null ? person.updatedAt.toString() : null;
         return dto;
@@ -376,6 +379,29 @@ public class PersonResource {
         boolean removed = person.assignedDuty.removeIf(ref -> ref.fieldInstanceId.equals(instId));
         if (!removed) {
             person.assignedDuty.add(new FieldRef(defId, instId));
+        }
+
+        person.updatedAt = Instant.now();
+        person.update();
+        return Response.noContent().build();
+    }
+
+    @PATCH
+    @Path("/{id}/assigned-role")
+    public Response patchAssignedRole(@PathParam("id") String id, RoleAssignmentRequest request) {
+        Person person = Person.findById(new ObjectId(id));
+        if (person == null) throw new NotFoundException();
+
+        ObjectId defId = new ObjectId(request.definitionId());
+        ObjectId instId = new ObjectId(request.fieldInstanceId());
+
+        if (person.assignedRole == null) {
+            person.assignedRole = new ArrayList<>();
+        }
+
+        boolean removed = person.assignedRole.removeIf(ref -> ref.fieldInstanceId.equals(instId));
+        if (!removed) {
+            person.assignedRole.add(new FieldRef(defId, instId));
         }
 
         person.updatedAt = Instant.now();

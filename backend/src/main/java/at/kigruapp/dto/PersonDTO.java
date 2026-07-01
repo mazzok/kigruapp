@@ -14,6 +14,7 @@ public class PersonDTO {
     public List<FieldInstanceDTO> customProperties;
     public List<FieldInstanceDTO> organisationalUnit;
     public List<FieldInstanceDTO> assignedDuty;
+    public List<FieldInstanceDTO> assignedRole;
     public String createdAt;
     public String updatedAt;
 }
