@@ -44,7 +44,7 @@ export class ElterneinteilungComponent implements OnInit {
   displayedParents: ParentRow[] = [];
   filterTeamId: string | null = null;
   loading = false;
-  displayedColumns = ['name', 'teams', 'rollen'];
+  displayedColumns = ['name', 'teams'];
 
   constructor(
     private personService: PersonService,

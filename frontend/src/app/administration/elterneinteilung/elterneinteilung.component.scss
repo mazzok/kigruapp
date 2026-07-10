@@ -34,8 +34,8 @@ mat-chip {
   margin: 8px 0;
 }
 
-.team-role-header {
-  font-size: 12px;
-  font-weight: 500;
-  margin-bottom: 4px;
+.role-chip {
+  --mdc-chip-container-height: 24px;
+  font-size: 11px;
+  border: 1px solid transparent;
 }
