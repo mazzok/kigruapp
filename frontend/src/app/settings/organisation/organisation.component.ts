@@ -47,6 +47,7 @@ export class OrganisationComponent implements OnInit {
   parentTeams: FieldInstanceDTO[] = [];
   parentTeamsForm = new FormGroup({
     labelDe: new FormControl('', Validators.required),
+    color: new FormControl('#4285f4', Validators.required),
   });
 
   // Parent Team Roles
@@ -229,18 +230,19 @@ export class OrganisationComponent implements OnInit {
   addParentTeam(): void {
     if (!this.parentTeamsForm.valid || !this.parentTeamsOrg) return;
     const labelDe = this.parentTeamsForm.value.labelDe!;
-    const value = { label: labelDe };
+    const color = this.parentTeamsForm.value.color!;
+    const value = { label: labelDe, color };
 
     if (this.parentTeamsDefinitionId) {
       this.fieldInstanceService.create(this.parentTeamsDefinitionId, value).subscribe(() => {
-        this.parentTeamsForm.reset();
+        this.parentTeamsForm.reset({ color: '#4285f4' });
         this.loadParentTeams();
       });
     } else {
       const templateDef: FieldDefinition = {
         fieldName: 'parent-team',
         label: { de: 'Elterneinteilung' },
-        jsonSchema: { type: 'object', properties: { label: { type: 'string' } } },
+        jsonSchema: { type: 'object', properties: { label: { type: 'string' }, color: { type: 'string' } } },
         required: false,
       };
       this.fieldDefService.create(templateDef).pipe(
@@ -252,7 +254,7 @@ export class OrganisationComponent implements OnInit {
           );
         })
       ).subscribe(() => {
-        this.parentTeamsForm.reset();
+        this.parentTeamsForm.reset({ color: '#4285f4' });
         this.loadParentTeams();
       });
     }
