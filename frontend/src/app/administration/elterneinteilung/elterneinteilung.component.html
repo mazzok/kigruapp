@@ -40,6 +40,22 @@
               {{ getTeamLabel(team) }}
             </mat-chip>
           </mat-chip-set>
+
+          <div class="team-role-section"
+            *ngFor="let team of getAssignedTeams(row.person)"
+            [style.border-left-color]="getTeamColor(team)">
+            <div class="team-role-header" [style.color]="getTeamColor(team)">{{ getTeamLabel(team) }}</div>
+            <mat-chip-set *ngIf="getRolesForTeam(team).length > 0">
+              <mat-chip
+                *ngFor="let role of getRolesForTeam(team)"
+                [class.chip-assigned]="isRoleAssigned(row.person, role)"
+                [disabled]="isRoleDisabled(row.person, role)"
+                [matTooltip]="getRoleTooltip(row.person, role)"
+                (click)="toggleRole(row, role)">
+                {{ getRoleLabel(role) }}
+              </mat-chip>
+            </mat-chip-set>
+          </div>
         </td>
       </ng-container>
 
@@ -50,6 +66,7 @@
             <mat-chip
               *ngFor="let role of getVisibleRoles(row.person)"
               [class.chip-assigned]="isRoleAssigned(row.person, role)"
+              [style.background-color]="isRoleAssigned(row.person, role) ? getTeamColor(getTeamForRole(role)) : null"
               [disabled]="isRoleDisabled(row.person, role)"
               [matTooltip]="getRoleTooltip(row.person, role)"
               (click)="toggleRole(row, role)">
