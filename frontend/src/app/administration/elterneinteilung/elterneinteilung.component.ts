@@ -136,6 +136,25 @@ export class ElterneinteilungComponent implements OnInit {
     );
   }
 
+  getTeamColor(team: FieldInstanceDTO | undefined): string {
+    return (team?.value as Record<string, unknown>)?.['color'] as string ?? '#9e9e9e';
+  }
+
+  getTeamForRole(role: FieldInstanceDTO): FieldInstanceDTO | undefined {
+    const teamId = (role.value as Record<string, unknown>)?.['teamInstanceId'] as string;
+    return this.teams.find((t) => t.id === teamId);
+  }
+
+  getRolesForTeam(team: FieldInstanceDTO): FieldInstanceDTO[] {
+    return this.roles.filter(
+      (r) => (r.value as Record<string, unknown>)?.['teamInstanceId'] === team.id
+    );
+  }
+
+  getAssignedTeams(person: PersonDTO): FieldInstanceDTO[] {
+    return this.teams.filter((t) => this.isAssigned(person, t));
+  }
+
   getAssignedCount(role: FieldInstanceDTO): number {
     return this.allParents.filter((row) =>
       (row.person.assignedRole ?? []).some((r) => r.id === role.id)
