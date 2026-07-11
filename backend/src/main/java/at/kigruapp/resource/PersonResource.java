@@ -6,6 +6,8 @@ import at.kigruapp.entity.FieldDefinition;
 import at.kigruapp.entity.FieldInstance;
 import at.kigruapp.entity.FieldRef;
 import at.kigruapp.entity.Person;
+import at.kigruapp.entity.Semester;
+import at.kigruapp.entity.SemesterAssignment;
 import at.kigruapp.security.CurrentUserService;
 import at.kigruapp.security.KeycloakUserService;
 import at.kigruapp.service.JsonSchemaValidatorService;
@@ -15,6 +17,7 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import io.quarkus.panache.common.Sort;
 import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -46,6 +49,21 @@ public class PersonResource {
 
     private MongoCollection<Document> getFieldInstancesCollection() {
         return mongoClient.getDatabase(databaseName).getCollection("field_instances");
+    }
+
+    private MongoCollection<Document> getSemesterAssignmentsCollection() {
+        return mongoClient.getDatabase(databaseName).getCollection("semester_assignments");
+    }
+
+    private ObjectId resolveSemesterId(String semesterIdParam) {
+        if (semesterIdParam != null && !semesterIdParam.isBlank()) {
+            return new ObjectId(semesterIdParam);
+        }
+        List<Semester> latest = Semester.listAll(Sort.descending("createdAt"));
+        if (latest.isEmpty()) {
+            throw new BadRequestException("No semester available");
+        }
+        return latest.get(0).id;
     }
 
     @GET
@@ -111,8 +129,7 @@ public class PersonResource {
         List<SectionInput> schedules,
         List<SectionInput> duties,
         List<SectionInput> finance,
-        List<SectionInput> customProperties,
-        List<SectionInput> organisationalUnit
+        List<SectionInput> customProperties
     ) {}
 
     public record SectionInput(String definitionId, Object value) {}
@@ -139,7 +156,6 @@ public class PersonResource {
         person.duties = createFieldInstances(request.duties(), now);
         person.finance = createFieldInstances(request.finance(), now);
         person.customProperties = createFieldInstances(request.customProperties(), now);
-        person.organisationalUnit = createFieldInstances(request.organisationalUnit(), now);
 
         // Keycloak provisioning: find fields with keycloakMapping
         MongoCollection<Document> instColl = getFieldInstancesCollection();
@@ -202,10 +218,6 @@ public class PersonResource {
         if (request.customProperties() != null) {
             deleteFieldInstances(person.customProperties);
             person.customProperties = createFieldInstances(request.customProperties(), now);
-        }
-        if (request.organisationalUnit() != null) {
-            deleteFieldInstances(person.organisationalUnit);
-            person.organisationalUnit = createFieldInstances(request.organisationalUnit(), now);
         }
         person.updatedAt = now;
         person.update();
@@ -284,7 +296,6 @@ public class PersonResource {
         dto.duties = resolveRefs(person.duties);
         dto.finance = resolveRefs(person.finance);
         dto.customProperties = resolveRefs(person.customProperties);
-        dto.organisationalUnit = resolveRefs(person.organisationalUnit != null ? person.organisationalUnit : List.of());
         dto.assignedDuty = resolveRefs(person.assignedDuty != null ? person.assignedDuty : List.of());
         dto.assignedRole = resolveRefs(person.assignedRole != null ? person.assignedRole : List.of());
         dto.createdAt = person.createdAt != null ? person.createdAt.toString() : null;
@@ -321,45 +332,42 @@ public class PersonResource {
 
     @GET
     @Path("/children")
-    public List<ChildDTO> listChildren() {
+    public List<ChildDTO> listChildren(@QueryParam("semesterId") String semesterIdParam) {
+        ObjectId semesterId = resolveSemesterId(semesterIdParam);
         List<Person> all = Person.listAll();
         List<ChildDTO> result = new ArrayList<>();
         for (Person person : all) {
             if (!isChild(person)) continue;
-            result.add(toChildDTO(person));
+            result.add(toChildDTO(person, semesterId));
         }
         return result;
     }
 
     @PATCH
     @Path("/{id}/group")
-    public Response patchGroup(@PathParam("id") String id, GroupAssignmentRequest request) {
+    public Response patchGroup(
+            @PathParam("id") String id,
+            @QueryParam("semesterId") String semesterIdParam,
+            GroupAssignmentRequest request) {
         Person person = Person.findById(new ObjectId(id));
         if (person == null) throw new NotFoundException();
 
+        ObjectId semesterId = resolveSemesterId(semesterIdParam);
         ObjectId defId = new ObjectId(request.definitionId());
         ObjectId instId = new ObjectId(request.fieldInstanceId());
 
-        if (person.organisationalUnit == null) {
-            person.organisationalUnit = new ArrayList<>();
-        }
+        MongoCollection<Document> assignments = getSemesterAssignmentsCollection();
+        Document filter = new Document("personId", person.id)
+                .append("semesterId", semesterId)
+                .append("section", "group");
+        assignments.deleteMany(filter);
+        assignments.insertOne(new Document("_id", new ObjectId())
+                .append("personId", person.id)
+                .append("semesterId", semesterId)
+                .append("section", "group")
+                .append("definitionId", defId)
+                .append("fieldInstanceId", instId));
 
-        boolean found = false;
-        for (FieldRef ref : person.organisationalUnit) {
-            FieldDefinition def = FieldDefinition.findById(ref.definitionId);
-            if (def != null && "group".equals(def.fieldName)) {
-                ref.definitionId = defId;
-                ref.fieldInstanceId = instId;
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            person.organisationalUnit.add(new FieldRef(defId, instId));
-        }
-
-        person.updatedAt = Instant.now();
-        person.update();
         return Response.noContent().build();
     }
 
@@ -424,22 +432,21 @@ public class PersonResource {
         return false;
     }
 
-    private ChildDTO toChildDTO(Person person) {
+    private ChildDTO toChildDTO(Person person, ObjectId semesterId) {
         String firstName = resolveBasicValue(person, "firstName");
         String lastName = resolveBasicValue(person, "lastName");
         String dateOfBirth = resolveBasicValue(person, "dateOfBirth");
 
         String groupDefinitionId = null;
         String groupInstanceId = null;
-        if (person.organisationalUnit != null) {
-            for (FieldRef ref : person.organisationalUnit) {
-                FieldDefinition def = FieldDefinition.findById(ref.definitionId);
-                if (def != null && "group".equals(def.fieldName)) {
-                    groupDefinitionId = ref.definitionId.toHexString();
-                    groupInstanceId = ref.fieldInstanceId.toHexString();
-                    break;
-                }
-            }
+        Document groupAssignment = getSemesterAssignmentsCollection()
+                .find(new Document("personId", person.id)
+                        .append("semesterId", semesterId)
+                        .append("section", "group"))
+                .first();
+        if (groupAssignment != null) {
+            groupDefinitionId = groupAssignment.getObjectId("definitionId").toHexString();
+            groupInstanceId = groupAssignment.getObjectId("fieldInstanceId").toHexString();
         }
 
         return new ChildDTO(

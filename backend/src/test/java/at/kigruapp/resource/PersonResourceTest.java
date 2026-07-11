@@ -55,4 +55,74 @@ public class PersonResourceTest {
             .then()
             .statusCode(404);
     }
+
+    @Test
+    public void testGroupAssignmentIsolatedPerSemester() {
+        String familyId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"name\": \"Testfamilie-Gruppe\"}")
+            .when().post("/api/v1/families")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String personTypeDefId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"fieldName\": \"personType\", \"label\": {\"de\": \"Typ\"}, \"jsonSchema\": {\"type\": \"string\"}, \"required\": false}")
+            .when().post("/api/v1/field-definitions")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String personId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"familyId\": \"" + familyId + "\", \"basicProperties\": [{\"definitionId\": \"" + personTypeDefId + "\", \"value\": \"CHILD\"}]}")
+            .when().post("/api/v1/persons")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String groupDefId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"fieldName\": \"group\", \"label\": {\"de\": \"Gruppen\"}, \"jsonSchema\": {\"type\": \"object\"}, \"required\": false}")
+            .when().post("/api/v1/field-definitions")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String groupInstId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"definitionId\": \"" + groupDefId + "\", \"value\": {\"label\": \"Baeren\"}}")
+            .when().post("/api/v1/field-instances")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String semester1Id = given()
+            .contentType(ContentType.JSON)
+            .body("{\"start\": \"2024-09-01T00:00:00Z\", \"end\": \"2025-08-31T00:00:00Z\"}")
+            .when().post("/api/v1/semesters")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String semester2Id = given()
+            .contentType(ContentType.JSON)
+            .body("{\"start\": \"2025-09-01T00:00:00Z\", \"end\": \"2026-08-31T00:00:00Z\"}")
+            .when().post("/api/v1/semesters")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"definitionId\": \"" + groupDefId + "\", \"fieldInstanceId\": \"" + groupInstId + "\"}")
+            .when().patch("/api/v1/persons/" + personId + "/group?semesterId=" + semester1Id)
+            .then().statusCode(204);
+
+        given()
+            .when().get("/api/v1/persons/children?semesterId=" + semester1Id)
+            .then()
+            .statusCode(200)
+            .body("find { it.id == '" + personId + "' }.groupInstanceId", is(groupInstId));
+
+        given()
+            .when().get("/api/v1/persons/children?semesterId=" + semester2Id)
+            .then()
+            .statusCode(200)
+            .body("find { it.id == '" + personId + "' }.groupInstanceId", nullValue());
+    }
 }
