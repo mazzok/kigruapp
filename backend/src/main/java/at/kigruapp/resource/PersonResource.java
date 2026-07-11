@@ -66,6 +66,37 @@ public class PersonResource {
         return latest.get(0).id;
     }
 
+    private void toggleAssignment(ObjectId personId, ObjectId semesterId, String section, ObjectId defId, ObjectId instId) {
+        MongoCollection<Document> assignments = getSemesterAssignmentsCollection();
+        Document filter = new Document("personId", personId)
+                .append("semesterId", semesterId)
+                .append("section", section)
+                .append("fieldInstanceId", instId);
+        long count = assignments.countDocuments(filter);
+        if (count > 0) {
+            assignments.deleteMany(filter);
+        } else {
+            assignments.insertOne(new Document("_id", new ObjectId())
+                    .append("personId", personId)
+                    .append("semesterId", semesterId)
+                    .append("section", section)
+                    .append("definitionId", defId)
+                    .append("fieldInstanceId", instId));
+        }
+    }
+
+    private List<FieldInstanceDTO> resolveSemesterAssignments(ObjectId personId, ObjectId semesterId, String section) {
+        Document filter = new Document("personId", personId)
+                .append("semesterId", semesterId)
+                .append("section", section);
+        List<FieldRef> refs = new ArrayList<>();
+        for (Document assignment : getSemesterAssignmentsCollection().find(filter)) {
+            SemesterAssignment sa = SemesterAssignment.fromDocument(assignment);
+            refs.add(new FieldRef(sa.definitionId, sa.fieldInstanceId));
+        }
+        return resolveRefs(refs);
+    }
+
     @GET
     public List<Person> list(
             @QueryParam("familyId") String familyId,
@@ -78,12 +109,13 @@ public class PersonResource {
 
     @GET
     @Path("/me")
-    public Response getMe() {
+    public Response getMe(@QueryParam("semesterId") String semesterIdParam) {
         at.kigruapp.entity.Person currentPerson = currentUserService.getCurrentPerson();
         if (currentPerson == null) {
             return Response.status(403).build();
         }
-        PersonDTO dto = toFullDTO(currentPerson);
+        ObjectId semesterId = resolveSemesterId(semesterIdParam);
+        PersonDTO dto = toFullDTO(currentPerson, semesterId);
         return Response.ok(dto).build();
     }
 
@@ -99,12 +131,13 @@ public class PersonResource {
 
     @GET
     @Path("/{id}/full")
-    public PersonDTO getFull(@PathParam("id") String id) {
+    public PersonDTO getFull(@PathParam("id") String id, @QueryParam("semesterId") String semesterIdParam) {
         Person person = Person.findById(new ObjectId(id));
         if (person == null) {
             throw new NotFoundException();
         }
-        return toFullDTO(person);
+        ObjectId semesterId = resolveSemesterId(semesterIdParam);
+        return toFullDTO(person, semesterId);
     }
 
     public record ChildDTO(
@@ -237,6 +270,7 @@ public class PersonResource {
         deleteFieldInstances(person.duties);
         deleteFieldInstances(person.finance);
         deleteFieldInstances(person.customProperties);
+        getSemesterAssignmentsCollection().deleteMany(new Document("personId", person.id));
         person.delete();
         return Response.noContent().build();
     }
@@ -285,7 +319,7 @@ public class PersonResource {
         }
     }
 
-    private PersonDTO toFullDTO(Person person) {
+    private PersonDTO toFullDTO(Person person, ObjectId semesterId) {
         PersonDTO dto = new PersonDTO();
         dto.id = person.id.toHexString();
         dto.familyId = person.familyId.toHexString();
@@ -296,8 +330,8 @@ public class PersonResource {
         dto.duties = resolveRefs(person.duties);
         dto.finance = resolveRefs(person.finance);
         dto.customProperties = resolveRefs(person.customProperties);
-        dto.assignedDuty = resolveRefs(person.assignedDuty != null ? person.assignedDuty : List.of());
-        dto.assignedRole = resolveRefs(person.assignedRole != null ? person.assignedRole : List.of());
+        dto.assignedDuty = resolveSemesterAssignments(person.id, semesterId, "team");
+        dto.assignedRole = resolveSemesterAssignments(person.id, semesterId, "role");
         dto.createdAt = person.createdAt != null ? person.createdAt.toString() : null;
         dto.updatedAt = person.updatedAt != null ? person.updatedAt.toString() : null;
         return dto;
@@ -373,47 +407,35 @@ public class PersonResource {
 
     @PATCH
     @Path("/{id}/assigned-duty")
-    public Response patchAssignedDuty(@PathParam("id") String id, TeamAssignmentRequest request) {
+    public Response patchAssignedDuty(
+            @PathParam("id") String id,
+            @QueryParam("semesterId") String semesterIdParam,
+            TeamAssignmentRequest request) {
         Person person = Person.findById(new ObjectId(id));
         if (person == null) throw new NotFoundException();
 
+        ObjectId semesterId = resolveSemesterId(semesterIdParam);
         ObjectId defId = new ObjectId(request.definitionId());
         ObjectId instId = new ObjectId(request.fieldInstanceId());
 
-        if (person.assignedDuty == null) {
-            person.assignedDuty = new ArrayList<>();
-        }
-
-        boolean removed = person.assignedDuty.removeIf(ref -> ref.fieldInstanceId.equals(instId));
-        if (!removed) {
-            person.assignedDuty.add(new FieldRef(defId, instId));
-        }
-
-        person.updatedAt = Instant.now();
-        person.update();
+        toggleAssignment(person.id, semesterId, "team", defId, instId);
         return Response.noContent().build();
     }
 
     @PATCH
     @Path("/{id}/assigned-role")
-    public Response patchAssignedRole(@PathParam("id") String id, RoleAssignmentRequest request) {
+    public Response patchAssignedRole(
+            @PathParam("id") String id,
+            @QueryParam("semesterId") String semesterIdParam,
+            RoleAssignmentRequest request) {
         Person person = Person.findById(new ObjectId(id));
         if (person == null) throw new NotFoundException();
 
+        ObjectId semesterId = resolveSemesterId(semesterIdParam);
         ObjectId defId = new ObjectId(request.definitionId());
         ObjectId instId = new ObjectId(request.fieldInstanceId());
 
-        if (person.assignedRole == null) {
-            person.assignedRole = new ArrayList<>();
-        }
-
-        boolean removed = person.assignedRole.removeIf(ref -> ref.fieldInstanceId.equals(instId));
-        if (!removed) {
-            person.assignedRole.add(new FieldRef(defId, instId));
-        }
-
-        person.updatedAt = Instant.now();
-        person.update();
+        toggleAssignment(person.id, semesterId, "role", defId, instId);
         return Response.noContent().build();
     }
 

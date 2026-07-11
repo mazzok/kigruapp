@@ -17,8 +17,6 @@ public class Person extends PanacheMongoEntity {
     public List<FieldRef> duties = new ArrayList<>();
     public List<FieldRef> finance = new ArrayList<>();
     public List<FieldRef> customProperties = new ArrayList<>();
-    public List<FieldRef> assignedDuty = new ArrayList<>();
-    public List<FieldRef> assignedRole = new ArrayList<>();
     public Instant createdAt;
     public Instant updatedAt;
 
