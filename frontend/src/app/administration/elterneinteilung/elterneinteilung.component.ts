@@ -129,20 +129,8 @@ export class ElterneinteilungComponent implements OnInit {
     return (person.assignedRole ?? []).some((r) => r.id === role.id);
   }
 
-  getVisibleRoles(person: PersonDTO): FieldInstanceDTO[] {
-    const assignedTeamIds = new Set((person.assignedDuty ?? []).map((d) => d.id));
-    return this.roles.filter(
-      (r) => assignedTeamIds.has((r.value as Record<string, unknown>)?.['teamInstanceId'] as string)
-    );
-  }
-
   getTeamColor(team: FieldInstanceDTO | undefined): string {
     return (team?.value as Record<string, unknown>)?.['color'] as string ?? '#9e9e9e';
-  }
-
-  getTeamForRole(role: FieldInstanceDTO): FieldInstanceDTO | undefined {
-    const teamId = (role.value as Record<string, unknown>)?.['teamInstanceId'] as string;
-    return this.teams.find((t) => t.id === teamId);
   }
 
   getRolesForTeam(team: FieldInstanceDTO): FieldInstanceDTO[] {

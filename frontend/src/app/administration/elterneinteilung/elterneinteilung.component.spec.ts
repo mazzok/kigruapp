@@ -57,17 +57,6 @@ describe('ElterneinteilungComponent - Team-Farbe & Gruppierung', () => {
     expect(component.getTeamColor(undefined)).toBe('#9e9e9e');
   });
 
-  it('finds the team a role belongs to', () => {
-    const gartenTeam = team('team-1', 'Garten', '#ff0000');
-    component.teams = [gartenTeam];
-    expect(component.getTeamForRole(role('role-1', 'Spielplatz', 'team-1'))).toBe(gartenTeam);
-  });
-
-  it('returns undefined when the role references a deleted team', () => {
-    component.teams = [];
-    expect(component.getTeamForRole(role('role-1', 'Spielplatz', 'team-deleted'))).toBeUndefined();
-  });
-
   it('returns only the roles belonging to the given team', () => {
     const spielplatzRole = role('role-1', 'Spielplatz', 'team-1');
     const kuecheRole = role('role-2', 'Kueche', 'team-2');
