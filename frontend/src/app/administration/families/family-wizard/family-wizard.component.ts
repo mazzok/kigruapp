@@ -132,7 +132,6 @@ export class FamilyWizardComponent implements OnInit {
       duties: [],
       finance: [],
       customProperties: [],
-      organisationalUnit: [],
     };
     await lastValueFrom(this.personService.create(childRequest));
 
@@ -146,7 +145,6 @@ export class FamilyWizardComponent implements OnInit {
         duties: [],
         finance: [],
         customProperties: [],
-        organisationalUnit: [],
       };
       await lastValueFrom(this.personService.create(parentRequest));
     }
