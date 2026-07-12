@@ -16,28 +16,33 @@ export class PersonService {
     return this.api.get<Person>(`/persons/${id}`);
   }
 
-  getFull(id: string): Observable<PersonDTO> {
-    return this.api.get<PersonDTO>(`/persons/${id}/full`);
+  getFull(id: string, semesterId?: string): Observable<PersonDTO> {
+    const params = semesterId ? `?semesterId=${semesterId}` : '';
+    return this.api.get<PersonDTO>(`/persons/${id}/full${params}`);
   }
 
-  getChildren(): Observable<ChildDTO[]> {
-    return this.api.get<ChildDTO[]>('/persons/children');
+  getChildren(semesterId?: string): Observable<ChildDTO[]> {
+    const params = semesterId ? `?semesterId=${semesterId}` : '';
+    return this.api.get<ChildDTO[]>(`/persons/children${params}`);
   }
 
   create(request: CreatePersonRequest): Observable<Person> {
     return this.api.post<Person>('/persons', request);
   }
 
-  assignGroup(personId: string, definitionId: string, fieldInstanceId: string): Observable<void> {
-    return this.api.patch<void>(`/persons/${personId}/group`, { definitionId, fieldInstanceId });
+  assignGroup(personId: string, definitionId: string, fieldInstanceId: string, semesterId?: string): Observable<void> {
+    const params = semesterId ? `?semesterId=${semesterId}` : '';
+    return this.api.patch<void>(`/persons/${personId}/group${params}`, { definitionId, fieldInstanceId });
   }
 
-  assignTeam(personId: string, definitionId: string, fieldInstanceId: string): Observable<void> {
-    return this.api.patch<void>(`/persons/${personId}/assigned-duty`, { definitionId, fieldInstanceId });
+  assignTeam(personId: string, definitionId: string, fieldInstanceId: string, semesterId?: string): Observable<void> {
+    const params = semesterId ? `?semesterId=${semesterId}` : '';
+    return this.api.patch<void>(`/persons/${personId}/assigned-duty${params}`, { definitionId, fieldInstanceId });
   }
 
-  assignRole(personId: string, definitionId: string, fieldInstanceId: string): Observable<void> {
-    return this.api.patch<void>(`/persons/${personId}/assigned-role`, { definitionId, fieldInstanceId });
+  assignRole(personId: string, definitionId: string, fieldInstanceId: string, semesterId?: string): Observable<void> {
+    const params = semesterId ? `?semesterId=${semesterId}` : '';
+    return this.api.patch<void>(`/persons/${personId}/assigned-role${params}`, { definitionId, fieldInstanceId });
   }
 
   update(id: string, request: CreatePersonRequest): Observable<Person> {

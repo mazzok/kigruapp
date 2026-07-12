@@ -28,7 +28,7 @@ function person(assignedDuty: FieldInstanceDTO[] = []): PersonDTO {
   return {
     id: 'p1', familyId: 'f1',
     basicProperties: [], roles: [], schedules: [], duties: [], finance: [],
-    customProperties: [], organisationalUnit: [],
+    customProperties: [],
     assignedDuty, assignedRole: [],
   };
 }
