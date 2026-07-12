@@ -9,14 +9,17 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatDatepickerModule } from '@angular/material/datepicker';
 import { IconPickerDialogComponent } from '../../shared/components/icon-picker/icon-picker-dialog.component';
 import { switchMap } from 'rxjs/operators';
 import { OrganisationService } from '../../shared/services/organisation.service';
 import { FieldDefinitionService } from '../custom-fields/services/field-definition.service';
 import { FieldInstanceService } from '../../shared/services/field-instance.service';
+import { SemesterService } from '../../shared/services/semester.service';
 import { OrganisationDTO, DutyEntryDTO } from '../../shared/models/organisation.model';
 import { FieldDefinition } from '../../shared/models/field-definition.model';
 import { FieldInstanceDTO } from '../../shared/models/field-instance.model';
+import { Semester, CreateSemesterRequest } from '../../shared/models/semester.model';
 
 @Component({
   selector: 'app-organisation',
@@ -25,7 +28,7 @@ import { FieldInstanceDTO } from '../../shared/models/field-instance.model';
     CommonModule, ReactiveFormsModule,
     MatTabsModule, MatTableModule, MatFormFieldModule,
     MatInputModule, MatButtonModule, MatIconModule,
-    MatExpansionModule, MatDialogModule, IconPickerDialogComponent,
+    MatExpansionModule, MatDialogModule, MatDatepickerModule, IconPickerDialogComponent,
   ],
   templateUrl: './organisation.component.html',
   styleUrl: './organisation.component.scss',
@@ -70,10 +73,19 @@ export class OrganisationComponent implements OnInit {
     icon: new FormControl('restaurant', Validators.required),
   });
 
+  // Semester tab
+  semesters: Semester[] = [];
+  semesterColumns = ['zeitraum', 'start', 'end'];
+  semesterForm = new FormGroup({
+    start: new FormControl<Date | null>(null, Validators.required),
+    end: new FormControl<Date | null>(null, Validators.required),
+  });
+
   constructor(
     private orgService: OrganisationService,
     private fieldDefService: FieldDefinitionService,
     private fieldInstanceService: FieldInstanceService,
+    private semesterService: SemesterService,
     private dialog: MatDialog,
   ) {}
 
@@ -81,6 +93,7 @@ export class OrganisationComponent implements OnInit {
     this.loadGroups();
     this.loadDutySettings();
     this.loadParentTeams();
+    this.loadSemesters();
   }
 
   // --- Groups ---
@@ -360,5 +373,30 @@ export class OrganisationComponent implements OnInit {
 
   onPanelOpened(): void {
     this.addRoleForm.reset();
+  }
+
+  // --- Semester ---
+
+  loadSemesters(): void {
+    this.semesterService.getAll().subscribe((semesters) => {
+      this.semesters = semesters;
+    });
+  }
+
+  getSemesterLabel(semester: Semester): string {
+    const startYear = new Date(semester.start).getFullYear();
+    const endYear = new Date(semester.end).getFullYear();
+    return `${startYear}/${endYear}`;
+  }
+
+  addSemester(): void {
+    if (!this.semesterForm.valid) return;
+    const start = this.semesterForm.value.start!;
+    const end = this.semesterForm.value.end!;
+    const request: CreateSemesterRequest = { start: start.toISOString(), end: end.toISOString() };
+    this.semesterService.create(request).subscribe(() => {
+      this.semesterForm.reset();
+      this.loadSemesters();
+    });
   }
 }
