@@ -13,8 +13,10 @@ import { switchMap, catchError } from 'rxjs/operators';
 import { PersonService } from '../../shared/services/person.service';
 import { OrganisationService } from '../../shared/services/organisation.service';
 import { FieldInstanceService } from '../../shared/services/field-instance.service';
+import { SemesterService } from '../../shared/services/semester.service';
 import { PersonDTO } from '../../shared/models/person.model';
 import { FieldInstanceDTO } from '../../shared/models/field-instance.model';
+import { Semester } from '../../shared/models/semester.model';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 
 interface ParentRow {
@@ -43,6 +45,8 @@ export class ElterneinteilungComponent implements OnInit {
   allParents: ParentRow[] = [];
   displayedParents: ParentRow[] = [];
   filterTeamId: string | null = null;
+  semesters: Semester[] = [];
+  selectedSemesterId: string | null = null;
   loading = false;
   displayedColumns = ['name', 'teams'];
 
@@ -50,14 +54,31 @@ export class ElterneinteilungComponent implements OnInit {
     private personService: PersonService,
     private orgService: OrganisationService,
     private fieldInstanceService: FieldInstanceService,
+    private semesterService: SemesterService,
     private dialog: MatDialog,
   ) {}
 
   ngOnInit(): void {
+    this.semesterService.getAll().subscribe((semesters) => {
+      this.semesters = semesters;
+      this.selectedSemesterId = semesters[0]?.id ?? null;
+      this.load();
+    });
+  }
+
+  onSemesterChange(): void {
     this.load();
   }
 
+  getSemesterLabel(semester: Semester): string {
+    const startYear = new Date(semester.start).getFullYear();
+    const endYear = new Date(semester.end).getFullYear();
+    return `${startYear}/${endYear}`;
+  }
+
   private load(): void {
+    if (!this.selectedSemesterId) return;
+    const semesterId = this.selectedSemesterId;
     this.loading = true;
     forkJoin({
       teamsOrg: this.orgService.getByTag('parent-teams').pipe(
@@ -95,7 +116,7 @@ export class ElterneinteilungComponent implements OnInit {
       }),
       switchMap((persons) => {
         if (persons.length === 0) return of([] as PersonDTO[]);
-        return forkJoin(persons.map((p) => this.personService.getFull(p.id!)));
+        return forkJoin(persons.map((p) => this.personService.getFull(p.id!, semesterId)));
       }),
     ).subscribe({
       next: (fullPersons) => {
@@ -163,7 +184,7 @@ export class ElterneinteilungComponent implements OnInit {
   }
 
   toggleTeam(row: ParentRow, team: FieldInstanceDTO): void {
-    if (!this.parentTeamsDefinitionId) return;
+    if (!this.parentTeamsDefinitionId || !this.selectedSemesterId) return;
     const isCurrentlyAssigned = this.isAssigned(row.person, team);
 
     if (isCurrentlyAssigned) {
@@ -200,12 +221,13 @@ export class ElterneinteilungComponent implements OnInit {
     wasAssigned: boolean,
     rolesToRemove: FieldInstanceDTO[],
   ): void {
-    this.personService.assignTeam(row.person.id!, this.parentTeamsDefinitionId!, team.id!).subscribe(() => {
+    const semesterId = this.selectedSemesterId!;
+    this.personService.assignTeam(row.person.id!, this.parentTeamsDefinitionId!, team.id!, semesterId).subscribe(() => {
       if (wasAssigned) {
         row.person.assignedDuty = (row.person.assignedDuty ?? []).filter((d) => d.id !== team.id);
         for (const role of rolesToRemove) {
           this.personService.assignRole(
-            row.person.id!, this.parentTeamRolesDefinitionId!, role.id!
+            row.person.id!, this.parentTeamRolesDefinitionId!, role.id!, semesterId
           ).subscribe(() => {
             row.person.assignedRole = (row.person.assignedRole ?? []).filter((r) => r.id !== role.id);
           });
@@ -218,9 +240,9 @@ export class ElterneinteilungComponent implements OnInit {
   }
 
   toggleRole(row: ParentRow, role: FieldInstanceDTO): void {
-    if (!this.parentTeamRolesDefinitionId) return;
+    if (!this.parentTeamRolesDefinitionId || !this.selectedSemesterId) return;
     if (this.isRoleDisabled(row.person, role)) return;
-    this.personService.assignRole(row.person.id!, this.parentTeamRolesDefinitionId, role.id!).subscribe(() => {
+    this.personService.assignRole(row.person.id!, this.parentTeamRolesDefinitionId, role.id!, this.selectedSemesterId).subscribe(() => {
       if (this.isRoleAssigned(row.person, role)) {
         row.person.assignedRole = (row.person.assignedRole ?? []).filter((r) => r.id !== role.id);
       } else {

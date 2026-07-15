@@ -6,6 +6,17 @@
   </div>
 
   <ng-container *ngIf="!loading">
+    <div class="semester-row" *ngIf="semesters.length > 0">
+      <mat-form-field appearance="outline">
+        <mat-label>Semester</mat-label>
+        <mat-select [(ngModel)]="selectedSemesterId" (ngModelChange)="onSemesterChange()">
+          <mat-option *ngFor="let semester of semesters" [value]="semester.id">
+            {{ getSemesterLabel(semester) }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+
     <div class="filter-row" *ngIf="teams.length > 0">
       <mat-form-field appearance="outline">
         <mat-label>Filter nach Team</mat-label>
