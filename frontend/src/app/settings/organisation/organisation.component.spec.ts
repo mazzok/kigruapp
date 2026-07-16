@@ -3,10 +3,12 @@ import { OrganisationComponent } from './organisation.component';
 import { OrganisationService } from '../../shared/services/organisation.service';
 import { FieldDefinitionService } from '../custom-fields/services/field-definition.service';
 import { FieldInstanceService } from '../../shared/services/field-instance.service';
+import { SemesterService } from '../../shared/services/semester.service';
 import { MatDialog } from '@angular/material/dialog';
 import { OrganisationDTO } from '../../shared/models/organisation.model';
 import { FieldDefinition } from '../../shared/models/field-definition.model';
 import { FieldInstanceDTO } from '../../shared/models/field-instance.model';
+import { Semester, CreateSemesterRequest } from '../../shared/models/semester.model';
 
 class FakeOrganisationService {
   updateCalls: { id: string; body: unknown }[] = [];
@@ -47,22 +49,37 @@ class FakeFieldInstanceService {
   }
 }
 
+class FakeSemesterService {
+  createCalls: CreateSemesterRequest[] = [];
+  semesters: Semester[] = [];
+  getAll() {
+    return of(this.semesters);
+  }
+  create(request: CreateSemesterRequest) {
+    this.createCalls.push(request);
+    return of({ id: 'semester-new', ...request, createdAt: '2026-07-11T00:00:00Z' } as Semester);
+  }
+}
+
 describe('OrganisationComponent - Team-Farbe', () => {
   let component: OrganisationComponent;
   let orgService: FakeOrganisationService;
   let fieldDefService: FakeFieldDefinitionService;
   let fieldInstanceService: FakeFieldInstanceService;
+  let semesterService: FakeSemesterService;
 
   beforeEach(() => {
     orgService = new FakeOrganisationService();
     fieldDefService = new FakeFieldDefinitionService();
     fieldInstanceService = new FakeFieldInstanceService();
+    semesterService = new FakeSemesterService();
     const fakeDialog = { open: () => ({ afterClosed: () => of(null) }) } as unknown as MatDialog;
 
     component = new OrganisationComponent(
       orgService as unknown as OrganisationService,
       fieldDefService as unknown as FieldDefinitionService,
       fieldInstanceService as unknown as FieldInstanceService,
+      semesterService as unknown as SemesterService,
       fakeDialog,
     );
   });
@@ -98,5 +115,57 @@ describe('OrganisationComponent - Team-Farbe', () => {
       definitionId: 'def-team-1',
       value: { label: 'Kueche', color: '#00ff00' },
     });
+  });
+});
+
+describe('OrganisationComponent - Semester', () => {
+  let component: OrganisationComponent;
+  let semesterService: FakeSemesterService;
+
+  beforeEach(() => {
+    const orgService = new FakeOrganisationService();
+    const fieldDefService = new FakeFieldDefinitionService();
+    const fieldInstanceService = new FakeFieldInstanceService();
+    semesterService = new FakeSemesterService();
+    const fakeDialog = { open: () => ({ afterClosed: () => of(null) }) } as unknown as MatDialog;
+
+    component = new OrganisationComponent(
+      orgService as unknown as OrganisationService,
+      fieldDefService as unknown as FieldDefinitionService,
+      fieldInstanceService as unknown as FieldInstanceService,
+      semesterService as unknown as SemesterService,
+      fakeDialog,
+    );
+  });
+
+  it('loads semesters on init', () => {
+    semesterService.semesters = [
+      { id: 's1', start: '2025-09-01T00:00:00Z', end: '2026-08-31T00:00:00Z', createdAt: '2026-01-01T00:00:00Z' },
+    ];
+
+    component.ngOnInit();
+
+    expect(component.semesters.length).toBe(1);
+  });
+
+  it('derives the semester label from start/end years', () => {
+    const label = component.getSemesterLabel({
+      id: 's1', start: '2025-09-01T00:00:00Z', end: '2026-08-31T00:00:00Z', createdAt: '2026-01-01T00:00:00Z',
+    });
+
+    expect(label).toBe('2025/2026');
+  });
+
+  it('sends start and end when adding a semester', () => {
+    component.ngOnInit();
+    const start = new Date('2025-09-01T00:00:00Z');
+    const end = new Date('2026-08-31T00:00:00Z');
+    component.semesterForm.setValue({ start, end });
+
+    component.addSemester();
+
+    expect(semesterService.createCalls.length).toBe(1);
+    expect(semesterService.createCalls[0].start).toBe(start.toISOString());
+    expect(semesterService.createCalls[0].end).toBe(end.toISOString());
   });
 });

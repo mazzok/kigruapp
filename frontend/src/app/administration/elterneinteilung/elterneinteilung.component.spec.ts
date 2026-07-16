@@ -1,7 +1,9 @@
+import { of } from 'rxjs';
 import { ElterneinteilungComponent } from './elterneinteilung.component';
 import { PersonService } from '../../shared/services/person.service';
 import { OrganisationService } from '../../shared/services/organisation.service';
 import { FieldInstanceService } from '../../shared/services/field-instance.service';
+import { SemesterService } from '../../shared/services/semester.service';
 import { MatDialog } from '@angular/material/dialog';
 import { FieldInstanceDTO } from '../../shared/models/field-instance.model';
 import { PersonDTO } from '../../shared/models/person.model';
@@ -28,7 +30,7 @@ function person(assignedDuty: FieldInstanceDTO[] = []): PersonDTO {
   return {
     id: 'p1', familyId: 'f1',
     basicProperties: [], roles: [], schedules: [], duties: [], finance: [],
-    customProperties: [], organisationalUnit: [],
+    customProperties: [],
     assignedDuty, assignedRole: [],
   };
 }
@@ -41,6 +43,7 @@ describe('ElterneinteilungComponent - Team-Farbe & Gruppierung', () => {
       {} as PersonService,
       {} as OrganisationService,
       {} as FieldInstanceService,
+      {} as SemesterService,
       {} as MatDialog,
     );
   });
@@ -70,5 +73,55 @@ describe('ElterneinteilungComponent - Team-Farbe & Gruppierung', () => {
     component.teams = [gartenTeam, kuecheTeam];
     const p = person([gartenTeam]);
     expect(component.getAssignedTeams(p)).toEqual([gartenTeam]);
+  });
+});
+
+class FakeSemesterServiceForElterneinteilung {
+  getAll() {
+    return of([]);
+  }
+}
+
+class FakePersonServiceForElterneinteilung {
+  assignTeamCalls: { personId: string; definitionId: string; fieldInstanceId: string; semesterId: string | undefined }[] = [];
+  assignTeam(personId: string, definitionId: string, fieldInstanceId: string, semesterId?: string) {
+    this.assignTeamCalls.push({ personId, definitionId, fieldInstanceId, semesterId });
+    return of(undefined);
+  }
+}
+
+describe('ElterneinteilungComponent - Semester', () => {
+  let component: ElterneinteilungComponent;
+  let personService: FakePersonServiceForElterneinteilung;
+
+  beforeEach(() => {
+    personService = new FakePersonServiceForElterneinteilung();
+    component = new ElterneinteilungComponent(
+      personService as unknown as PersonService,
+      {} as OrganisationService,
+      {} as FieldInstanceService,
+      new FakeSemesterServiceForElterneinteilung() as unknown as SemesterService,
+      {} as MatDialog,
+    );
+  });
+
+  it('derives the semester label from start/end years', () => {
+    const label = component.getSemesterLabel({
+      id: 's1', start: '2025-09-01T00:00:00Z', end: '2026-08-31T00:00:00Z', createdAt: '2026-01-01T00:00:00Z',
+    });
+    expect(label).toBe('2025/2026');
+  });
+
+  it('includes the selected semester when assigning a team', () => {
+    component.selectedSemesterId = 'semester-1';
+    component.parentTeamsDefinitionId = 'def-team';
+    const gartenTeam = team('team-1', 'Garten', '#ff0000');
+    const row = { person: person([]), name: 'Max Muster' };
+
+    (component as any).doToggleTeam(row, gartenTeam, false, []);
+
+    expect(personService.assignTeamCalls).toEqual([
+      { personId: 'p1', definitionId: 'def-team', fieldInstanceId: 'team-1', semesterId: 'semester-1' },
+    ]);
   });
 });
