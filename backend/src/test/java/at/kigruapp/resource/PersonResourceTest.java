@@ -45,4 +45,14 @@ public class PersonResourceTest {
             .statusCode(200)
             .contentType(ContentType.JSON);
     }
+
+    @Test
+    public void testPatchAssignedDutyNotFound() {
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"definitionId\": \"000000000000000000000000\", \"fieldInstanceId\": \"000000000000000000000000\"}")
+            .when().patch("/api/v1/persons/000000000000000000000000/assigned-duty")
+            .then()
+            .statusCode(404);
+    }
 }

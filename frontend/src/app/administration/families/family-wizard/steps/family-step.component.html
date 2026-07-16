@@ -1,8 +1,10 @@
 <div [formGroup]="form">
-  <mat-radio-group formControlName="mode">
-    <mat-radio-button value="new">Neue Familie erstellen</mat-radio-button>
-    <mat-radio-button value="existing">Bestehende Familie verwenden</mat-radio-button>
-  </mat-radio-group>
+  @if (!editMode) {
+    <mat-radio-group formControlName="mode">
+      <mat-radio-button value="new">Neue Familie erstellen</mat-radio-button>
+      <mat-radio-button value="existing">Bestehende Familie verwenden</mat-radio-button>
+    </mat-radio-group>
+  }
 
   @if (form.value.mode === 'new') {
     <mat-form-field appearance="outline" class="full-width">

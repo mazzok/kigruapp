@@ -27,13 +27,31 @@ public class SecurityFilter implements ContainerRequestFilter {
     @ConfigProperty(name = "quarkus.mongodb.database")
     String databaseName;
 
+    @ConfigProperty(name = "quarkus.oidc.enabled", defaultValue = "true")
+    boolean oidcEnabled;
+
     @Override
     public void filter(ContainerRequestContext ctx) {
+        // Dev mode: OIDC disabled, skip all security checks
+        if (!oidcEnabled) {
+            return;
+        }
+
         String path = ctx.getUriInfo().getPath();
         String method = ctx.getMethod();
 
         // Setup endpoints handle their own auth
         if (path.startsWith("/api/v1/setup")) {
+            return;
+        }
+
+        // Field definitions are read-only metadata needed before a person record exists (e.g. setup wizard)
+        if (path.startsWith("/api/v1/field-definitions") && "GET".equals(method)) {
+            return;
+        }
+
+        // persons/me is used by the frontend to detect whether setup is needed — must pass even without a person record
+        if (path.equals("/api/v1/persons/me") && "GET".equals(method)) {
             return;
         }
 

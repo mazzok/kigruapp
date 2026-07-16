@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatInputModule } from '@angular/material/input';
@@ -28,6 +28,19 @@ export class FamilyStepComponent implements OnInit {
   });
 
   existingFamilies: Family[] = [];
+  editMode = false;
+
+  @Input() set editFamily(family: Family | undefined) {
+    if (!family) return;
+    this.editMode = true;
+    this.form.patchValue({
+      mode: 'new',
+      newFamilyName: family.name,
+      street: family.address?.street ?? '',
+      zip: family.address?.zip ?? '',
+      city: family.address?.city ?? '',
+    });
+  }
 
   constructor(private familyService: FamilyService) {}
 
@@ -38,6 +51,9 @@ export class FamilyStepComponent implements OnInit {
   }
 
   get isValid(): boolean {
+    if (this.editMode) {
+      return !!this.form.value.newFamilyName?.trim();
+    }
     if (this.form.value.mode === 'existing') {
       return !!this.form.value.existingFamilyId;
     }

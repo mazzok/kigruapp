@@ -37,6 +37,21 @@ public class FieldInstanceResource {
     }
 
     @GET
+    public Response list(@QueryParam("definitionId") String definitionId) {
+        if (definitionId == null) {
+            return Response.status(400).entity("definitionId query param required").build();
+        }
+        ObjectId defId = new ObjectId(definitionId);
+        FieldDefinition def = FieldDefinition.findById(defId);
+        if (def == null) return Response.status(404).build();
+        List<FieldInstanceDTO> results = new ArrayList<>();
+        for (Document doc : getCollection().find(new Document("definitionId", defId))) {
+            results.add(toDTO(def, FieldInstance.fromDocument(doc)));
+        }
+        return Response.ok(results).build();
+    }
+
+    @GET
     @Path("/by-definition/{definitionId}")
     public Response getByDefinitionId(@PathParam("definitionId") String definitionId) {
         Document found = getCollection().find(new Document("definitionId", new ObjectId(definitionId))).first();

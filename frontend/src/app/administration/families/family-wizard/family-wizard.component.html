@@ -1,37 +1,49 @@
-<h2 mat-dialog-title>Neues Kind</h2>
+<h2 mat-dialog-title>{{ isEditMode ? 'Familie bearbeiten' : 'Neues Kind' }}</h2>
 
 <mat-dialog-content>
-  <mat-stepper #stepper (selectionChange)="onStepChange($event)">
-    <mat-step>
-      <ng-template matStepLabel>Familie</ng-template>
-      <app-family-step></app-family-step>
-      <div class="step-actions">
-        <button mat-raised-button color="primary" matStepperNext
-          [disabled]="familyStep ? !familyStep.isValid : true">Weiter</button>
-      </div>
-    </mat-step>
+  @if (loading) {
+    <p>Laden…</p>
+  } @else {
+    <mat-stepper #stepper (selectionChange)="onStepChange($event)">
+      <mat-step>
+        <ng-template matStepLabel>Familie</ng-template>
+        <app-family-step [editFamily]="editFamily"></app-family-step>
+        <div class="step-actions">
+          <button mat-raised-button color="primary" matStepperNext
+            [disabled]="familyStep ? !familyStep.isValid : true">Weiter</button>
+        </div>
+      </mat-step>
 
-    <mat-step>
-      <ng-template matStepLabel>Kind</ng-template>
-      <app-child-step></app-child-step>
-      <div class="step-actions">
-        <button mat-button matStepperPrevious>Zurück</button>
-        <button mat-raised-button color="primary" matStepperNext
-          [disabled]="childStep ? !childStep.isValid : true">Weiter</button>
-      </div>
-    </mat-step>
+      <mat-step>
+        <ng-template matStepLabel>Kind</ng-template>
+        <app-child-step [existingChildren]="existingChildren"></app-child-step>
+        <div class="step-actions">
+          <button mat-button matStepperPrevious>Zurück</button>
+          @if (familyStep?.isNewFamily || isEditMode) {
+            <button mat-raised-button color="primary" matStepperNext
+              [disabled]="childStep ? !childStep.isValid : true">Weiter</button>
+          } @else {
+            <button mat-raised-button color="primary"
+              [disabled]="(childStep ? !childStep.isValid : true) || submitting"
+              (click)="submit()">Kind anlegen</button>
+          }
+        </div>
+      </mat-step>
 
-    <mat-step>
-      <ng-template matStepLabel>Eltern</ng-template>
-      <app-parents-step></app-parents-step>
-      <div class="step-actions">
-        <button mat-button matStepperPrevious>Zurück</button>
-        <button mat-raised-button color="primary"
-          [disabled]="(parentsStep ? !parentsStep.isValid : true) || submitting"
-          (click)="submit()">Familie erstellen</button>
-      </div>
-    </mat-step>
-  </mat-stepper>
+      @if (familyStep?.isNewFamily || isEditMode) {
+        <mat-step>
+          <ng-template matStepLabel>Eltern</ng-template>
+          <app-parents-step [existingParents]="existingParents"></app-parents-step>
+          <div class="step-actions">
+            <button mat-button matStepperPrevious>Zurück</button>
+            <button mat-raised-button color="primary"
+              [disabled]="(parentsStep ? !parentsStep.isValid : true) || submitting"
+              (click)="submit()">{{ isEditMode ? 'Speichern' : 'Familie erstellen' }}</button>
+          </div>
+        </mat-step>
+      }
+    </mat-stepper>
+  }
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">

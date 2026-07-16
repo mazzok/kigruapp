@@ -68,6 +68,9 @@ export class SetupComponent implements OnInit {
         lastName: claims['family_name'] ?? '',
         email: this.auth.userEmail ?? claims['email'] ?? '',
       };
+      if (!this.familyName && this.keycloakPrefill.lastName) {
+        this.familyName = this.keycloakPrefill.lastName;
+      }
     }
   }
 

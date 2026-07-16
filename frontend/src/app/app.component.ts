@@ -27,8 +27,11 @@ export class AppComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    if (this.auth.isAuthenticated) {
+    // Always attempt to load — works in dev mode (no OIDC) and after production login
+    this.currentUser.loadCurrentUser().subscribe({ error: () => {} });
+    // After Keycloak redirect login the token arrives asynchronously — reload user then too
+    this.auth.tokenReceived$.subscribe(() => {
       this.currentUser.loadCurrentUser().subscribe();
-    }
+    });
   }
 }

@@ -85,6 +85,22 @@ export class FamilyListComponent implements OnInit {
       width: '700px',
       maxWidth: '95vw',
       disableClose: true,
+      data: null,
+    });
+
+    dialogRef.afterClosed().subscribe((result) => {
+      if (result) {
+        this.loadData();
+      }
+    });
+  }
+
+  openEditWizard(familyId: string): void {
+    const dialogRef = this.dialog.open(FamilyWizardComponent, {
+      width: '700px',
+      maxWidth: '95vw',
+      disableClose: true,
+      data: { familyId },
     });
 
     dialogRef.afterClosed().subscribe((result) => {

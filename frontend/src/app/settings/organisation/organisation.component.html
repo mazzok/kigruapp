@@ -24,12 +24,12 @@
         <table mat-table [dataSource]="groupsDataSource" class="mat-elevation-z2">
           <ng-container matColumnDef="label">
             <th mat-header-cell *matHeaderCellDef>Name</th>
-            <td mat-cell *matCellDef="let row">{{ row.label['de'] }}</td>
+            <td mat-cell *matCellDef="let row">{{ $any(row.value).label }}</td>
           </ng-container>
           <ng-container matColumnDef="color">
             <th mat-header-cell *matHeaderCellDef>Farbe</th>
             <td mat-cell *matCellDef="let row">
-              <span class="color-swatch" [style.background-color]="row.properties?.color"></span>
+              <span class="color-swatch" [style.background-color]="$any(row.value).color"></span>
             </td>
           </ng-container>
           <ng-container matColumnDef="actions">
@@ -62,7 +62,7 @@
                 <mat-label>Icon (Material Icon)</mat-label>
                 <input matInput formControlName="icon">
               </mat-form-field>
-              <button mat-icon-button type="button" (click)="openIconPicker()" title="Icon auswählen">
+              <button mat-icon-button type="button" (click)="openIconPicker()" title="Icon auswaehlen">
                 <mat-icon>image_search</mat-icon>
               </button>
             </div>
@@ -94,6 +94,96 @@
           <tr mat-header-row *matHeaderRowDef="dutyColumns"></tr>
           <tr mat-row *matRowDef="let row; columns: dutyColumns;"></tr>
         </table>
+      </div>
+    </mat-tab>
+
+    <!-- Parent Teams Tab -->
+    <mat-tab label="Elterneinteilung">
+      <div class="tab-content">
+        <form [formGroup]="parentTeamsForm" (ngSubmit)="addParentTeam()" class="add-form">
+          <div class="row">
+            <mat-form-field appearance="outline">
+              <mat-label>Teamname</mat-label>
+              <input matInput formControlName="labelDe">
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Farbe</mat-label>
+              <input matInput formControlName="color" type="color">
+            </mat-form-field>
+            <button mat-raised-button color="primary" type="submit" [disabled]="!parentTeamsForm.valid">
+              Team hinzufuegen
+            </button>
+          </div>
+        </form>
+
+        <p *ngIf="parentTeams.length === 0" class="empty-state">Noch keine Teams angelegt.</p>
+
+        <mat-accordion *ngIf="parentTeams.length > 0">
+          <mat-expansion-panel
+            *ngFor="let team of parentTeams"
+            (opened)="onPanelOpened()">
+            <mat-expansion-panel-header>
+              <mat-panel-title>
+                <span class="color-swatch" [style.background-color]="$any(team.value).color ?? '#9e9e9e'"></span>
+                {{ $any(team.value).label }}
+              </mat-panel-title>
+              <mat-panel-description>
+                <button mat-icon-button color="warn"
+                  (click)="deleteParentTeam(team); $event.stopPropagation()"
+                  title="Team entfernen">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </mat-panel-description>
+            </mat-expansion-panel-header>
+
+            <!-- Rollen Sub-Tabelle -->
+            <table mat-table [dataSource]="getRolesForTeam(team)"
+              class="roles-table mat-elevation-z1"
+              *ngIf="getRolesForTeam(team).length > 0">
+              <ng-container matColumnDef="label">
+                <th mat-header-cell *matHeaderCellDef>Rolle</th>
+                <td mat-cell *matCellDef="let role">{{ $any(role.value).label }}</td>
+              </ng-container>
+              <ng-container matColumnDef="min">
+                <th mat-header-cell *matHeaderCellDef>Min</th>
+                <td mat-cell *matCellDef="let role">{{ $any(role.value).min ?? '—' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="max">
+                <th mat-header-cell *matHeaderCellDef>Max</th>
+                <td mat-cell *matCellDef="let role">{{ $any(role.value).max ?? '—' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="roleActions">
+                <th mat-header-cell *matHeaderCellDef></th>
+                <td mat-cell *matCellDef="let role">
+                  <button mat-icon-button color="warn" (click)="deleteRole(role)" title="Rolle entfernen">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="roleColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: roleColumns;"></tr>
+            </table>
+
+            <!-- Rolle hinzufügen -->
+            <form [formGroup]="addRoleForm" (ngSubmit)="addRole(team)" class="add-role-form">
+              <mat-form-field appearance="outline">
+                <mat-label>Rollenname</mat-label>
+                <input matInput formControlName="labelDe">
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="short-field">
+                <mat-label>Min</mat-label>
+                <input matInput formControlName="min" type="number" min="0">
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="short-field">
+                <mat-label>Max</mat-label>
+                <input matInput formControlName="max" type="number" min="0">
+              </mat-form-field>
+              <button mat-raised-button color="accent" type="submit" [disabled]="!addRoleForm.valid">
+                Rolle hinzufuegen
+              </button>
+            </form>
+          </mat-expansion-panel>
+        </mat-accordion>
       </div>
     </mat-tab>
   </mat-tab-group>

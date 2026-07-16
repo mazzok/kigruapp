@@ -1,0 +1,41 @@
+.elterneinteilung-container {
+  padding: 24px;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  padding: 48px;
+}
+
+.filter-row {
+  margin-bottom: 16px;
+}
+
+.empty-state {
+  color: rgba(0, 0, 0, 0.54);
+  text-align: center;
+  padding: 24px;
+}
+
+.chip-assigned {
+  background-color: #1976d2 !important;
+  color: white !important;
+  cursor: pointer;
+}
+
+mat-chip {
+  cursor: pointer;
+}
+
+.team-role-section {
+  border-left: 3px solid;
+  padding: 4px 0 4px 8px;
+  margin: 8px 0;
+}
+
+.role-chip {
+  --mdc-chip-container-height: 24px;
+  font-size: 11px;
+  border: 1px solid transparent;
+}

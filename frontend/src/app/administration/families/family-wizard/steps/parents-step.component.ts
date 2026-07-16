@@ -1,9 +1,10 @@
-import { Component, Input, OnInit, QueryList, ViewChildren } from '@angular/core';
+import { Component, Input, OnInit, QueryList, ViewChildren, booleanAttribute } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { FieldDefinition } from '../../../../shared/models/field-definition.model';
-import { SectionInput } from '../../../../shared/models/person.model';
+import { PersonDTO, SectionInput } from '../../../../shared/models/person.model';
+import { FieldInstanceDTO } from '../../../../shared/models/field-instance.model';
 import { FieldDefinitionService } from '../../../../settings/custom-fields/services/field-definition.service';
 import { SectionFormComponent } from '../../../../shared/components/section-form/section-form.component';
 
@@ -32,13 +33,16 @@ import { SectionFormComponent } from '../../../../shared/components/section-form
           <app-section-form
             #parentForm
             [definitions]="definitions"
+            [existingFields]="parentEntries[$index]?.existingFields ?? []"
           ></app-section-form>
         }
       </div>
     }
-    <button mat-stroked-button (click)="addParent()">
-      <mat-icon>add</mat-icon> Elternteil hinzufuegen
-    </button>
+    @if (!singleMode) {
+      <button mat-stroked-button (click)="addParent()">
+        <mat-icon>add</mat-icon> Elternteil hinzufuegen
+      </button>
+    }
   `,
   styles: [`.parent-block { margin-bottom: 24px; border-bottom: 1px solid #ccc; padding-bottom: 16px; }`],
 })
@@ -47,10 +51,23 @@ export class ParentsStepComponent implements OnInit {
 
   @ViewChildren('parentForm') parentForms!: QueryList<SectionFormComponent>;
   @Input() keycloakPrefill: { firstName: string; lastName: string; email: string } | null = null;
+  @Input({ transform: booleanAttribute }) singleMode = false;
+
+  @Input() set existingParents(parents: { id: string; dto: PersonDTO }[]) {
+    this._existingParents = parents;
+    if (this.definitions.length > 0) {
+      this.buildEditEntries();
+    }
+  }
 
   definitions: FieldDefinition[] = [];
   private personTypeDef?: FieldDefinition;
   parentIndices: number[] = [0];
+
+  parentEntries: { id?: string; existingFields: FieldInstanceDTO[] }[] = [{ existingFields: [] }];
+  removedParentIds: string[] = [];
+
+  private _existingParents: { id: string; dto: PersonDTO }[] = [];
 
   constructor(private fieldDefService: FieldDefinitionService) {}
 
@@ -58,19 +75,35 @@ export class ParentsStepComponent implements OnInit {
     this.fieldDefService.listActive().subscribe((defs) => {
       this.personTypeDef = defs.find((d) => d.fieldName === 'personType');
       this.definitions = defs.filter((d) => ParentsStepComponent.ALLOWED_FIELDS.includes(d.fieldName));
+      if (this._existingParents.length > 0) {
+        this.buildEditEntries();
+      }
       if (this.keycloakPrefill) {
         setTimeout(() => this.applyKeycloakPrefill(), 0);
       }
     });
   }
 
+  private buildEditEntries(): void {
+    this.parentEntries = this._existingParents.map((p) => ({
+      id: p.id,
+      existingFields: p.dto.basicProperties ?? [],
+    }));
+    this.parentIndices = this.parentEntries.map((_, i) => i);
+  }
+
   addParent(): void {
-    this.parentIndices.push(this.parentIndices.length);
+    this.parentEntries.push({ existingFields: [] });
+    this.parentIndices = this.parentEntries.map((_, i) => i);
   }
 
   removeParent(index: number): void {
-    this.parentIndices.splice(index, 1);
-    this.parentIndices = this.parentIndices.map((_, i) => i);
+    const entry = this.parentEntries[index];
+    if (entry?.id) {
+      this.removedParentIds.push(entry.id);
+    }
+    this.parentEntries.splice(index, 1);
+    this.parentIndices = this.parentEntries.map((_, i) => i);
   }
 
   private applyKeycloakPrefill(): void {
@@ -102,6 +135,16 @@ export class ParentsStepComponent implements OnInit {
         values.push({ definitionId: this.personTypeDef.id, value: 'PARENT' });
       }
       return values;
+    });
+  }
+
+  getParentsData(): { id?: string; basicProperties: SectionInput[] }[] {
+    return this.parentForms.toArray().map((f, i) => {
+      const values = f.getValues();
+      if (this.personTypeDef?.id) {
+        values.push({ definitionId: this.personTypeDef.id, value: 'PARENT' });
+      }
+      return { id: this.parentEntries[i]?.id, basicProperties: values };
     });
   }
 }

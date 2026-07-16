@@ -28,6 +28,10 @@ export class FieldInstanceService {
     return this.api.put('/field-instances/batch', instances);
   }
 
+  listByDefinitionId(definitionId: string): Observable<FieldInstanceDTO[]> {
+    return this.api.get<FieldInstanceDTO[]>(`/field-instances?definitionId=${definitionId}`);
+  }
+
   getByDefinitionId(definitionId: string): Observable<{ id: string } | null> {
     return this.api.get<{ id: string }>(`/field-instances/by-definition/${definitionId}`).pipe(
       catchError(() => of(null))

@@ -16,6 +16,8 @@ export interface Person {
   finance: FieldRef[];
   customProperties: FieldRef[];
   organisationalUnit: FieldRef[];
+  assignedDuty: FieldRef[];
+  assignedRole: FieldRef[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -23,12 +25,12 @@ export interface Person {
 export interface CreatePersonRequest {
   familyId: string;
   basicProperties: SectionInput[];
-  roles: SectionInput[];
-  schedules: SectionInput[];
-  duties: SectionInput[];
-  finance: SectionInput[];
-  customProperties: SectionInput[];
-  organisationalUnit: SectionInput[];
+  roles?: SectionInput[];
+  schedules?: SectionInput[];
+  duties?: SectionInput[];
+  finance?: SectionInput[];
+  customProperties?: SectionInput[];
+  organisationalUnit?: SectionInput[];
 }
 
 export interface SectionInput {
@@ -47,6 +49,8 @@ export interface PersonDTO {
   finance: FieldInstanceDTO[];
   customProperties: FieldInstanceDTO[];
   organisationalUnit: FieldInstanceDTO[];
+  assignedDuty: FieldInstanceDTO[];
+  assignedRole: FieldInstanceDTO[];
   createdAt?: string;
   updatedAt?: string;
 }
