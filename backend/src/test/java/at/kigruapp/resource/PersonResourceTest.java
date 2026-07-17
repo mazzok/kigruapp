@@ -329,4 +329,114 @@ public class PersonResourceTest {
             .countDocuments(new org.bson.Document("personId", new org.bson.types.ObjectId(personId)));
         org.junit.jupiter.api.Assertions.assertEquals(0, remaining);
     }
+
+    @Test
+    public void testSetEnrollmentDatesRequiresGroupAssignment() {
+        String familyId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"name\": \"Testfamilie-NoGroup\"}")
+            .when().post("/api/v1/families")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String personId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"familyId\": \"" + familyId + "\", \"basicProperties\": []}")
+            .when().post("/api/v1/persons")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String semesterId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"start\": \"2024-09-01T00:00:00Z\", \"end\": \"2025-08-31T00:00:00Z\"}")
+            .when().post("/api/v1/semesters")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"entryDate\": \"2024-09-01\", \"exitDate\": null}")
+            .when().patch("/api/v1/persons/" + personId + "/enrollment-dates?semesterId=" + semesterId)
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    public void testSetEnrollmentDatesValidatesOrderAndDependency() {
+        String familyId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"name\": \"Testfamilie-Order\"}")
+            .when().post("/api/v1/families")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String personTypeDefId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"fieldName\": \"personType\", \"label\": {\"de\": \"Typ\"}, \"jsonSchema\": {\"type\": \"string\"}, \"required\": false}")
+            .when().post("/api/v1/field-definitions")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String personId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"familyId\": \"" + familyId + "\", \"basicProperties\": [{\"definitionId\": \"" + personTypeDefId + "\", \"value\": \"CHILD\"}]}")
+            .when().post("/api/v1/persons")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String groupDefId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"fieldName\": \"group\", \"label\": {\"de\": \"Gruppen\"}, \"jsonSchema\": {\"type\": \"object\"}, \"required\": false}")
+            .when().post("/api/v1/field-definitions")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String groupInstId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"definitionId\": \"" + groupDefId + "\", \"value\": {\"label\": \"Baeren-Order\"}}")
+            .when().post("/api/v1/field-instances")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String semesterId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"start\": \"2024-09-01T00:00:00Z\", \"end\": \"2025-08-31T00:00:00Z\"}")
+            .when().post("/api/v1/semesters")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"definitionId\": \"" + groupDefId + "\", \"fieldInstanceId\": \"" + groupInstId + "\"}")
+            .when().patch("/api/v1/persons/" + personId + "/group?semesterId=" + semesterId)
+            .then().statusCode(204);
+
+        // exitDate without entryDate -> 400
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"entryDate\": null, \"exitDate\": \"2025-01-01\"}")
+            .when().patch("/api/v1/persons/" + personId + "/enrollment-dates?semesterId=" + semesterId)
+            .then().statusCode(400);
+
+        // exitDate before entryDate -> 400
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"entryDate\": \"2025-01-01\", \"exitDate\": \"2024-12-01\"}")
+            .when().patch("/api/v1/persons/" + personId + "/enrollment-dates?semesterId=" + semesterId)
+            .then().statusCode(400);
+
+        // valid pair -> 204, then reflected in children list
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"entryDate\": \"2024-09-15\", \"exitDate\": \"2025-06-30\"}")
+            .when().patch("/api/v1/persons/" + personId + "/enrollment-dates?semesterId=" + semesterId)
+            .then().statusCode(204);
+
+        given()
+            .when().get("/api/v1/persons/children?semesterId=" + semesterId)
+            .then()
+            .statusCode(200)
+            .body("find { it.id == '" + personId + "' }.entryDate", is("2024-09-15"))
+            .body("find { it.id == '" + personId + "' }.exitDate", is("2025-06-30"));
+    }
 }

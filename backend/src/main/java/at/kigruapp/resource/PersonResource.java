@@ -164,6 +164,8 @@ public class PersonResource {
 
     public record GroupAssignmentRequest(String definitionId, String fieldInstanceId) {}
 
+    public record EnrollmentDatesRequest(String entryDate, String exitDate) {}
+
     public record TeamAssignmentRequest(String definitionId, String fieldInstanceId) {}
 
     public record RoleAssignmentRequest(String definitionId, String fieldInstanceId) {}
@@ -414,6 +416,48 @@ public class PersonResource {
                 .append("section", "group")
                 .append("definitionId", defId)
                 .append("fieldInstanceId", instId));
+
+        return Response.noContent().build();
+    }
+
+    @PATCH
+    @Path("/{id}/enrollment-dates")
+    public Response patchEnrollmentDates(
+            @PathParam("id") String id,
+            @QueryParam("semesterId") String semesterIdParam,
+            EnrollmentDatesRequest request) {
+        Person person = Person.findById(new ObjectId(id));
+        if (person == null) throw new NotFoundException();
+
+        ObjectId semesterId = requireSemesterId(semesterIdParam);
+        String entryDate = request.entryDate();
+        String exitDate = request.exitDate();
+
+        if (exitDate != null && entryDate == null) {
+            throw new BadRequestException("exitDate requires entryDate");
+        }
+        if (entryDate != null && exitDate != null && exitDate.compareTo(entryDate) < 0) {
+            throw new BadRequestException("exitDate must not be before entryDate");
+        }
+
+        MongoCollection<Document> assignments = getSemesterAssignmentsCollection();
+        Document filter = new Document("personId", person.id)
+                .append("semesterId", semesterId)
+                .append("section", "group");
+        Document existing = assignments.find(filter).first();
+        if (existing == null) {
+            throw new BadRequestException("No group assignment for this semester");
+        }
+
+        assignments.deleteMany(filter);
+        assignments.insertOne(new Document("_id", new ObjectId())
+                .append("personId", person.id)
+                .append("semesterId", semesterId)
+                .append("section", "group")
+                .append("definitionId", existing.getObjectId("definitionId"))
+                .append("fieldInstanceId", existing.getObjectId("fieldInstanceId"))
+                .append("entryDate", entryDate)
+                .append("exitDate", exitDate));
 
         return Response.noContent().build();
     }

@@ -282,9 +282,16 @@ Add to `PersonResourceTest.java`:
             .then().statusCode(201)
             .extract().path("id");
 
+        String personTypeDefId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"fieldName\": \"personType\", \"label\": {\"de\": \"Typ\"}, \"jsonSchema\": {\"type\": \"string\"}, \"required\": false}")
+            .when().post("/api/v1/field-definitions")
+            .then().statusCode(201)
+            .extract().path("id");
+
         String personId = given()
             .contentType(ContentType.JSON)
-            .body("{\"familyId\": \"" + familyId + "\", \"basicProperties\": []}")
+            .body("{\"familyId\": \"" + familyId + "\", \"basicProperties\": [{\"definitionId\": \"" + personTypeDefId + "\", \"value\": \"CHILD\"}]}")
             .when().post("/api/v1/persons")
             .then().statusCode(201)
             .extract().path("id");
@@ -890,3 +897,4 @@ No commit for this task — it's verification. If the manual walkthrough surface
 - **Spec coverage:** Data model (Task 1, 3), write endpoint + validation (Task 2), reset-on-group-change (Task 3, already covered by existing logic), frontend columns/disabled-state/auto-save (Task 5), model/service (Task 4). All spec sections have a corresponding task.
 - **Deviation from spec wire format:** the spec described `entryDate`/`exitDate` as independently omittable in the PATCH body ("Feld nicht im Request enthalten → unverändert"). This plan implements a simpler full-pair-replace instead — the frontend always sends both fields (the changed one plus the row's current other value) — because a plain Java record can't distinguish "field absent" from "field explicitly null" without extra wrapper types, and the frontend already has both values in memory for the row it's editing. All four invariants from the spec still hold under this implementation.
 - **Type consistency:** `ChildDTO` (backend record and frontend interface), `EnrollmentDatesRequest`, and `PersonService.setEnrollmentDates` signatures are used identically across Tasks 1, 2, 4, and 5.
+- **Execution-time fix (Task 2):** `testSetEnrollmentDatesValidatesOrderAndDependency`'s original test fixture created its person with `"basicProperties": []` (no `personType`), so `GET /persons/children` silently excluded it (`isChild()` requires a `personType=CHILD` field instance) and the final assertion failed with a misleading "actual: null" — the write path was correct; the test person just never appeared in the read path it was asserting against. Fixed by adding a `personType`/`CHILD` basic property to the person, matching the pattern already used in `testGroupAssignmentIsolatedPerSemester`. No production code was affected.
