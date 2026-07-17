@@ -254,7 +254,7 @@ export class OrganisationComponent implements OnInit {
     } else {
       const templateDef: FieldDefinition = {
         fieldName: 'parent-team',
-        label: { de: 'Elterneinteilung' },
+        label: { de: 'Team' },
         jsonSchema: { type: 'object', properties: { label: { type: 'string' }, color: { type: 'string' } } },
         required: false,
       };
@@ -334,7 +334,7 @@ export class OrganisationComponent implements OnInit {
     } else {
       const templateDef: FieldDefinition = {
         fieldName: 'parent-team-role',
-        label: { de: 'Elterneinteilung Rolle' },
+        label: { de: 'Team-Rolle' },
         jsonSchema: {
           type: 'object',
           properties: {
