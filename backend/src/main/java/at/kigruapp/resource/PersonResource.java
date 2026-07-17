@@ -61,9 +61,17 @@ public class PersonResource {
         }
         List<Semester> latest = Semester.listAll(Sort.descending("createdAt"));
         if (latest.isEmpty()) {
-            throw new BadRequestException("No semester available");
+            return null;
         }
         return latest.get(0).id;
+    }
+
+    private ObjectId requireSemesterId(String semesterIdParam) {
+        ObjectId semesterId = resolveSemesterId(semesterIdParam);
+        if (semesterId == null) {
+            throw new BadRequestException("No semester available");
+        }
+        return semesterId;
     }
 
     private void toggleAssignment(ObjectId personId, ObjectId semesterId, String section, ObjectId defId, ObjectId instId) {
@@ -86,6 +94,9 @@ public class PersonResource {
     }
 
     private List<FieldInstanceDTO> resolveSemesterAssignments(ObjectId personId, ObjectId semesterId, String section) {
+        if (semesterId == null) {
+            return List.of();
+        }
         Document filter = new Document("personId", personId)
                 .append("semesterId", semesterId)
                 .append("section", section);
@@ -386,7 +397,7 @@ public class PersonResource {
         Person person = Person.findById(new ObjectId(id));
         if (person == null) throw new NotFoundException();
 
-        ObjectId semesterId = resolveSemesterId(semesterIdParam);
+        ObjectId semesterId = requireSemesterId(semesterIdParam);
         ObjectId defId = new ObjectId(request.definitionId());
         ObjectId instId = new ObjectId(request.fieldInstanceId());
 
@@ -414,7 +425,7 @@ public class PersonResource {
         Person person = Person.findById(new ObjectId(id));
         if (person == null) throw new NotFoundException();
 
-        ObjectId semesterId = resolveSemesterId(semesterIdParam);
+        ObjectId semesterId = requireSemesterId(semesterIdParam);
         ObjectId defId = new ObjectId(request.definitionId());
         ObjectId instId = new ObjectId(request.fieldInstanceId());
 
@@ -431,7 +442,7 @@ public class PersonResource {
         Person person = Person.findById(new ObjectId(id));
         if (person == null) throw new NotFoundException();
 
-        ObjectId semesterId = resolveSemesterId(semesterIdParam);
+        ObjectId semesterId = requireSemesterId(semesterIdParam);
         ObjectId defId = new ObjectId(request.definitionId());
         ObjectId instId = new ObjectId(request.fieldInstanceId());
 
@@ -461,14 +472,16 @@ public class PersonResource {
 
         String groupDefinitionId = null;
         String groupInstanceId = null;
-        Document groupAssignment = getSemesterAssignmentsCollection()
-                .find(new Document("personId", person.id)
-                        .append("semesterId", semesterId)
-                        .append("section", "group"))
-                .first();
-        if (groupAssignment != null) {
-            groupDefinitionId = groupAssignment.getObjectId("definitionId").toHexString();
-            groupInstanceId = groupAssignment.getObjectId("fieldInstanceId").toHexString();
+        if (semesterId != null) {
+            Document groupAssignment = getSemesterAssignmentsCollection()
+                    .find(new Document("personId", person.id)
+                            .append("semesterId", semesterId)
+                            .append("section", "group"))
+                    .first();
+            if (groupAssignment != null) {
+                groupDefinitionId = groupAssignment.getObjectId("definitionId").toHexString();
+                groupInstanceId = groupAssignment.getObjectId("fieldInstanceId").toHexString();
+            }
         }
 
         return new ChildDTO(
