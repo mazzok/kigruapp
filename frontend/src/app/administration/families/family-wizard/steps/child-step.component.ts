@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, QueryList, ViewChild, ViewChildren } from '@angular/core';
+import { Component, Input, OnInit, QueryList, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -13,39 +13,32 @@ import { SectionFormComponent } from '../../../../shared/components/section-form
   standalone: true,
   imports: [CommonModule, MatButtonModule, MatIconModule, SectionFormComponent],
   template: `
-    @if (isEditMode) {
-      @for (entry of childEntries; track $index; let i = $index) {
-        <div class="child-block">
-          <div style="display:flex; align-items:center; justify-content:space-between;">
-            <h4 style="margin:0">Kind {{ i + 1 }}</h4>
-            <button mat-icon-button color="warn" (click)="removeChild(i)">
-              <mat-icon>delete</mat-icon>
-            </button>
-          </div>
-          @if (definitions.length > 0) {
-            <app-section-form #childForm
-              [definitions]="definitions"
-              [existingFields]="entry.existingFields">
-            </app-section-form>
-          }
+    <h3>Kinder</h3>
+    @for (entry of childEntries; track $index; let i = $index) {
+      <div class="child-block">
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <h4 style="margin:0">Kind {{ i + 1 }}</h4>
+          <button mat-icon-button color="warn" (click)="removeChild(i)">
+            <mat-icon>delete</mat-icon>
+          </button>
         </div>
-      }
-      <button mat-stroked-button (click)="addChild()" style="margin-top:8px">
-        <mat-icon>child_care</mat-icon> Kind hinzufügen
-      </button>
-    } @else {
-      <h3>Kind</h3>
-      @if (definitions.length > 0) {
-        <app-section-form #sectionForm [definitions]="definitions"></app-section-form>
-      }
+        @if (definitions.length > 0) {
+          <app-section-form #childForm
+            [definitions]="definitions"
+            [existingFields]="entry.existingFields">
+          </app-section-form>
+        }
+      </div>
     }
+    <button mat-stroked-button (click)="addChild()" style="margin-top:8px">
+      <mat-icon>child_care</mat-icon> Kind hinzufügen
+    </button>
   `,
   styles: [`.child-block { margin-bottom: 24px; border-bottom: 1px solid #ccc; padding-bottom: 16px; }`],
 })
 export class ChildStepComponent implements OnInit {
   private static readonly ALLOWED_FIELDS = ['firstName', 'lastName', 'dateOfBirth', 'gender', 'address'];
 
-  @ViewChild('sectionForm') sectionForm?: SectionFormComponent;
   @ViewChildren('childForm') childForms!: QueryList<SectionFormComponent>;
 
   definitions: FieldDefinition[] = [];
@@ -61,11 +54,7 @@ export class ChildStepComponent implements OnInit {
   }
   private _existingChildren: { id: string; dto: PersonDTO }[] = [];
 
-  get isEditMode(): boolean {
-    return this._existingChildren.length > 0;
-  }
-
-  childEntries: { id?: string; existingFields: FieldInstanceDTO[] }[] = [];
+  childEntries: { id?: string; existingFields: FieldInstanceDTO[] }[] = [{ existingFields: [] }];
   removedChildIds: string[] = [];
 
   constructor(private fieldDefService: FieldDefinitionService) {}
@@ -88,22 +77,17 @@ export class ChildStepComponent implements OnInit {
   }
 
   get isValid(): boolean {
-    return this.sectionForm?.isValid ?? true;
+    return this.childForms?.length > 0 &&
+      this.childForms.toArray().every((f) => f.isValid);
   }
 
   prefill(lastName: string, address?: { street: string; zip: string; city: string } | null): void {
-    this.sectionForm?.setValueByFieldName('lastName', lastName);
-    if (address) {
-      this.sectionForm?.setValueByFieldName('address', address);
-    }
-  }
-
-  getBasicProperties(): SectionInput[] {
-    const values = this.sectionForm?.getValues() ?? [];
-    if (this.personTypeDef?.id) {
-      values.push({ definitionId: this.personTypeDef.id, value: 'CHILD' });
-    }
-    return values;
+    this.childForms?.forEach((f) => {
+      f.setValueByFieldName('lastName', lastName);
+      if (address) {
+        f.setValueByFieldName('address', address);
+      }
+    });
   }
 
   addChild(): void {

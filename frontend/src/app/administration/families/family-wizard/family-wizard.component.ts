@@ -124,16 +124,19 @@ export class FamilyWizardComponent implements OnInit {
       familyId = this.familyStep.selectedFamilyId!;
     }
 
-    const childRequest: CreatePersonRequest = {
-      familyId,
-      basicProperties: this.childStep.getBasicProperties(),
-      roles: [],
-      schedules: [],
-      duties: [],
-      finance: [],
-      customProperties: [],
-    };
-    await lastValueFrom(this.personService.create(childRequest));
+    const childrenProps = this.childStep.getChildrenData();
+    for (const child of childrenProps) {
+      const childRequest: CreatePersonRequest = {
+        familyId,
+        basicProperties: child.basicProperties,
+        roles: [],
+        schedules: [],
+        duties: [],
+        finance: [],
+        customProperties: [],
+      };
+      await lastValueFrom(this.personService.create(childRequest));
+    }
 
     const parentsProps = this.parentsStep?.getParentsBasicProperties() ?? [];
     for (const parentProps of parentsProps) {
