@@ -4,6 +4,8 @@ import { MatTableModule } from '@angular/material/table';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatInputModule } from '@angular/material/input';
 import { PersonService } from '../../shared/services/person.service';
 import { OrganisationService } from '../../shared/services/organisation.service';
 import { FieldInstanceService } from '../../shared/services/field-instance.service';
@@ -18,6 +20,7 @@ import { Semester } from '../../shared/models/semester.model';
   imports: [
     CommonModule,
     MatTableModule, MatSelectModule, MatFormFieldModule, MatProgressSpinnerModule,
+    MatDatepickerModule, MatInputModule,
   ],
   template: `
     <div class="page-container">
@@ -65,6 +68,34 @@ import { Semester } from '../../shared/models/semester.model';
             </td>
           </ng-container>
 
+          <ng-container matColumnDef="eintritt">
+            <th mat-header-cell *matHeaderCellDef>Eintritt</th>
+            <td mat-cell *matCellDef="let child">
+              <mat-form-field appearance="outline" class="date-field">
+                <input matInput [matDatepicker]="entryPicker"
+                  [value]="parseDate(child.entryDate)"
+                  [disabled]="isEntryDateDisabled(child)"
+                  (dateChange)="onEntryDateChange(child, formatDate($event.value))">
+                <mat-datepicker-toggle matIconSuffix [for]="entryPicker" [disabled]="isEntryDateDisabled(child)"></mat-datepicker-toggle>
+                <mat-datepicker #entryPicker></mat-datepicker>
+              </mat-form-field>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="austritt">
+            <th mat-header-cell *matHeaderCellDef>Austritt</th>
+            <td mat-cell *matCellDef="let child">
+              <mat-form-field appearance="outline" class="date-field">
+                <input matInput [matDatepicker]="exitPicker"
+                  [value]="parseDate(child.exitDate)"
+                  [disabled]="isExitDateDisabled(child)"
+                  (dateChange)="onExitDateChange(child, formatDate($event.value))">
+                <mat-datepicker-toggle matIconSuffix [for]="exitPicker" [disabled]="isExitDateDisabled(child)"></mat-datepicker-toggle>
+                <mat-datepicker #exitPicker></mat-datepicker>
+              </mat-form-field>
+            </td>
+          </ng-container>
+
           <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
           <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
         </table>
@@ -75,11 +106,12 @@ import { Semester } from '../../shared/models/semester.model';
     .page-container { padding: 24px; }
     .full-width { width: 100%; }
     .semester-select { min-width: 200px; margin-bottom: 16px; display: block; }
+    .date-field { width: 160px; }
     mat-select { min-width: 160px; }
   `],
 })
 export class PlatzzuweisungComponent implements OnInit {
-  displayedColumns = ['name', 'alter', 'gruppe'];
+  displayedColumns = ['name', 'alter', 'gruppe', 'eintritt', 'austritt'];
   children: ChildDTO[] = [];
   groups: FieldInstanceDTO[] = [];
   semesters: Semester[] = [];
@@ -150,6 +182,44 @@ export class PlatzzuweisungComponent implements OnInit {
     this.personService.assignGroup(child.id, this.groupDefinitionId, groupInstanceId, this.selectedSemesterId).subscribe(() => {
       child.groupDefinitionId = this.groupDefinitionId!;
       child.groupInstanceId = groupInstanceId;
+      child.entryDate = null;
+      child.exitDate = null;
+    });
+  }
+
+  parseDate(dateStr: string | null): Date | null {
+    if (!dateStr) return null;
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+
+  formatDate(date: Date | null): string | null {
+    if (!date) return null;
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  isEntryDateDisabled(child: ChildDTO): boolean {
+    return !child.groupInstanceId;
+  }
+
+  isExitDateDisabled(child: ChildDTO): boolean {
+    return !child.groupInstanceId || !child.entryDate;
+  }
+
+  onEntryDateChange(child: ChildDTO, entryDate: string | null): void {
+    if (!this.selectedSemesterId) return;
+    this.personService.setEnrollmentDates(child.id, entryDate, child.exitDate, this.selectedSemesterId).subscribe(() => {
+      child.entryDate = entryDate;
+    });
+  }
+
+  onExitDateChange(child: ChildDTO, exitDate: string | null): void {
+    if (!this.selectedSemesterId) return;
+    this.personService.setEnrollmentDates(child.id, child.entryDate, exitDate, this.selectedSemesterId).subscribe(() => {
+      child.exitDate = exitDate;
     });
   }
 }
