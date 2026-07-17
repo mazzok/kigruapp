@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+body { font-family: Segoe UI, Arial, sans-serif; margin: 40px; line-height: 1.6; color: #333; max-width: 900px; }
+h1 { color: #1a1a1a; border-bottom: 2px solid #333; padding-bottom: 8px; }
+h2 { color: #2a2a2a; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 30px; }
+h3 { color: #3a3a3a; margin-top: 25px; }
+h4 { color: #4a4a4a; }
+table { border-collapse: collapse; width: 100%%; margin: 15px 0; font-size: 0.9em; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background-color: #f5f5f5; font-weight: bold; }
+tr:nth-child(even) { background-color: #fafafa; }
+code { background-color: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
+pre { background-color: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #e74c3c; margin: 15px 0; padding: 10px 20px; background-color: #fdf2f2; }
+hr { border: none; border-top: 1px solid #ccc; margin: 30px 0; }
+@page { margin: 20mm; margin-top: 15mm; margin-bottom: 15mm; }
+@media print { body { margin: 0; } }
+</style>
+</head>
+<body>
+<h1>CSP Redundanzmodus - Einrichtungshandbuch</h1>
+<h2>1. Übersicht</h2>
+<p>Der CSP-Redundanzmodus ermöglicht den Betrieb von zwei CSP-Instanzen (Cell Service Providern) für dieselbe Zelle. Ziel ist die unterbrechungsfreie Weiterführung des Betriebs bei Ausfall einer Instanz - auch während laufender Rezepte.</p>
+<h3>Konzept</h3>
+<ul>
+<li><strong>Primary CSP</strong>: Aktive Instanz. Liest und schreibt OPC-UA Items, steuert PLC-Kommunikation, führt Rezepte und Workflows aus. Nur der Primary darf auf die Datenbank schreiben und Auditeinträge bzw. Messages erzeugen.</li>
+<li><strong>Secondary CSP</strong>: Passive Instanz (Standby). Verhält sich wie ein RSP - hört auf MQTT-Daten mit, kann Workflows nur über MQTT-Commands triggern. </li>
+</ul>
+<p>Beide Instanzen verwenden dieselbe Cell-ID. Der <strong>ALTERNATIVE-Knoten</strong> verwendet zusätzlich einen <strong>statischen Offset von 90.000</strong> auf der MQTT-Topic-Ebene — unabhängig davon, ob er gerade Primary oder Secondary ist. Dadurch können beide CSPs gleichzeitig am selben MQTT-Broker und an derselben Datenbank arbeiten, ohne sich gegenseitig zu stören.</p>
+<h3>Rollenverteilung</h3>
+<table>
+<thead>
+<tr>
+<th>Eigenschaft</th>
+<th>Primary</th>
+<th>Secondary</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OPC-UA Schreibzugriff auf SPS</td>
+<td>Ja</td>
+<td>Ja</td>
+</tr>
+<tr>
+<td>Datenbank-Schreibzugriff</td>
+<td>Ja</td>
+<td>Ja</td>
+</tr>
+<tr>
+<td>Auditeinträge / Messages erzeugen</td>
+<td>Ja</td>
+<td>Nein</td>
+</tr>
+<tr>
+<td>Rezeptausführung</td>
+<td>Aktiv</td>
+<td>Passiv (übernimmt bei Failover)</td>
+</tr>
+<tr>
+<td>MQTT-Daten publizieren</td>
+<td>Ja</td>
+<td>Ja</td>
+</tr>
+<tr>
+<td>MQTT-Daten empfangen</td>
+<td>Ja</td>
+<td>Ja (hört auf Primary-Topics mit)</td>
+</tr>
+<tr>
+<td>Failover-Übernahme</td>
+<td>-</td>
+<td>Automatisch nach 5 Sekunden</td>
+</tr>
+</tbody>
+</table>
+<h3>Knotentypen (Node Types)</h3>
+<p>Es gibt zwei Knotentypen innerhalb eines CSP-Clusters:</p>
+<ul>
+<li><strong>ORIGINAL</strong> (<code>cluster.nodeType=1</code>): Die "bevorzugte" Instanz publiziert unter der originalen Cell-ID. Bei gleichzeitigem Start beider CSPs erhält der ORIGINAL-Knoten Vorrang bei der Primary-Wahl.</li>
+<li><strong>ALTERNATIVE</strong> (<code>cluster.nodeType=2</code>): Die zweite Instanz publiziert unter der alternativen Cell-ID (Cell-ID + 90000 Offset). Weicht dem ORIGINAL-Knoten, wenn beide gleichzeitig Primary beanspruchen.</li>
+</ul>
+<blockquote>
+<p><strong>Wichtig:</strong> Der Knotentyp bestimmt nur die Priorität bei der Wahl. Beide Knoten können sowohl Primary als auch Secondary werden.</p>
+</blockquote>
+<hr />
+<h2>2. Voraussetzungen</h2>
+<h3>Hardware</h3>
+<ul>
+<li>Zwei separate Rechner (oder VMs), auf denen jeweils eine CSP-Instanz läuft.</li>
+<li>Beide Rechner müssen Netzwerkzugang haben.</li>
+</ul>
+<h3>Netzwerk</h3>
+<ul>
+<li>Gemeinsamer <strong>MQTT-Broker</strong>, erreichbar von beiden CSP-Instanzen.</li>
+<li>Beide CSPs müssen die <strong>SPS per OPC-UA</strong> erreichen können.</li>
+<li>Beide CSPs brauchen Zugriff auf einen <strong>OPC-UA Server für die Cluster-Kommunikation</strong>. Details in Abschnitt 4.</li>
+<li>Beide CSPs brauche Zugriff auf den Datenbank-Cluster.</li>
+</ul>
+<h3>SPS-seitige Vorbereitung</h3>
+<p>Auf der SPS müssen <strong>4 OPC-UA Items</strong> für die Cluster-Kommunikation angelegt werden. Details in Abschnitt 4.</p>
+<hr />
+<h2>3. Konfiguration der vis.properties</h2>
+<p>Die <code>userdata/vis.properties</code> Datei muss auf <strong>beiden</strong> CSP-Instanzen konfiguriert werden.</p>
+<h3>3.1 Gemeinsame Einstellungen (beide CSPs identisch)</h3>
+<p>Diese Properties müssen auf beiden Instanzen <strong>gleich</strong> sein:</p>
+<pre><code class="language-properties"># Cell-ID der Zelle (identisch auf beiden CSPs)
+cellbroker.cellId
+
+# MQTT-Broker URL (gleicher Broker für beide)
+cellbroker.mqttBrokerUrl
+
+# Erlaubte RSP-Clients
+cellbroker.clientNames
+
+# OPC-UA Verbindung zur SPS (gleiche SPS)
+OPC.SimaticNet.ipAddress
+OPC.SimaticNet.namespaceUri
+OPC.SimaticNet.simulated
+
+# Datenbank (gleiche CrateDB-Instanz)
+jdbc.ip
+jdbc.port
+</code></pre>
+<h3>3.2 Instanzspezifische Einstellungen</h3>
+<p>Diese Properties <strong>unterscheiden sich</strong> zwischen den zwei CSP-Instanzen:</p>
+<h4>CSP-Instanz "Original" (bevorzugter Primary)</h4>
+<pre><code class="language-properties"># Knotentyp: 1 = ORIGINAL (hat Vorrang bei der Primary-Wahl)
+cluster.nodeType=1
+
+# Eindeutiger Maschinenname zur Identifikation
+z.B: hmi.machineName=CSP 001 Original
+</code></pre>
+<h4>CSP-Instanz "Alternative" (Standby-Knoten)</h4>
+<pre><code class="language-properties"># Knotentyp: 2 = ALTERNATIVE (weicht dem Original bei Gleichzeitigkeit)
+cluster.nodeType=2
+
+# Eindeutiger Maschinenname zur Identifikation
+z.B: hmi.machineName=CSP 001 Alternative
+</code></pre>
+<h3>3.3 Cluster-Kommunikation (ClusterInfo-Items)</h3>
+<p>Die Cluster-Kommunikation läuft über 4 OPC-UA Items, die auf einem von beiden CSPs erreichbaren OPC-UA Server liegen. Die Item-Pfade werden standardmässig über <code>cluster.*</code> Properties in der <code>vis.properties</code> konfiguriert. Alternativ kann für Testzwecke eine separate <code>fspClusterInfo</code>-Verbindung verwendet werden.</p>
+<h4>Item-Pfade für Cluster-Items (Standard)</h4>
+<p>Die Cluster-Items müssen auf einem OPC-UA Server bereitgestellt werden. Die Pfade werden in der <code>vis.properties</code> konfiguriert und verweisen auf Items im AutomationSphere Item-Manager — unabhängig davon, auf welcher Connection sie definiert sind.</p>
+<pre><code class="language-properties"># Item-Pfade für Cluster-Items
+cluster.original.timestamp=OPC.SimaticNet.Cluster.original.timestamp
+cluster.original.payload=OPC.SimaticNet.Cluster.original.payload
+cluster.alternative.timestamp=OPC.SimaticNet.Cluster.alternative.timestamp
+cluster.alternative.payload=OPC.SimaticNet.Cluster.alternative.payload
+</code></pre>
+<h4>Alternativ: fspClusterInfo-Verbindung (Testzwecke)</h4>
+<p>Wenn die <code>cluster.*</code> Properties <strong>nicht</strong> gesetzt sind, werden die Default-Pfade auf der <code>fspClusterInfo</code>-Verbindung verwendet. Diese Variante eignet sich für Testzwecke und erfordert eine separate OPC-UA Verbindung:</p>
+<ul>
+<li><code>Cluster.original.timestamp</code></li>
+<li><code>Cluster.original.payload</code></li>
+<li><code>Cluster.alternative.timestamp</code></li>
+<li><code>Cluster.alternative.payload</code></li>
+</ul>
+<pre><code class="language-properties"># IP-Adresse und Port des OPC-UA Servers für die Cluster-Kommunikation
+# Dies ist der Server, auf dem die 4 Cluster-Items liegen (s. Abschnitt 4)
+fspClusterInfo.ipAddress=10.80.6.200:4840
+</code></pre>
+<blockquote>
+<p><strong>Hinweis:</strong> Wenn <code>fspClusterInfo.ipAddress</code> <strong>nicht</strong> gesetzt ist, läuft die fspClusterInfo-Verbindung im simulierten Modus. Sind weder die <code>cluster.*</code> Properties noch <code>fspClusterInfo.ipAddress</code> gesetzt, ist der Redundanzmodus <strong>nicht</strong> funktionsfähig.</p>
+</blockquote>
+<h3>3.4 Vollständige Property-Referenz</h3>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Typ</th>
+<th>Pflicht</th>
+<th>Beispiel</th>
+<th>Beschreibung</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cluster.nodeType</code></td>
+<td>Integer</td>
+<td>Ja</td>
+<td><code>1</code> oder <code>2</code></td>
+<td><code>1</code> = ORIGINAL, <code>2</code> = ALTERNATIVE</td>
+</tr>
+<tr>
+<td><code>cluster.original.timestamp</code></td>
+<td>Long</td>
+<td>Nein</td>
+<td><code>Cluster.original.timestamp</code></td>
+<td>Item-Pfad für Original-Timestamp (Default: <code>Cluster.original.timestamp</code>)</td>
+</tr>
+<tr>
+<td><code>cluster.original.payload</code></td>
+<td>String(200)</td>
+<td>Nein</td>
+<td><code>Cluster.original.payload</code></td>
+<td>Item-Pfad für Original-Payload (Default: <code>Cluster.original.payload</code>)</td>
+</tr>
+<tr>
+<td><code>cluster.alternative.timestamp</code></td>
+<td>Long</td>
+<td>Nein</td>
+<td><code>Cluster.alternative.timestamp</code></td>
+<td>Item-Pfad für Alternative-Timestamp (Default: <code>Cluster.alternative.timestamp</code>)</td>
+</tr>
+<tr>
+<td><code>cluster.alternative.payload</code></td>
+<td>String(200)</td>
+<td>Nein</td>
+<td><code>Cluster.alternative.payload</code></td>
+<td>Item-Pfad für Alternative-Payload (Default: <code>Cluster.alternative.payload</code>)</td>
+</tr>
+<tr>
+<td><code>fspClusterInfo.ipAddress</code></td>
+<td>String</td>
+<td>Nein*</td>
+<td><code>10.80.6.200:4840</code></td>
+<td>OPC-UA Server für Cluster-Heartbeat (*Fallback, nur nötig wenn <code>cluster.*</code> Properties nicht gesetzt)</td>
+</tr>
+<tr>
+<td><code>cellbroker.cellId</code></td>
+<td>Integer</td>
+<td>Ja</td>
+<td><code>815</code></td>
+<td>Cell-ID (identisch auf beiden CSPs)</td>
+</tr>
+<tr>
+<td><code>cellbroker.mqttBrokerUrl</code></td>
+<td>String</td>
+<td>Ja</td>
+<td><code>tcp://192.168.1.100:1883</code></td>
+<td>MQTT-Broker-Adresse</td>
+</tr>
+<tr>
+<td><code>hmi.machineName</code></td>
+<td>String</td>
+<td>Empfohlen</td>
+<td><code>CSP 815 Original</code></td>
+<td>Anzeigename zur Unterscheidung</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>4. OPC-UA Items auf der SPS (Cluster-Kommunikation)</h2>
+<h3>4.1 Überblick</h3>
+<p>Die beiden CSP-Instanzen kommunizieren ihren Status (Primary/Secondary) und Heartbeat-Signale über <strong>4 OPC-UA Items</strong>. Diese Items müssen auf einem OPC-UA Server liegen, der von beiden CSPs erreichbar ist.</p>
+<p>Die Items sind paarweise aufgebaut — je ein Paar für den ORIGINAL-Knoten und eines für den ALTERNATIVE-Knoten:</p>
+<table>
+<thead>
+<tr>
+<th>Item-Identifier</th>
+<th>OPC-UA Datentyp</th>
+<th>Zugriff</th>
+<th>Beschreibung</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Cluster.original.timestamp</code></td>
+<td>UInt64</td>
+<td>Read/Write</td>
+<td>Heartbeat-Zeitstempel des ORIGINAL-Knotens (Millisekunden seit Epoch)</td>
+</tr>
+<tr>
+<td><code>Cluster.original.payload</code></td>
+<td>String(200)</td>
+<td>Read/Write</td>
+<td>JSON-Payload des ORIGINAL-Knotens (Modus und Kommando, siehe 4.2)</td>
+</tr>
+<tr>
+<td><code>Cluster.alternative.timestamp</code></td>
+<td>UInt64</td>
+<td>Read/Write</td>
+<td>Heartbeat-Zeitstempel des ALTERNATIVE-Knotens (Millisekunden seit Epoch)</td>
+</tr>
+<tr>
+<td><code>Cluster.alternative.payload</code></td>
+<td>String(200)</td>
+<td>Read/Write</td>
+<td>JSON-Payload des ALTERNATIVE-Knotens (Modus und Kommando, siehe 4.2)</td>
+</tr>
+</tbody>
+</table>
+<h3>4.2 Payload-Format (JSON)</h3>
+<p>Das Payload-Item enthält einen JSON-String mit folgendem Aufbau:</p>
+<pre><code class="language-json">{
+  &quot;mode&quot;: &quot;PRIMARY&quot;,
+  &quot;command&quot;: &quot;REQUEST_PRIMARY_STATE&quot;
+}
+</code></pre>
+<p><strong>Mögliche Werte für <code>mode</code>:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Wert</th>
+<th>Bedeutung</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PRIMARY</code></td>
+<td>Instanz ist aktiver Primary</td>
+</tr>
+<tr>
+<td><code>SECONDARY</code></td>
+<td>Instanz ist Standby</td>
+</tr>
+<tr>
+<td><code>REQUEST_BECOMING_PRIMARY</code></td>
+<td>Instanz möchte Primary werden</td>
+</tr>
+<tr>
+<td><code>TRANSITION_TO_PRIMARY</code></td>
+<td>Übergang zu Primary läuft</td>
+</tr>
+<tr>
+<td><code>REQUEST_BECOMING_SECONDARY</code></td>
+<td>Instanz wechselt zu Secondary</td>
+</tr>
+<tr>
+<td><code>TRANSITION_TO_SECONDARY</code></td>
+<td>Übergang zu Secondary läuft</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Mögliche Werte für <code>command</code>:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Wert</th>
+<th>Bedeutung</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>REQUEST_PRIMARY_STATE</code></td>
+<td>Anfrage: Darf ich Primary werden?</td>
+</tr>
+<tr>
+<td><code>DENY_PRIMARY_STATE</code></td>
+<td>Ablehnung: Nein, ich bin Primary</td>
+</tr>
+<tr>
+<td><code>GRANT_PRIMARY_STATE</code></td>
+<td>Zustimmung: Ja, übernimm</td>
+</tr>
+</tbody>
+</table>
+<h3>4.3 Heartbeat-Mechanismus</h3>
+<ul>
+<li>Jede CSP-Instanz schreibt <strong>jede Sekunde</strong> ihren aktuellen Zeitstempel (Millisekunden seit Epoch) in ihr eigenes <code>timestamp</code>-Item.</li>
+<li>Die andere Instanz liest diesen Zeitstempel und erkennt anhand eines <strong>5-Sekunden-Schwellwerts</strong>, ob die Gegenstelle noch lebt.</li>
+<li>Bleibt der Heartbeat einer Instanz mehr als 5 Sekunden aus, wird ein Failover eingeleitet.</li>
+</ul>
+<hr />
+<h2>5. clusterSyncItems - Synchronisierte Items</h2>
+<h3>5.1 Zweck</h3>
+<p>Die <code>clusterSyncItems</code>-Gruppe definiert, welche Items zwischen Primary und Secondary synchronisiert werden. Wenn der Secondary zum Primary wird (Failover), übernimmt er die aktuellen Werte dieser Items vom bisherigen Primary.</p>
+<h3>5.2 Standard-Items</h3>
+<p>Folgende Items werden standardmäßig in der <code>asphere.xml</code> synchronisiert:</p>
+<p><strong>Batch- und Operations-Items:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Item-Name</th>
+<th>Beschreibung</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>hmi.batch.batchId</code></td>
+<td>Aktuelle Batch-ID</td>
+</tr>
+<tr>
+<td><code>hmi.batch.phaseId</code></td>
+<td>Aktuelle Phasen-ID</td>
+</tr>
+<tr>
+<td><code>hmi.operation.operationId</code></td>
+<td>Aktuelle Operations-ID</td>
+</tr>
+<tr>
+<td><code>hmi.operation.recordingId</code></td>
+<td>Aktuelle Aufzeichnungs-ID</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Timer-Items</strong> (werden automatisch synchronisiert, Details in Abschnitt 7.4):</p>
+<table>
+<thead>
+<tr>
+<th>Item-Gruppe</th>
+<th>Items</th>
+<th>Beschreibung</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Start-Booleans</td>
+<td><code>csp.timer.start1/2/3</code></td>
+<td>Timer-Laufstatus</td>
+</tr>
+<tr>
+<td>Stop-Booleans</td>
+<td><code>csp.timer.stop1/2/3</code></td>
+<td>Timer-Stopp-Status</td>
+</tr>
+<tr>
+<td>Reset-Booleans</td>
+<td><code>csp.timer.reset1/2/3</code></td>
+<td>Timer-Reset-Status</td>
+</tr>
+<tr>
+<td>Elapsed Millis</td>
+<td><code>csp.timer.timeMilliSeconds1/2/3</code></td>
+<td>Verstrichene Millisekunden</td>
+</tr>
+<tr>
+<td>Namen</td>
+<td><code>csp.timer.name1/2/3</code></td>
+<td>Timer-Bezeichnungen</td>
+</tr>
+</tbody>
+</table>
+<h3>5.2.1 Programmatisch registrierte Items</h3>
+<p>Zusaetzlich zu den in der <code>asphere.xml</code> deklarierten Items werden weitere Items zur Laufzeit programmatisch zur <code>clusterSyncItems</code>-Gruppe hinzugefuegt. Diese muessen <strong>nicht</strong> manuell konfiguriert werden:</p>
+<p><strong>Profil-Items</strong> (<code>ProfileHandler</code>): Fuer jedes konfigurierte Profil (z.B. Sensoren, Aktoren, Ventile) werden drei Items automatisch registriert:</p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Beschreibung</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>*.Profil.SP_RExecTime</code> / <code>*.Profil.SP-EU_RExecTime</code></td>
+<td>Ausfuehrungszeit des Profils</td>
+</tr>
+<tr>
+<td><code>*.Profil.SP_RState</code> / <code>*.Profil.SP-EU_RState</code></td>
+<td>Profilstatus</td>
+</tr>
+<tr>
+<td><code>*.Profil.SP_RProfileName</code> / <code>*.Profil.SP-EU_RProfileName</code></td>
+<td>Aktiver Profilname</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Hinweis:</strong> Die Anzahl der Profil-Items haengt von der Anlagenkonfiguration ab. Bei einer typischen Zelle mit 10 Profilen werden 30 zusaetzliche Items synchronisiert.</p>
+</blockquote>
+<h3>5.3 Synchronisations-Mechanismus</h3>
+<ul>
+<li>Im <strong>Primary-Modus</strong>: Lokale Items (NullItems) sind aktiv und werden lokal beschrieben. Keine Synchronisation noetig.</li>
+<li>Im <strong>Secondary-Modus</strong>: Die lokalen NullItems werden mit den entsprechenden Remote-Items (BridgeItems) des Primary verknuepft (Master-Binding). Aenderungen des Primary werden automatisch ueber MQTT uebernommen.</li>
+<li>Bei <strong>Failover</strong> (Before-Disconnect-Pattern):</li>
+<li>Der <code>ClusterItemSynchronizationHandler</code> erkennt den Wechsel zu PRIMARY.</li>
+<li><strong>Vor</strong> dem Entfernen der Master-Bindings werden alle registrierten <code>beforeMasterDisconnect</code>-Consumer aufgerufen. Diese koennen die aktuellen Werte aus den NullItems lesen, solange die Master-Bindings noch aktiv sind.</li>
+<li>Erst danach werden die Master-Bindings entfernt (<code>setMasterItem(null)</code>).</li>
+<li>Der neue Primary arbeitet mit den zuvor gesicherten Werten weiter.</li>
+</ul>
+<blockquote>
+<p><strong>Technischer Hintergrund:</strong> Das Before-Disconnect-Pattern ist notwendig, weil das Entfernen der Master-Bindings die NullItem-Werte auf ihre Defaults zuruecksetzt. Consumer wie der <code>AlternativeTimerController</code> muessen ihre Werte lesen, bevor das passiert.</p>
+</blockquote>
+<h3>5.4 Weitere Items hinzufügen</h3>
+<p>Falls zusätzliche Items synchronisiert werden müssen, sollten diese in die <code>clusterSyncItems</code>-subGroup eingefügt werden.</p>
+<hr />
+<h2>6. Inbetriebnahme</h2>
+<h3>6.1 Checkliste vor dem Start</h3>
+<ul>
+<li>[ ] OPC-UA Items auf der SPS/dem OPC-UA Server angelegt (4 Items, siehe Abschnitt 4)</li>
+<li>[ ] <code>vis.properties</code> auf CSP "Original" konfiguriert (<code>cluster.nodeType=1</code>)</li>
+<li>[ ] <code>vis.properties</code> auf CSP "Alternative" konfiguriert (<code>cluster.nodeType=2</code>)</li>
+<li>[ ] Cluster-Verbindung konfiguriert (eine der beiden Optionen):</li>
+<li><strong>Standard:</strong> <code>cluster.original.*</code> und <code>cluster.alternative.*</code> Properties auf beiden CSPs gesetzt + Items auf dem jeweiligen OPC-UA Server vorhanden</li>
+<li><strong>Testzwecke:</strong> <code>fspClusterInfo.ipAddress</code> auf beiden CSPs gesetzt (Fallback, wenn <code>cluster.*</code> Properties nicht gesetzt)</li>
+<li>[ ] <code>cellbroker.cellId</code> auf beiden CSPs identisch</li>
+<li>[ ] <code>cellbroker.mqttBrokerUrl</code> auf beiden CSPs identisch</li>
+<li>[ ] <code>asphere.xml</code> auf beiden CSPs identisch</li>
+<li>[ ] MQTT-Broker erreichbar von beiden CSPs</li>
+<li>[ ] OPC-UA Server (SPS) erreichbar von beiden CSPs</li>
+<li>[ ] OPC-UA Server (Cluster-Items) erreichbar von beiden CSPs (nur Variante A)</li>
+<li>[ ] CrateDB erreichbar von beiden CSPs</li>
+<li>[ ] <code>app.db.backupscheduler=true</code> auf <strong>beiden</strong> CSPs gesetzt (siehe Abschnitt 7.6)</li>
+</ul>
+<h3>6.2 Startreihenfolge</h3>
+<ol>
+<li><strong>MQTT-Broker starten</strong> (falls nicht bereits laufend)</li>
+<li><strong>CrateDB starten</strong> (falls nicht bereits laufend)</li>
+<li><strong>CSP "Original" starten</strong> (cluster.nodeType=1)</li>
+<li>Beim Start versucht diese Instanz, den Primary-Status zu erlangen.</li>
+<li>Nach 5 Sekunden ohne Einspruch wird sie Primary.</li>
+<li><strong>CSP "Alternative" starten</strong> (cluster.nodeType=2)</li>
+<li>Diese Instanz erkennt, dass der Original-Knoten bereits Primary ist.</li>
+<li>Sie wird automatisch zum Secondary.</li>
+</ol>
+<blockquote>
+<p><strong>Hinweis:</strong> Die Startreihenfolge ist nicht zwingend. Auch bei gleichzeitigem Start wird der ORIGINAL-Knoten bevorzugt Primary. Der Mechanismus der Wahl ist deterministisch.</p>
+</blockquote>
+<h3>6.3 Verifikation nach dem Start</h3>
+<h4>Am Primary CSP prüfen:</h4>
+<ul>
+<li><code>hmi.machineName</code> wird im UI angezeigt (z.B. "CSP 815 Original")</li>
+<li>MQTT-Topic <code>STATE/CSP815/APP/appmode</code> enthält den Wert <code>PRIMARY</code></li>
+<li>OPC-UA Heartbeat: <code>Cluster.CSP815.original.timestamp</code> wird jede Sekunde aktualisiert</li>
+<li>OPC-UA Payload: <code>Cluster.CSP815.original.payload</code> zeigt <code>"mode":"PRIMARY"</code></li>
+</ul>
+<h4>Am Secondary CSP prüfen:</h4>
+<ul>
+<li>MQTT-Topic <code>STATE/CSP90815/APP/appmode</code> enthält den Wert <code>SECONDARY</code></li>
+<li>OPC-UA Heartbeat: <code>Cluster.CSP815.alternative.timestamp</code> wird jede Sekunde aktualisiert</li>
+<li>OPC-UA Payload: <code>Cluster.CSP815.alternative.payload</code> zeigt <code>"mode":"SECONDARY"</code></li>
+</ul>
+<blockquote>
+<p><strong>Hinweis zum Offset:</strong> Der ALTERNATIVE-Knoten publiziert seine MQTT-Topics <strong>immer</strong> mit Cell-ID + 90.000, unabhängig davon, ob er Primary oder Secondary ist. Für Cell-ID <code>815</code> wird also <code>CSP90815</code> als Client-Name verwendet.</p>
+</blockquote>
+<hr />
+<h2>7. Failover-Verhalten</h2>
+<h3>7.1 Automatischer Failover</h3>
+<p>Der Failover wird automatisch ausgelöst, wenn der Secondary erkennt, dass der Heartbeat des Primary <strong>länger als 5 Sekunden</strong> ausbleibt.</p>
+<p><strong>Ablauf:</strong></p>
+<ol>
+<li>Primary CSP faellt aus (Prozess-Absturz, Netzwerkausfall, etc.)</li>
+<li>Der Heartbeat-Zeitstempel des Primary wird nicht mehr aktualisiert</li>
+<li>Nach 5 Sekunden erkennt der Secondary den Ausfall</li>
+<li>Der Secondary wechselt in den Modus <code>TRANSITION_TO_PRIMARY</code></li>
+<li>Der Secondary wird zum neuen Primary</li>
+<li><code>ClusterItemSynchronizationHandler</code> erkennt den Wechsel zu PRIMARY:
+   a. <strong>Before-Disconnect-Phase</strong>: Registrierte Consumer (z.B. <code>AlternativeTimerController</code>) lesen die aktuellen Werte aus den NullItems, solange die Master-Bindings noch aktiv sind.
+   b. <strong>Disconnect-Phase</strong>: Die Master-Bindings werden entfernt (<code>setMasterItem(null)</code>).</li>
+<li>Laufende Rezepte und Operationen werden fortgesetzt.</li>
+</ol>
+<h3>7.1.1 Selbstüberwachung des Primary</h3>
+<p>Der Primary überwacht nicht nur den Heartbeat des Secondary, sondern auch seinen <strong>eigenen</strong> Zeitstempel. In periodischen Abständen prüft er, ob sein zuletzt geschriebener Heartbeat noch aktuell ist. Stellt er fest, dass sein eigener Zeitstempel veraltet ist (z.B. durch einen temporären Netzwerkausfall zum OPC-UA Server), geht er davon aus, dass der Secondary in der Zwischenzeit die Primary-Rolle übernommen hat. In diesem Fall leitet der Primary einen <strong>automatischen Shutdown</strong> ein, um einen Zustand mit zwei gleichzeitigen Primaries zu verhindern. Nach einem Neustart (manuell oder durch den Windows-Dienst) kommt der ehemalige Primary als Secondary zurück.</p>
+<h3>7.2 Zeitlicher Ablauf</h3>
+<pre><code>t=0s    Primary-Ausfall
+t=1s    Heartbeat fehlt (1. Prüfung)
+t=2s    Heartbeat fehlt (2. Prüfung)
+t=3s    Heartbeat fehlt (3. Prüfung)
+t=4s    Heartbeat fehlt (4. Prüfung)
+t=5s    Schwellwert überschritten -&gt; Failover startet
+t=~6s   Secondary ist neuer Primary
+</code></pre>
+<h3>7.3 Rezept-Failover (Hot Start)</h3>
+<p>Wenn ein Rezept laeuft und der Primary ausfaellt, fuehrt der neue Primary einen <strong>Hot Start</strong> durch:</p>
+<ul>
+<li>Der Secondary hat waehrend des Normalbetriebs den Rezeptzustand laufend ueber MQTT mitgelesen.</li>
+<li>Beim Wechsel zu Primary erkennt die Instanz, dass auf der Gegenseite ein Rezept aktiv war, lokal aber keines laeuft.</li>
+<li>Das Rezept wird automatisch ab dem letzten bekannten Zustand fortgesetzt — ein manueller Neustart ist nicht erforderlich.</li>
+<li>Die SPS-seitige Logik laeuft unabhaengig weiter; der neue Primary uebernimmt die Kommunikation.</li>
+<li>Batch-Operationen (Auditeintraege, Messwert-Aufzeichnung) werden nach dem Wechsel direkt in die Datenbank geschrieben statt ueber MQTT delegiert.</li>
+</ul>
+<h3>7.4 Timer-Verhalten bei Failover</h3>
+<p>Die drei SCADA-Timer werden ueber die <code>clusterSyncItems</code>-Gruppe laufend zwischen Primary und Secondary synchronisiert (Laufstatus, verstrichene Zeit, Timer-Name). Bei einem Failover rekonstruiert der neue Primary den internen Timer-Zustand automatisch aus den zuletzt synchronisierten Werten. Laufende Timer zaehlen nahtlos weiter; gestoppte Timer behalten ihre verstrichene Zeit. Die Timer-Anzeige im UI aktualisiert sich ohne manuellen Eingriff.</p>
+<h3>7.5 Profil-Verhalten bei Failover</h3>
+<p>Profilzustaende (Ausfuehrungszeit, Status, aktiver Profilname) werden ueber die <code>clusterSyncItems</code>-Gruppe synchronisiert und stehen dem neuen Primary nach einem Failover sofort zur Verfuegung. Ein erneutes Laden oder Aktivieren der Profile ist nicht noetig.</p>
+<h3>7.6 Snapshot-Verhalten bei Failover</h3>
+<p>Im <strong>Secondary-Modus</strong> werden manuelle Snapshot-Anfragen per MQTT-Command an den Primary delegiert — der Secondary erstellt keine Datenbank-Snapshots direkt. Nach einem Failover uebernimmt der neue Primary diese Rolle. Danach laufen geplante Snapshots nur auf dem neuen Primary.</p>
+<blockquote>
+<p><strong>Wichtig:</strong> Die Property <code>app.db.backupscheduler</code> muss auf <strong>beiden</strong> CSP-Instanzen auf <code>true</code> gesetzt sein. Der Quartz-Scheduler wird nur auf Instanzen angelegt, bei denen diese Property aktiviert ist. Steht sie nur auf einem CSP auf <code>true</code>, werden nach einem Failover keine Snapshots mehr erstellt.</p>
+</blockquote>
+<h3>7.7 Rückkehr des Original-Knotens</h3>
+<h4>Szenario A: Neustart nach Absturz</h4>
+<p>Wenn der ausgefallene Original-Knoten neu startet:</p>
+<ol>
+<li>Er beantragt den Primary-Status (<code>REQUEST_PRIMARY_STATE</code>).</li>
+<li>Der Alternative-Knoten ist bereits gesunder Primary und <strong>lehnt ab</strong> (<code>DENY_PRIMARY_STATE</code>).</li>
+<li>Der Original-Knoten akzeptiert die Ablehnung und wird <strong>Secondary</strong>.</li>
+</ol>
+<p>Der ORIGINAL-Knoten hat <strong>nur bei gleichzeitigem Start</strong> beider Instanzen Vorrang. Wenn ein gesunder Primary bereits existiert, wird der zurückkehrende Knoten — unabhängig vom Knotentyp — immer Secondary.</p>
+<h4>Szenario B: Temporärer Verbindungsverlust</h4>
+<p>Falls der Original-Knoten nicht abstürzt, sondern lediglich vorübergehend die Verbindung zum OPC-UA Server verliert:</p>
+<ol>
+<li>Die Selbstüberwachung (siehe Abschnitt 7.1.1) erkennt den veralteten eigenen Zeitstempel.</li>
+<li>Der Primary leitet einen <strong>automatischen Shutdown</strong> ein.</li>
+<li>Nach einem Neustart (manuell oder durch den Windows-Dienst) kommt der Knoten als Secondary zurück.</li>
+</ol>
+<hr />
+<h3>7.8 RSP-Verhalten bei Failover</h3>
+<p>Verbundene RSP-Instanzen (SCADA-Clients) bemerken den Rollenwechsel durch eine Statusänderung auf dem MQTT-Topic <code>STATE/&lt;cellId&gt;/APP/appmode</code>. Für den Benutzer am RSP ändert sich jedoch <strong>nichts</strong> — die Bedienoberfläche bleibt funktionsfähig, da der neue Primary die MQTT-Kommunikation nahtlos übernimmt. Der RSP sendet Befehle weiterhin an dieselbe Cell-ID; diese werden vom jeweils aktiven Primary verarbeitet.</p>
+<h3>7.9 Einzelbetrieb ohne Redundanz</h3>
+<p>Der Einzelbetrieb ohne Redundanz kann erzielt werden, indem einfach nur eine einzige CSP-Instanz betrieben wird. In diesem Fall:</p>
+<ul>
+<li>Der CSP startet als ORIGINAL-Knoten und beantragt den Primary-Status.</li>
+<li>Nach 5 Sekunden ohne Antwort einer Gegenstelle wird er automatisch Primary.</li>
+<li>Der ClusterManager läuft im Hintergrund, hat aber keine Auswirkung auf den Betrieb.</li>
+<li>Kein Offset wird angewendet (nur der ALTERNATIVE-Knoten verwendet den 90.000-Offset).</li>
+<li>Alle Funktionen (Rezepte, Timer, Snapshots, Datenbank) arbeiten wie im Nicht-Redundanz-Betrieb.</li>
+</ul>
+<p><strong>Minimale Konfiguration für Einzelbetrieb:</strong></p>
+<p>Es müssen <strong>keine</strong> cluster-spezifischen Properties gesetzt werden. Die folgenden Properties können weggelassen werden:</p>
+<pre><code class="language-properties"># NICHT nötig für Einzelbetrieb:
+# cluster.nodeType          (Default: ORIGINAL)
+# cluster.original.*        (nicht benötigt)
+# cluster.alternative.*     (nicht benötigt)
+# fspClusterInfo.ipAddress  (nicht benötigt)
+</code></pre>
+</body>
+</html>

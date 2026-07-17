@@ -1,0 +1,16 @@
+### Gradle ###
+**/.gradle
+**/build/
+
+# Cache of project
+.gradletasknamecache
+
+# Java heap dump
+*.hprof
+
+
+*.xml~
+.history
+.idea
+#MS Office temporary files
+~$*
