@@ -439,4 +439,82 @@ public class PersonResourceTest {
             .body("find { it.id == '" + personId + "' }.entryDate", is("2024-09-15"))
             .body("find { it.id == '" + personId + "' }.exitDate", is("2025-06-30"));
     }
+
+    @Test
+    public void testChangingGroupResetsEnrollmentDates() {
+        String familyId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"name\": \"Testfamilie-Reset\"}")
+            .when().post("/api/v1/families")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String personTypeDefId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"fieldName\": \"personType\", \"label\": {\"de\": \"Typ\"}, \"jsonSchema\": {\"type\": \"string\"}, \"required\": false}")
+            .when().post("/api/v1/field-definitions")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String personId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"familyId\": \"" + familyId + "\", \"basicProperties\": [{\"definitionId\": \"" + personTypeDefId + "\", \"value\": \"CHILD\"}]}")
+            .when().post("/api/v1/persons")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String groupDefId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"fieldName\": \"group\", \"label\": {\"de\": \"Gruppen\"}, \"jsonSchema\": {\"type\": \"object\"}, \"required\": false}")
+            .when().post("/api/v1/field-definitions")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String groupInstId1 = given()
+            .contentType(ContentType.JSON)
+            .body("{\"definitionId\": \"" + groupDefId + "\", \"value\": {\"label\": \"Baeren-Reset\"}}")
+            .when().post("/api/v1/field-instances")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String groupInstId2 = given()
+            .contentType(ContentType.JSON)
+            .body("{\"definitionId\": \"" + groupDefId + "\", \"value\": {\"label\": \"Fuechse-Reset\"}}")
+            .when().post("/api/v1/field-instances")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String semesterId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"start\": \"2024-09-01T00:00:00Z\", \"end\": \"2025-08-31T00:00:00Z\"}")
+            .when().post("/api/v1/semesters")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"definitionId\": \"" + groupDefId + "\", \"fieldInstanceId\": \"" + groupInstId1 + "\"}")
+            .when().patch("/api/v1/persons/" + personId + "/group?semesterId=" + semesterId)
+            .then().statusCode(204);
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"entryDate\": \"2024-09-15\", \"exitDate\": null}")
+            .when().patch("/api/v1/persons/" + personId + "/enrollment-dates?semesterId=" + semesterId)
+            .then().statusCode(204);
+
+        // switch to a different group
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"definitionId\": \"" + groupDefId + "\", \"fieldInstanceId\": \"" + groupInstId2 + "\"}")
+            .when().patch("/api/v1/persons/" + personId + "/group?semesterId=" + semesterId)
+            .then().statusCode(204);
+
+        given()
+            .when().get("/api/v1/persons/children?semesterId=" + semesterId)
+            .then()
+            .statusCode(200)
+            .body("find { it.id == '" + personId + "' }.groupInstanceId", is(groupInstId2))
+            .body("find { it.id == '" + personId + "' }.entryDate", nullValue());
+    }
 }
