@@ -157,7 +157,9 @@ public class PersonResource {
         String lastName,
         String dateOfBirth,
         String groupDefinitionId,
-        String groupInstanceId
+        String groupInstanceId,
+        String entryDate,
+        String exitDate
     ) {}
 
     public record GroupAssignmentRequest(String definitionId, String fieldInstanceId) {}
@@ -472,6 +474,8 @@ public class PersonResource {
 
         String groupDefinitionId = null;
         String groupInstanceId = null;
+        String entryDate = null;
+        String exitDate = null;
         if (semesterId != null) {
             Document groupAssignment = getSemesterAssignmentsCollection()
                     .find(new Document("personId", person.id)
@@ -481,6 +485,8 @@ public class PersonResource {
             if (groupAssignment != null) {
                 groupDefinitionId = groupAssignment.getObjectId("definitionId").toHexString();
                 groupInstanceId = groupAssignment.getObjectId("fieldInstanceId").toHexString();
+                entryDate = groupAssignment.getString("entryDate");
+                exitDate = groupAssignment.getString("exitDate");
             }
         }
 
@@ -490,7 +496,9 @@ public class PersonResource {
             lastName,
             dateOfBirth,
             groupDefinitionId,
-            groupInstanceId
+            groupInstanceId,
+            entryDate,
+            exitDate
         );
     }
 

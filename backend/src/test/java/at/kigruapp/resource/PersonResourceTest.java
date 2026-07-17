@@ -143,6 +143,57 @@ public class PersonResourceTest {
     }
 
     @Test
+    public void testChildEntryExitDatesDefaultNull() {
+        String familyId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"name\": \"Testfamilie-Dates\"}")
+            .when().post("/api/v1/families")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String personId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"familyId\": \"" + familyId + "\", \"basicProperties\": []}")
+            .when().post("/api/v1/persons")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String groupDefId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"fieldName\": \"group\", \"label\": {\"de\": \"Gruppen\"}, \"jsonSchema\": {\"type\": \"object\"}, \"required\": false}")
+            .when().post("/api/v1/field-definitions")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String groupInstId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"definitionId\": \"" + groupDefId + "\", \"value\": {\"label\": \"Baeren-Dates\"}}")
+            .when().post("/api/v1/field-instances")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String semesterId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"start\": \"2024-09-01T00:00:00Z\", \"end\": \"2025-08-31T00:00:00Z\"}")
+            .when().post("/api/v1/semesters")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"definitionId\": \"" + groupDefId + "\", \"fieldInstanceId\": \"" + groupInstId + "\"}")
+            .when().patch("/api/v1/persons/" + personId + "/group?semesterId=" + semesterId)
+            .then().statusCode(204);
+
+        given()
+            .when().get("/api/v1/persons/children?semesterId=" + semesterId)
+            .then()
+            .statusCode(200)
+            .body("find { it.id == '" + personId + "' }.entryDate", nullValue())
+            .body("find { it.id == '" + personId + "' }.exitDate", nullValue());
+    }
+
+    @Test
     public void testTeamAndRoleAssignmentIsolatedPerSemester() {
         String familyId = given()
             .contentType(ContentType.JSON)

@@ -10,6 +10,8 @@ public class SemesterAssignment {
     public String section;
     public ObjectId definitionId;
     public ObjectId fieldInstanceId;
+    public String entryDate;
+    public String exitDate;
 
     public static SemesterAssignment fromDocument(Document doc) {
         if (doc == null) return null;
@@ -20,6 +22,8 @@ public class SemesterAssignment {
         sa.section = doc.getString("section");
         sa.definitionId = doc.getObjectId("definitionId");
         sa.fieldInstanceId = doc.getObjectId("fieldInstanceId");
+        sa.entryDate = doc.getString("entryDate");
+        sa.exitDate = doc.getString("exitDate");
         return sa;
     }
 
@@ -29,6 +33,8 @@ public class SemesterAssignment {
                 .append("semesterId", semesterId)
                 .append("section", section)
                 .append("definitionId", definitionId)
-                .append("fieldInstanceId", fieldInstanceId);
+                .append("fieldInstanceId", fieldInstanceId)
+                .append("entryDate", entryDate)
+                .append("exitDate", exitDate);
     }
 }
