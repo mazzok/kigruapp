@@ -57,4 +57,6 @@ export interface ChildDTO {
   dateOfBirth: string | null;
   groupDefinitionId: string | null;
   groupInstanceId: string | null;
+  entryDate: string | null;
+  exitDate: string | null;
 }

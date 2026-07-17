@@ -91,7 +91,7 @@ describe('PlatzzuweisungComponent - Semester', () => {
     component.ngOnInit();
     (component as any).groupDefinitionId = 'def-group';
 
-    component.onGroupChange({ id: 'child-1', firstName: 'Max', lastName: 'Muster', dateOfBirth: null, groupDefinitionId: null, groupInstanceId: null }, 'inst-1');
+    component.onGroupChange({ id: 'child-1', firstName: 'Max', lastName: 'Muster', dateOfBirth: null, groupDefinitionId: null, groupInstanceId: null, entryDate: null, exitDate: null }, 'inst-1');
 
     expect(personService.assignGroupCalls).toEqual([
       { personId: 'child-1', definitionId: 'def-group', fieldInstanceId: 'inst-1', semesterId: 'semester-1' },

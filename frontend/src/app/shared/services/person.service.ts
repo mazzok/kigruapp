@@ -35,6 +35,11 @@ export class PersonService {
     return this.api.patch<void>(`/persons/${personId}/group${params}`, { definitionId, fieldInstanceId });
   }
 
+  setEnrollmentDates(personId: string, entryDate: string | null, exitDate: string | null, semesterId?: string): Observable<void> {
+    const params = semesterId ? `?semesterId=${semesterId}` : '';
+    return this.api.patch<void>(`/persons/${personId}/enrollment-dates${params}`, { entryDate, exitDate });
+  }
+
   assignTeam(personId: string, definitionId: string, fieldInstanceId: string, semesterId?: string): Observable<void> {
     const params = semesterId ? `?semesterId=${semesterId}` : '';
     return this.api.patch<void>(`/persons/${personId}/assigned-duty${params}`, { definitionId, fieldInstanceId });
