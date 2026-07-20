@@ -7,18 +7,19 @@
     <mat-stepper #stepper (selectionChange)="onStepChange($event)">
       <mat-step>
         <ng-template matStepLabel>Familie</ng-template>
-        <app-family-step [editFamily]="editFamily"></app-family-step>
         <div class="step-actions">
+          <button mat-button (click)="cancel()">Abbrechen</button>
           <button mat-raised-button color="primary" matStepperNext
             [disabled]="familyStep ? !familyStep.isValid : true">Weiter</button>
         </div>
+        <app-family-step [editFamily]="editFamily"></app-family-step>
       </mat-step>
 
       <mat-step>
         <ng-template matStepLabel>Kind</ng-template>
-        <app-child-step [existingChildren]="existingChildren"></app-child-step>
         <div class="step-actions">
           <button mat-button matStepperPrevious>Zurück</button>
+          <button mat-button (click)="cancel()">Abbrechen</button>
           @if (familyStep?.isNewFamily || isEditMode) {
             <button mat-raised-button color="primary" matStepperNext
               [disabled]="childStep ? !childStep.isValid : true">Weiter</button>
@@ -28,24 +29,22 @@
               (click)="submit()">Kind anlegen</button>
           }
         </div>
+        <app-child-step [existingChildren]="existingChildren"></app-child-step>
       </mat-step>
 
       @if (familyStep?.isNewFamily || isEditMode) {
         <mat-step>
           <ng-template matStepLabel>Eltern</ng-template>
-          <app-parents-step [existingParents]="existingParents"></app-parents-step>
           <div class="step-actions">
             <button mat-button matStepperPrevious>Zurück</button>
+            <button mat-button (click)="cancel()">Abbrechen</button>
             <button mat-raised-button color="primary"
               [disabled]="(parentsStep ? !parentsStep.isValid : true) || submitting"
               (click)="submit()">{{ isEditMode ? 'Speichern' : 'Familie erstellen' }}</button>
           </div>
+          <app-parents-step [existingParents]="existingParents"></app-parents-step>
         </mat-step>
       }
     </mat-stepper>
   }
 </mat-dialog-content>
-
-<mat-dialog-actions align="end">
-  <button mat-button (click)="cancel()">Abbrechen</button>
-</mat-dialog-actions>
