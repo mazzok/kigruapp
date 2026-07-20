@@ -75,6 +75,8 @@ import { Semester } from '../../shared/models/semester.model';
                 <input matInput [matDatepicker]="entryPicker"
                   [value]="parseDate(child.entryDate)"
                   [disabled]="isEntryDateDisabled(child)"
+                  [min]="semesterMinDate"
+                  [max]="semesterMaxDate"
                   (dateChange)="onEntryDateChange(child, formatDate($event.value))">
                 <mat-datepicker-toggle matIconSuffix [for]="entryPicker" [disabled]="isEntryDateDisabled(child)"></mat-datepicker-toggle>
                 <mat-datepicker #entryPicker></mat-datepicker>
@@ -89,6 +91,8 @@ import { Semester } from '../../shared/models/semester.model';
                 <input matInput [matDatepicker]="exitPicker"
                   [value]="parseDate(child.exitDate)"
                   [disabled]="isExitDateDisabled(child)"
+                  [min]="getExitMinDate(child)"
+                  [max]="semesterMaxDate"
                   (dateChange)="onExitDateChange(child, formatDate($event.value))">
                 <mat-datepicker-toggle matIconSuffix [for]="exitPicker" [disabled]="isExitDateDisabled(child)"></mat-datepicker-toggle>
                 <mat-datepicker #exitPicker></mat-datepicker>
@@ -116,6 +120,8 @@ export class PlatzzuweisungComponent implements OnInit {
   groups: FieldInstanceDTO[] = [];
   semesters: Semester[] = [];
   selectedSemesterId: string | null = null;
+  semesterMinDate: Date | null = null;
+  semesterMaxDate: Date | null = null;
   loading = true;
   private groupDefinitionId: string | null = null;
 
@@ -130,6 +136,7 @@ export class PlatzzuweisungComponent implements OnInit {
     this.semesterService.getAll().subscribe((semesters) => {
       this.semesters = semesters;
       this.selectedSemesterId = semesters[0]?.id ?? null;
+      this.updateSemesterDateRange();
       this.loadChildren();
     });
 
@@ -156,7 +163,14 @@ export class PlatzzuweisungComponent implements OnInit {
 
   onSemesterChange(semesterId: string): void {
     this.selectedSemesterId = semesterId;
+    this.updateSemesterDateRange();
     this.loadChildren();
+  }
+
+  private updateSemesterDateRange(): void {
+    const semester = this.semesters.find((s) => s.id === this.selectedSemesterId);
+    this.semesterMinDate = semester ? new Date(semester.start) : null;
+    this.semesterMaxDate = semester ? new Date(semester.end) : null;
   }
 
   getSemesterLabel(semester: Semester): string {
@@ -209,17 +223,33 @@ export class PlatzzuweisungComponent implements OnInit {
     return !child.groupInstanceId || !child.entryDate;
   }
 
+  getExitMinDate(child: ChildDTO): Date | null {
+    const entryDate = this.parseDate(child.entryDate);
+    if (!entryDate) return this.semesterMinDate;
+    if (this.semesterMinDate && this.semesterMinDate > entryDate) return this.semesterMinDate;
+    return entryDate;
+  }
+
   onEntryDateChange(child: ChildDTO, entryDate: string | null): void {
-    if (!this.selectedSemesterId) return;
+    if (!this.selectedSemesterId || !this.isWithinSemester(entryDate)) return;
     this.personService.setEnrollmentDates(child.id, entryDate, child.exitDate, this.selectedSemesterId).subscribe(() => {
       child.entryDate = entryDate;
     });
   }
 
   onExitDateChange(child: ChildDTO, exitDate: string | null): void {
-    if (!this.selectedSemesterId) return;
+    if (!this.selectedSemesterId || !this.isWithinSemester(exitDate) || (exitDate && child.entryDate && exitDate < child.entryDate)) return;
     this.personService.setEnrollmentDates(child.id, child.entryDate, exitDate, this.selectedSemesterId).subscribe(() => {
       child.exitDate = exitDate;
     });
+  }
+
+  private isWithinSemester(dateStr: string | null): boolean {
+    if (!dateStr) return true;
+    const minStr = this.semesterMinDate ? this.formatDate(this.semesterMinDate) : null;
+    const maxStr = this.semesterMaxDate ? this.formatDate(this.semesterMaxDate) : null;
+    if (minStr && dateStr < minStr) return false;
+    if (maxStr && dateStr > maxStr) return false;
+    return true;
   }
 }
