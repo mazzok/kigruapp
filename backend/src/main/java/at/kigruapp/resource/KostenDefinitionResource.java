@@ -51,6 +51,9 @@ public class KostenDefinitionResource {
     @PATCH
     @Path("/{id}/active")
     public Response setActive(@PathParam("id") String id, SetActiveRequest request) {
+        if (!ObjectId.isValid(id)) {
+            throw new BadRequestException("Invalid id: " + id);
+        }
         KostenDefinition definition = KostenDefinition.findById(new ObjectId(id));
         if (definition == null) {
             throw new NotFoundException();

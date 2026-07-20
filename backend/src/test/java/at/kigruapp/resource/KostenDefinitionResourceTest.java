@@ -109,4 +109,14 @@ public class KostenDefinitionResourceTest {
             .then()
             .statusCode(404);
     }
+
+    @Test
+    void activeToggleReturns400ForMalformedId() {
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"active\": false}")
+            .when().patch("/api/v1/kosten-definitions/not-a-valid-id/active")
+            .then()
+            .statusCode(400);
+    }
 }

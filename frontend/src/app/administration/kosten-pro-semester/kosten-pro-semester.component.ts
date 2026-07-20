@@ -113,7 +113,10 @@ export class KostenProSemesterComponent implements OnInit {
   }
 
   private loadValues(): void {
-    if (!this.selectedSemesterId || !this.selectedGroupId) return;
+    if (!this.selectedSemesterId || !this.selectedGroupId) {
+      this.loading = false;
+      return;
+    }
     this.loading = true;
     this.kostenValueService.getForSemesterAndGroup(this.selectedSemesterId, this.selectedGroupId).subscribe((values) => {
       this.kostenValues = values;
