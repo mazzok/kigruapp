@@ -33,6 +33,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'kosten-pro-semester',
+        loadComponent: () =>
+          import('./administration/kosten-pro-semester/kosten-pro-semester.component').then(
+            m => m.KostenProSemesterComponent
+          ),
+      },
+      {
         path: 'elterneinteilung',
         loadComponent: () =>
           import('./administration/elterneinteilung/elterneinteilung.component').then(
