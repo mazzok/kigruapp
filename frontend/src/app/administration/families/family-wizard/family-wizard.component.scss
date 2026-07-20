@@ -39,9 +39,44 @@
   min-width: 100px;
 }
 
-.step-actions {
+.section-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: white;
+  padding-bottom: 16px;
+  margin-bottom: 8px;
+}
+
+.overview-tiles {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.overview-tile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 16px;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.overview-tile span {
+  flex: 1;
+}
+
+.overview-tile .hint {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.overview-tile .chevron {
+  flex: 0 0 auto;
 }
