@@ -10,16 +10,21 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatSelectModule } from '@angular/material/select';
 import { IconPickerDialogComponent } from '../../shared/components/icon-picker/icon-picker-dialog.component';
 import { switchMap } from 'rxjs/operators';
 import { OrganisationService } from '../../shared/services/organisation.service';
 import { FieldDefinitionService } from '../custom-fields/services/field-definition.service';
 import { FieldInstanceService } from '../../shared/services/field-instance.service';
 import { SemesterService } from '../../shared/services/semester.service';
+import { CurrencyService } from '../../shared/services/currency.service';
+import { KostenDefinitionService } from '../../shared/services/kosten-definition.service';
 import { OrganisationDTO, DutyEntryDTO } from '../../shared/models/organisation.model';
 import { FieldDefinition } from '../../shared/models/field-definition.model';
 import { FieldInstanceDTO } from '../../shared/models/field-instance.model';
 import { Semester, CreateSemesterRequest } from '../../shared/models/semester.model';
+import { Currency } from '../../shared/models/currency.model';
+import { KostenDefinition } from '../../shared/models/kosten-definition.model';
 
 @Component({
   selector: 'app-organisation',
@@ -28,7 +33,7 @@ import { Semester, CreateSemesterRequest } from '../../shared/models/semester.mo
     CommonModule, ReactiveFormsModule,
     MatTabsModule, MatTableModule, MatFormFieldModule,
     MatInputModule, MatButtonModule, MatIconModule,
-    MatExpansionModule, MatDialogModule, MatDatepickerModule, IconPickerDialogComponent,
+    MatExpansionModule, MatDialogModule, MatDatepickerModule, MatSelectModule, IconPickerDialogComponent,
   ],
   templateUrl: './organisation.component.html',
   styleUrl: './organisation.component.scss',
@@ -81,11 +86,27 @@ export class OrganisationComponent implements OnInit {
     end: new FormControl<Date | null>(null, Validators.required),
   });
 
+  // Kosten-Definitionen tab
+  currencies: Currency[] = [];
+  kostenDefinitions: KostenDefinition[] = [];
+  kostenDefColumns = ['label', 'currency', 'status', 'actions'];
+  showAddCurrency = false;
+  kostenDefForm = new FormGroup({
+    label: new FormControl('', Validators.required),
+    currencyId: new FormControl<string | null>(null, Validators.required),
+  });
+  newCurrencyForm = new FormGroup({
+    code: new FormControl('', Validators.required),
+    symbol: new FormControl('', Validators.required),
+  });
+
   constructor(
     private orgService: OrganisationService,
     private fieldDefService: FieldDefinitionService,
     private fieldInstanceService: FieldInstanceService,
     private semesterService: SemesterService,
+    private currencyService: CurrencyService,
+    private kostenDefinitionService: KostenDefinitionService,
     private dialog: MatDialog,
   ) {}
 
@@ -94,6 +115,8 @@ export class OrganisationComponent implements OnInit {
     this.loadDutySettings();
     this.loadParentTeams();
     this.loadSemesters();
+    this.loadCurrencies();
+    this.loadKostenDefinitions();
   }
 
   // --- Groups ---
@@ -397,6 +420,52 @@ export class OrganisationComponent implements OnInit {
     this.semesterService.create(request).subscribe(() => {
       this.semesterForm.reset();
       this.loadSemesters();
+    });
+  }
+
+  // --- Kosten-Definitionen ---
+
+  loadCurrencies(): void {
+    this.currencyService.getAll().subscribe((currencies) => {
+      this.currencies = currencies;
+    });
+  }
+
+  loadKostenDefinitions(): void {
+    this.kostenDefinitionService.getAll().subscribe((definitions) => {
+      this.kostenDefinitions = definitions;
+    });
+  }
+
+  getCurrencyLabel(currency: Currency): string {
+    return `${currency.code} ${currency.symbol}`;
+  }
+
+  addCurrency(): void {
+    if (!this.newCurrencyForm.valid) return;
+    const code = this.newCurrencyForm.value.code!;
+    const symbol = this.newCurrencyForm.value.symbol!;
+    this.currencyService.create({ code, symbol }).subscribe((created) => {
+      this.currencies = [...this.currencies, created];
+      this.kostenDefForm.get('currencyId')!.setValue(created.id);
+      this.newCurrencyForm.reset();
+      this.showAddCurrency = false;
+    });
+  }
+
+  addKostenDefinition(): void {
+    if (!this.kostenDefForm.valid) return;
+    const label = this.kostenDefForm.value.label!;
+    const currencyId = this.kostenDefForm.value.currencyId!;
+    this.kostenDefinitionService.create({ label, currencyId }).subscribe(() => {
+      this.kostenDefForm.reset();
+      this.loadKostenDefinitions();
+    });
+  }
+
+  toggleKostenDefinitionActive(definition: KostenDefinition): void {
+    this.kostenDefinitionService.setActive(definition.id, !definition.active).subscribe(() => {
+      this.loadKostenDefinitions();
     });
   }
 }

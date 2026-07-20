@@ -9,6 +9,10 @@ import { OrganisationDTO } from '../../shared/models/organisation.model';
 import { FieldDefinition } from '../../shared/models/field-definition.model';
 import { FieldInstanceDTO } from '../../shared/models/field-instance.model';
 import { Semester, CreateSemesterRequest } from '../../shared/models/semester.model';
+import { Currency, CreateCurrencyRequest } from '../../shared/models/currency.model';
+import { KostenDefinition, CreateKostenDefinitionRequest } from '../../shared/models/kosten-definition.model';
+import { CurrencyService } from '../../shared/services/currency.service';
+import { KostenDefinitionService } from '../../shared/services/kosten-definition.service';
 
 class FakeOrganisationService {
   updateCalls: { id: string; body: unknown }[] = [];
@@ -73,6 +77,8 @@ describe('OrganisationComponent - Team-Farbe', () => {
     fieldDefService = new FakeFieldDefinitionService();
     fieldInstanceService = new FakeFieldInstanceService();
     semesterService = new FakeSemesterService();
+    const currencyService = new FakeCurrencyService();
+    const kostenDefinitionService = new FakeKostenDefinitionService();
     const fakeDialog = { open: () => ({ afterClosed: () => of(null) }) } as unknown as MatDialog;
 
     component = new OrganisationComponent(
@@ -80,6 +86,8 @@ describe('OrganisationComponent - Team-Farbe', () => {
       fieldDefService as unknown as FieldDefinitionService,
       fieldInstanceService as unknown as FieldInstanceService,
       semesterService as unknown as SemesterService,
+      currencyService as unknown as CurrencyService,
+      kostenDefinitionService as unknown as KostenDefinitionService,
       fakeDialog,
     );
   });
@@ -127,6 +135,8 @@ describe('OrganisationComponent - Semester', () => {
     const fieldDefService = new FakeFieldDefinitionService();
     const fieldInstanceService = new FakeFieldInstanceService();
     semesterService = new FakeSemesterService();
+    const currencyService = new FakeCurrencyService();
+    const kostenDefinitionService = new FakeKostenDefinitionService();
     const fakeDialog = { open: () => ({ afterClosed: () => of(null) }) } as unknown as MatDialog;
 
     component = new OrganisationComponent(
@@ -134,6 +144,8 @@ describe('OrganisationComponent - Semester', () => {
       fieldDefService as unknown as FieldDefinitionService,
       fieldInstanceService as unknown as FieldInstanceService,
       semesterService as unknown as SemesterService,
+      currencyService as unknown as CurrencyService,
+      kostenDefinitionService as unknown as KostenDefinitionService,
       fakeDialog,
     );
   });
@@ -167,5 +179,107 @@ describe('OrganisationComponent - Semester', () => {
     expect(semesterService.createCalls.length).toBe(1);
     expect(semesterService.createCalls[0].start).toBe(start.toISOString());
     expect(semesterService.createCalls[0].end).toBe(end.toISOString());
+  });
+});
+
+class FakeCurrencyService {
+  createCalls: CreateCurrencyRequest[] = [];
+  currencies: Currency[] = [];
+  getAll() {
+    return of(this.currencies);
+  }
+  create(request: CreateCurrencyRequest) {
+    this.createCalls.push(request);
+    const created: Currency = { id: 'currency-new', ...request };
+    this.currencies = [...this.currencies, created];
+    return of(created);
+  }
+}
+
+class FakeKostenDefinitionService {
+  createCalls: CreateKostenDefinitionRequest[] = [];
+  setActiveCalls: { id: string; active: boolean }[] = [];
+  definitions: KostenDefinition[] = [];
+  getAll() {
+    return of(this.definitions);
+  }
+  create(request: CreateKostenDefinitionRequest) {
+    this.createCalls.push(request);
+    return of({
+      id: 'def-new', label: request.label, active: true,
+      currency: { id: request.currencyId, code: 'EUR', symbol: '€' },
+    } as KostenDefinition);
+  }
+  setActive(id: string, active: boolean) {
+    this.setActiveCalls.push({ id, active });
+    return of({ id, label: 'x', active, currency: { id: 'c1', code: 'EUR', symbol: '€' } } as KostenDefinition);
+  }
+}
+
+describe('OrganisationComponent - Kosten-Definitionen', () => {
+  let component: OrganisationComponent;
+  let currencyService: FakeCurrencyService;
+  let kostenDefinitionService: FakeKostenDefinitionService;
+
+  beforeEach(() => {
+    const orgService = new FakeOrganisationService();
+    const fieldDefService = new FakeFieldDefinitionService();
+    const fieldInstanceService = new FakeFieldInstanceService();
+    const semesterService = new FakeSemesterService();
+    currencyService = new FakeCurrencyService();
+    kostenDefinitionService = new FakeKostenDefinitionService();
+    const fakeDialog = { open: () => ({ afterClosed: () => of(null) }) } as unknown as MatDialog;
+
+    component = new OrganisationComponent(
+      orgService as unknown as OrganisationService,
+      fieldDefService as unknown as FieldDefinitionService,
+      fieldInstanceService as unknown as FieldInstanceService,
+      semesterService as unknown as SemesterService,
+      currencyService as unknown as CurrencyService,
+      kostenDefinitionService as unknown as KostenDefinitionService,
+      fakeDialog,
+    );
+  });
+
+  it('loads currencies and kosten-definitions on init', () => {
+    currencyService.currencies = [{ id: 'c1', code: 'EUR', symbol: '€' }];
+    kostenDefinitionService.definitions = [
+      { id: 'd1', label: 'Elternbeitrag', active: true, currency: { id: 'c1', code: 'EUR', symbol: '€' } },
+    ];
+
+    component.ngOnInit();
+
+    expect(component.currencies.length).toBe(1);
+    expect(component.kostenDefinitions.length).toBe(1);
+  });
+
+  it('creates a new currency and selects it in the definition form', () => {
+    component.ngOnInit();
+    component.newCurrencyForm.setValue({ code: 'CHF', symbol: 'Fr.' });
+
+    component.addCurrency();
+
+    expect(currencyService.createCalls).toEqual([{ code: 'CHF', symbol: 'Fr.' }]);
+    expect(component.kostenDefForm.value.currencyId).toBe('currency-new');
+  });
+
+  it('sends label and currencyId when adding a kosten-definition', () => {
+    component.ngOnInit();
+    component.kostenDefForm.setValue({ label: 'Elternbeitrag', currencyId: 'c1' });
+
+    component.addKostenDefinition();
+
+    expect(kostenDefinitionService.createCalls).toEqual([{ label: 'Elternbeitrag', currencyId: 'c1' }]);
+  });
+
+  it('toggles a definition active flag', () => {
+    kostenDefinitionService.definitions = [
+      { id: 'd1', label: 'Elternbeitrag', active: true, currency: { id: 'c1', code: 'EUR', symbol: '€' } },
+    ];
+    component.ngOnInit();
+
+    component.toggleKostenDefinitionActive({ id: 'd1', label: 'Elternbeitrag', active: true, currency: { id: 'c1', code: 'EUR', symbol: '€' } });
+
+    expect(kostenDefinitionService.setActiveCalls).toEqual([{ id: 'd1', active: false }]);
   });
 });

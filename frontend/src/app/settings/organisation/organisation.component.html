@@ -228,5 +228,74 @@
         </table>
       </div>
     </mat-tab>
+
+    <!-- Kosten-Definitionen Tab -->
+    <mat-tab label="Kosten-Definitionen">
+      <div class="tab-content">
+        <form [formGroup]="kostenDefForm" (ngSubmit)="addKostenDefinition()" class="add-form">
+          <div class="row">
+            <mat-form-field appearance="outline">
+              <mat-label>Bezeichnung</mat-label>
+              <input matInput formControlName="label">
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Waehrung</mat-label>
+              <mat-select formControlName="currencyId">
+                @for (currency of currencies; track currency.id) {
+                  <mat-option [value]="currency.id">{{ getCurrencyLabel(currency) }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <button mat-icon-button type="button" (click)="showAddCurrency = !showAddCurrency" title="Neue Waehrung">
+              <mat-icon>add_circle_outline</mat-icon>
+            </button>
+            <button mat-raised-button color="primary" type="submit" [disabled]="!kostenDefForm.valid">
+              Definition hinzufuegen
+            </button>
+          </div>
+        </form>
+
+        <form *ngIf="showAddCurrency" [formGroup]="newCurrencyForm" (ngSubmit)="addCurrency()" class="add-form">
+          <div class="row">
+            <mat-form-field appearance="outline">
+              <mat-label>Code</mat-label>
+              <input matInput formControlName="code" placeholder="EUR">
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Symbol</mat-label>
+              <input matInput formControlName="symbol" placeholder="€">
+            </mat-form-field>
+            <button mat-raised-button color="accent" type="submit" [disabled]="!newCurrencyForm.valid">
+              Waehrung anlegen
+            </button>
+          </div>
+        </form>
+
+        <table mat-table [dataSource]="kostenDefinitions" class="mat-elevation-z2">
+          <ng-container matColumnDef="label">
+            <th mat-header-cell *matHeaderCellDef>Bezeichnung</th>
+            <td mat-cell *matCellDef="let row">{{ row.label }}</td>
+          </ng-container>
+          <ng-container matColumnDef="currency">
+            <th mat-header-cell *matHeaderCellDef>Waehrung</th>
+            <td mat-cell *matCellDef="let row">{{ getCurrencyLabel(row.currency) }}</td>
+          </ng-container>
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef>Status</th>
+            <td mat-cell *matCellDef="let row">{{ row.active ? 'Aktiv' : 'Inaktiv' }}</td>
+          </ng-container>
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef></th>
+            <td mat-cell *matCellDef="let row">
+              <button mat-button (click)="toggleKostenDefinitionActive(row)">
+                {{ row.active ? 'Deaktivieren' : 'Aktivieren' }}
+              </button>
+            </td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="kostenDefColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: kostenDefColumns;"></tr>
+        </table>
+      </div>
+    </mat-tab>
   </mat-tab-group>
 </div>
