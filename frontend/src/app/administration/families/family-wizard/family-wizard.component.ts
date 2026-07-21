@@ -123,6 +123,7 @@ export class FamilyWizardComponent implements OnInit {
       this.resolvedFamilyId = family.id;
       this.familyName = family.name;
       this.familyAddress = family.address ?? null;
+      this.editFamily = family;
       this.anyChanges = true;
       this.view = 'overview';
     } catch (err) {

@@ -18,7 +18,14 @@ import { SectionFormComponent } from '../../../../shared/components/section-form
     SectionFormComponent,
   ],
   template: `
-    <h3>Elternteile</h3>
+    <div class="section-head">
+      <h3>Elternteile <span class="count">{{ parentEntries.length }}</span></h3>
+      @if (!singleMode) {
+        <button mat-stroked-button (click)="addParent()">
+          <mat-icon>add</mat-icon> Elternteil hinzufuegen
+        </button>
+      }
+    </div>
     @for (idx of parentIndices; track idx) {
       <div class="parent-block">
         <h4>
@@ -38,13 +45,13 @@ import { SectionFormComponent } from '../../../../shared/components/section-form
         }
       </div>
     }
-    @if (!singleMode) {
-      <button mat-stroked-button (click)="addParent()">
-        <mat-icon>add</mat-icon> Elternteil hinzufuegen
-      </button>
-    }
   `,
-  styles: [`.parent-block { margin-bottom: 24px; border-bottom: 1px solid #ccc; padding-bottom: 16px; }`],
+  styles: [`
+    .section-head { position:sticky; top:60px; z-index:5; background:#fff; display:flex; align-items:center; justify-content:space-between; gap:12px; padding-top:4px; padding-bottom:12px; margin-bottom:16px; border-bottom:1px solid #ccc; }
+    .section-head h3 { margin:0; display:flex; align-items:center; gap:8px; }
+    .section-head .count { font-size:12px; font-weight:500; color:rgba(0,0,0,0.54); }
+    .parent-block { margin-bottom: 24px; border-bottom: 1px solid #ccc; padding-bottom: 16px; }
+  `],
 })
 export class ParentsStepComponent implements OnInit {
   private static readonly ALLOWED_FIELDS = ['firstName', 'lastName', 'email', 'phone', 'dateOfBirth', 'address'];
@@ -68,6 +75,9 @@ export class ParentsStepComponent implements OnInit {
   removedParentIds: string[] = [];
 
   private _existingParents: { id: string; dto: PersonDTO }[] = [];
+
+  private prefillLastName?: string;
+  private prefillAddress?: { street: string; zip: string; city: string } | null;
 
   constructor(private fieldDefService: FieldDefinitionService) {}
 
@@ -95,6 +105,18 @@ export class ParentsStepComponent implements OnInit {
   addParent(): void {
     this.parentEntries.push({ existingFields: [] });
     this.parentIndices = this.parentEntries.map((_, i) => i);
+    if (this.prefillLastName || this.prefillAddress) {
+      setTimeout(() => {
+        const form = this.parentForms?.last;
+        if (!form) return;
+        if (this.prefillLastName) {
+          form.setValueByFieldName('lastName', this.prefillLastName);
+        }
+        if (this.prefillAddress) {
+          form.setValueByFieldName('address', this.prefillAddress);
+        }
+      }, 0);
+    }
   }
 
   removeParent(index: number): void {
@@ -115,6 +137,8 @@ export class ParentsStepComponent implements OnInit {
   }
 
   prefill(lastName: string, address?: { street: string; zip: string; city: string } | null): void {
+    this.prefillLastName = lastName;
+    this.prefillAddress = address;
     this.parentForms?.forEach((f) => {
       f.setValueByFieldName('lastName', lastName);
       if (address) {

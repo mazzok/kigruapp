@@ -120,6 +120,26 @@ describe('FamilyWizardComponent', () => {
     expect(familyService.updateCalls).toEqual([{ id: 'f1', data: { name: 'Familie Neu', address: undefined } }]);
   });
 
+  it('refreshes editFamily after saveFamily so reopening the Familie section shows the new address', async () => {
+    create({ familyId: 'f1' });
+    component.resolvedFamilyId = 'f1';
+    component.editFamily = { id: 'f1', name: 'Familie Alt', address: { street: 'Alte Str. 1', zip: '1010', city: 'Wien' } };
+    familyService.update = (id: string, data: { name: string; address?: Family['address'] }) =>
+      of({ id, name: data.name, address: data.address } as Family);
+    component.familyStep = {
+      newFamilyName: 'Familie Neu',
+      address: { street: 'Neue Str. 99', zip: '4020', city: 'Linz' },
+    } as any;
+
+    await component.saveFamily();
+
+    expect(component.editFamily).toEqual({
+      id: 'f1',
+      name: 'Familie Neu',
+      address: { street: 'Neue Str. 99', zip: '4020', city: 'Linz' },
+    });
+  });
+
   it('marks anyChanges after a successful save so cancel reports it to the caller', async () => {
     create(null);
     component.familyStep = { newFamilyName: 'Familie Müller', address: null } as any;

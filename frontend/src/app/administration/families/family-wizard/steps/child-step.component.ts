@@ -13,7 +13,12 @@ import { SectionFormComponent } from '../../../../shared/components/section-form
   standalone: true,
   imports: [CommonModule, MatButtonModule, MatIconModule, SectionFormComponent],
   template: `
-    <h3>Kinder</h3>
+    <div class="section-head">
+      <h3>Kinder <span class="count">{{ childEntries.length }}</span></h3>
+      <button mat-stroked-button (click)="addChild()">
+        <mat-icon>child_care</mat-icon> Kind hinzufügen
+      </button>
+    </div>
     @for (entry of childEntries; track $index; let i = $index) {
       <div class="child-block">
         <div style="display:flex; align-items:center; justify-content:space-between;">
@@ -30,11 +35,13 @@ import { SectionFormComponent } from '../../../../shared/components/section-form
         }
       </div>
     }
-    <button mat-stroked-button (click)="addChild()" style="margin-top:8px">
-      <mat-icon>child_care</mat-icon> Kind hinzufügen
-    </button>
   `,
-  styles: [`.child-block { margin-bottom: 24px; border-bottom: 1px solid #ccc; padding-bottom: 16px; }`],
+  styles: [`
+    .section-head { position:sticky; top:60px; z-index:5; background:#fff; display:flex; align-items:center; justify-content:space-between; gap:12px; padding-top:4px; padding-bottom:12px; margin-bottom:16px; border-bottom:1px solid #ccc; }
+    .section-head h3 { margin:0; display:flex; align-items:center; gap:8px; }
+    .section-head .count { font-size:12px; font-weight:500; color:rgba(0,0,0,0.54); }
+    .child-block { margin-bottom: 24px; border-bottom: 1px solid #ccc; padding-bottom: 16px; }
+  `],
 })
 export class ChildStepComponent implements OnInit {
   private static readonly ALLOWED_FIELDS = ['firstName', 'lastName', 'dateOfBirth', 'gender', 'address'];
@@ -56,6 +63,9 @@ export class ChildStepComponent implements OnInit {
 
   childEntries: { id?: string; existingFields: FieldInstanceDTO[] }[] = [{ existingFields: [] }];
   removedChildIds: string[] = [];
+
+  private prefillLastName?: string;
+  private prefillAddress?: { street: string; zip: string; city: string } | null;
 
   constructor(private fieldDefService: FieldDefinitionService) {}
 
@@ -82,6 +92,8 @@ export class ChildStepComponent implements OnInit {
   }
 
   prefill(lastName: string, address?: { street: string; zip: string; city: string } | null): void {
+    this.prefillLastName = lastName;
+    this.prefillAddress = address;
     this.childForms?.forEach((f) => {
       f.setValueByFieldName('lastName', lastName);
       if (address) {
@@ -92,6 +104,18 @@ export class ChildStepComponent implements OnInit {
 
   addChild(): void {
     this.childEntries.push({ existingFields: [] });
+    if (this.prefillLastName || this.prefillAddress) {
+      setTimeout(() => {
+        const form = this.childForms?.last;
+        if (!form) return;
+        if (this.prefillLastName) {
+          form.setValueByFieldName('lastName', this.prefillLastName);
+        }
+        if (this.prefillAddress) {
+          form.setValueByFieldName('address', this.prefillAddress);
+        }
+      }, 0);
+    }
   }
 
   removeChild(index: number): void {
