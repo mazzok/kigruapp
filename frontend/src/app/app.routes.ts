@@ -40,6 +40,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'bilanzen',
+        loadComponent: () =>
+          import('./administration/bilanzen/bilanzen.component').then(
+            m => m.BilanzenComponent
+          ),
+      },
+      {
         path: 'elterneinteilung',
         loadComponent: () =>
           import('./administration/elterneinteilung/elterneinteilung.component').then(
