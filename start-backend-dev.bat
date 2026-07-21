@@ -9,4 +9,4 @@ timeout /t 5 /nobreak >nul
 
 echo [2/2] Starting Backend (Quarkus dev mode on :8200)...
 cd /d %~dp0backend
-mvnw quarkus:dev
+mvnw quarkus:dev -Ddebug=15005

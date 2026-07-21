@@ -23,14 +23,14 @@
         "pkce.code.challenge.method": "S256"
       },
       "redirectUris": [
-        "http://localhost:4200/*",
-        "http://localhost:4200"
+        "http://localhost:4301/*",
+        "http://localhost:4301"
       ],
       "webOrigins": [
-        "http://localhost:4200"
+        "http://localhost:4301"
       ],
-      "rootUrl": "http://localhost:4200",
-      "adminUrl": "http://localhost:4200"
+      "rootUrl": "http://localhost:4301",
+      "adminUrl": "http://localhost:4301"
     }
   ]
 }
