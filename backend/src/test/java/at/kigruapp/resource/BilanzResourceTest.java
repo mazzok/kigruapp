@@ -387,4 +387,159 @@ public class BilanzResourceTest {
             .body("families[0].months[0].active", is(false))
             .body("families[0].months[1].amount", is(100.00f)); // February
     }
+
+    @Test
+    void childOutsideEntryExitContributesZeroAndIsNotEditable() {
+        fullCleanup();
+        ObjectId semesterId = createSemester(2020);
+        ObjectId currencyId = createCurrency("EUR", "€");
+        ObjectId defId = createDefinition(currencyId, "Elternbeitrag");
+        ObjectId groupId = new ObjectId();
+        setDefault(semesterId, groupId, defId, "100.00");
+        ObjectId familyId = createFamily("Meier");
+        // active only May..Aug 2020
+        createChild(familyId, "Anna", semesterId, groupId, "2020-05-01", "2020-08-31");
+
+        given()
+            .queryParam("year", 2020)
+            .when().get("/api/v1/bilanzen")
+            .then().statusCode(200)
+            .body("families[0].months[2].amount", is(0))       // March: outside window
+            .body("families[0].months[2].active", is(false))
+            .body("families[0].months[2].editable", is(false))
+            .body("families[0].months[4].amount", is(100.00f)) // May: inside
+            .body("families[0].months[4].active", is(true));
+    }
+
+    @Test
+    void entryMidMonthCountsFullMonthAndSetsEntryMarker() {
+        fullCleanup();
+        ObjectId semesterId = createSemester(2020);
+        ObjectId currencyId = createCurrency("EUR", "€");
+        ObjectId defId = createDefinition(currencyId, "Elternbeitrag");
+        ObjectId groupId = new ObjectId();
+        setDefault(semesterId, groupId, defId, "100.00");
+        ObjectId familyId = createFamily("Meier");
+        createChild(familyId, "Anna", semesterId, groupId, "2020-05-15", null);
+
+        given()
+            .queryParam("year", 2020)
+            .when().get("/api/v1/bilanzen")
+            .then().statusCode(200)
+            .body("families[0].months[4].amount", is(100.00f)) // May counts full
+            .body("families[0].months[4].entryMarker", is(true))
+            .body("families[0].months[4].exitMarker", is(false))
+            .body("families[0].months[3].amount", is(0))       // April: before entry
+            .body("families[0].months[3].active", is(false));
+    }
+
+    @Test
+    void exitMonthSetsExitMarkerAndOpenEndHasNoMarker() {
+        fullCleanup();
+        ObjectId semesterId = createSemester(2020);
+        ObjectId currencyId = createCurrency("EUR", "€");
+        ObjectId defId = createDefinition(currencyId, "Elternbeitrag");
+        ObjectId groupId = new ObjectId();
+        setDefault(semesterId, groupId, defId, "100.00");
+        ObjectId familyId = createFamily("Meier");
+        createChild(familyId, "Anna", semesterId, groupId, "2020-02-01", "2020-09-20");
+
+        given()
+            .queryParam("year", 2020)
+            .when().get("/api/v1/bilanzen")
+            .then().statusCode(200)
+            .body("families[0].months[8].exitMarker", is(true))   // September exit
+            .body("families[0].months[8].amount", is(100.00f))    // exit month counts full
+            .body("families[0].months[1].entryMarker", is(true)); // February entry
+    }
+
+    @Test
+    void futureMonthsAreGreyedAndExcludedFromTotal() {
+        fullCleanup();
+        int futureYear = YearMonth.now().getYear() + 1;
+        ObjectId semesterId = createSemester(futureYear);
+        ObjectId currencyId = createCurrency("EUR", "€");
+        ObjectId defId = createDefinition(currencyId, "Elternbeitrag");
+        ObjectId groupId = new ObjectId();
+        setDefault(semesterId, groupId, defId, "100.00");
+        ObjectId familyId = createFamily("Meier");
+        createChild(familyId, "Anna", semesterId, groupId, null, null);
+
+        given()
+            .queryParam("year", futureYear)
+            .when().get("/api/v1/bilanzen")
+            .then().statusCode(200)
+            .body("families[0].months[0].future", is(true))
+            .body("families[0].months[0].editable", is(false))
+            .body("families[0].total", is(0));   // all 12 months future -> excluded
+    }
+
+    @Test
+    void mixedCurrencyFlaggedWhenTwoCurrenciesContribute() {
+        fullCleanup();
+        ObjectId semesterId = createSemester(2020);
+        ObjectId eur = createCurrency("EUR", "€");
+        ObjectId usd = createCurrency("USD", "$");
+        ObjectId defEur = createDefinition(eur, "Elternbeitrag");
+        ObjectId defUsd = createDefinition(usd, "Ausflug");
+        ObjectId groupId = new ObjectId();
+        setDefault(semesterId, groupId, defEur, "100.00");
+        setDefault(semesterId, groupId, defUsd, "50.00");
+        ObjectId familyId = createFamily("Meier");
+        createChild(familyId, "Anna", semesterId, groupId, null, null);
+
+        given()
+            .queryParam("year", 2020)
+            .when().get("/api/v1/bilanzen")
+            .then().statusCode(200)
+            .body("families[0].months[2].mixedCurrency", is(true));
+    }
+
+    @Test
+    void everyCellHonoursFlagInvariants() {
+        fullCleanup();
+        int nextYear = YearMonth.now().getYear() + 1;
+        // Semester covering both this year and next year to exercise future + active cells.
+        Semester s = new Semester();
+        s.start = utc(YearMonth.now().getYear() - 1, 1, 1);
+        s.end = utc(nextYear, 12, 31);
+        s.createdAt = Instant.now();
+        s.persist();
+        ObjectId currencyId = createCurrency("EUR", "€");
+        ObjectId defId = createDefinition(currencyId, "Elternbeitrag");
+        ObjectId groupId = new ObjectId();
+        setDefault(s.id, groupId, defId, "100.00");
+        ObjectId familyId = createFamily("Meier");
+        createChild(familyId, "Anna", s.id, groupId, nextYear + "-03-10", nextYear + "-10-20");
+
+        for (int year : new int[]{YearMonth.now().getYear(), nextYear}) {
+            var months = given()
+                .queryParam("year", year)
+                .when().get("/api/v1/bilanzen")
+                .then().statusCode(200)
+                .extract().jsonPath().getList("families[0].months");
+
+            for (int i = 0; i < months.size(); i++) {
+                @SuppressWarnings("unchecked")
+                var cell = (java.util.Map<String, Object>) months.get(i);
+                boolean future = (boolean) cell.get("future");
+                boolean active = (boolean) cell.get("active");
+                boolean editable = (boolean) cell.get("editable");
+                boolean entryMarker = (boolean) cell.get("entryMarker");
+                boolean exitMarker = (boolean) cell.get("exitMarker");
+                boolean mixed = (boolean) cell.get("mixedCurrency");
+                Number amount = (Number) cell.get("amount");
+
+                // editable == active && !future
+                assertEquals(active && !future, editable, "editable invariant at month " + (i + 1));
+                // active=false => no markers, no mixed, zero amount
+                if (!active) {
+                    assertFalse(entryMarker, "inactive entryMarker at month " + (i + 1));
+                    assertFalse(exitMarker, "inactive exitMarker at month " + (i + 1));
+                    assertFalse(mixed, "inactive mixed at month " + (i + 1));
+                    assertEquals(0, amount.doubleValue(), 0.0001, "inactive amount at month " + (i + 1));
+                }
+            }
+        }
+    }
 }
