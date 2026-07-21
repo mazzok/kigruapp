@@ -56,16 +56,20 @@ public class BilanzCalculationService {
         List<Semester> semesters = Semester.listAll();
         List<KostenDefinition> activeDefs = KostenDefinition.findActive();
 
-        List<Family> families = Family.listAll();
-        families.sort(Comparator.comparing(f -> f.name == null ? "" : f.name.toLowerCase()));
+        List<Family> allFamilies = Family.listAll();
+        List<Person> allChildren = new ArrayList<>();
+        for (Family family : allFamilies) {
+            allChildren.addAll(childrenOf(family.id));
+        }
+        allChildren.sort(Comparator.comparing(c -> childName(c).toLowerCase()));
 
-        List<BilanzMatrixDTO.FamilyRow> rows = new ArrayList<>();
-        for (Family family : families) {
-            List<Person> children = childrenOf(family.id);
+        List<BilanzMatrixDTO.ChildRow> rows = new ArrayList<>();
+        for (Person child : allChildren) {
+            List<Person> single = List.of(child);
             List<BilanzMatrixDTO.MonthCell> months = new ArrayList<>();
             BigDecimal total = BigDecimal.ZERO;
             for (int m = 1; m <= 12; m++) {
-                CellComputation cc = computeCellInternal(children, year, m, semesters, activeDefs, current);
+                CellComputation cc = computeCellInternal(single, year, m, semesters, activeDefs, current);
                 months.add(new BilanzMatrixDTO.MonthCell(
                         m, cc.amount, cc.currencySymbol, cc.mixedCurrency,
                         cc.future, cc.editable, cc.active, cc.entryMarker, cc.exitMarker));
@@ -73,27 +77,24 @@ public class BilanzCalculationService {
                     total = total.add(cc.amount);
                 }
             }
-            rows.add(new BilanzMatrixDTO.FamilyRow(family.id.toHexString(), family.name, months, total));
+            rows.add(new BilanzMatrixDTO.ChildRow(child.id.toHexString(), childName(child), months, total));
         }
         return new BilanzMatrixDTO(year, currentYearMonth, rows);
     }
 
-    public BilanzCellDTO computeCell(ObjectId familyId, int year, int month) {
+    public BilanzCellDTO computeCell(ObjectId personId, int year, int month) {
         List<Semester> semesters = Semester.listAll();
         List<KostenDefinition> activeDefs = KostenDefinition.findActive();
-        List<Person> children = childrenOf(familyId);
+        Person child = Person.findById(personId);
 
         Semester semester = semesterForMonth(year, month, semesters);
         List<BilanzCellDTO.Line> lines = new ArrayList<>();
         BigDecimal sum = BigDecimal.ZERO;
         Set<ObjectId> currencies = new HashSet<>();
 
-        if (semester != null) {
-            for (Person child : children) {
-                GroupRef gref = groupAssignment(child.id, semester.id);
-                if (gref == null || !activeInMonth(gref, year, month)) {
-                    continue;
-                }
+        if (semester != null && child != null) {
+            GroupRef gref = groupAssignment(child.id, semester.id);
+            if (gref != null && activeInMonth(gref, year, month)) {
                 for (KostenDefinition def : activeDefs) {
                     BigDecimal def0 = defaultAmount(semester.id, gref.groupId, def.id);
                     BigDecimal eff = effectiveAmount(child.id, year, month, def.id, def0);
@@ -278,7 +279,15 @@ public class BilanzCalculationService {
     private String childName(Person person) {
         String first = basicValue(person, "firstName");
         String last = basicValue(person, "lastName");
-        return ((first != null ? first : "") + " " + (last != null ? last : "")).trim();
+        boolean hasFirst = first != null && !first.isBlank();
+        boolean hasLast = last != null && !last.isBlank();
+        if (hasLast && hasFirst) {
+            return last + ", " + first;
+        }
+        if (hasLast) {
+            return last;
+        }
+        return hasFirst ? first : "";
     }
 
     private String basicValue(Person person, String fieldName) {

@@ -33,11 +33,11 @@ public class BilanzResource {
     @GET
     @Path("/cell")
     public BilanzCellDTO cell(
-            @QueryParam("familyId") String familyId,
+            @QueryParam("personId") String personId,
             @QueryParam("year") Integer year,
             @QueryParam("month") Integer month) {
-        if (familyId == null || !ObjectId.isValid(familyId)) {
-            throw new BadRequestException("familyId is required");
+        if (personId == null || !ObjectId.isValid(personId)) {
+            throw new BadRequestException("personId is required");
         }
         if (year == null) {
             throw new BadRequestException("year is required");
@@ -45,7 +45,7 @@ public class BilanzResource {
         if (month == null || month < 1 || month > 12) {
             throw new BadRequestException("month must be 1..12");
         }
-        return calc.computeCell(new ObjectId(familyId), year, month);
+        return calc.computeCell(new ObjectId(personId), year, month);
     }
 
     @PUT

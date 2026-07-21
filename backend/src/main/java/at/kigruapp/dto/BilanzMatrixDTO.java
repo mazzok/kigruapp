@@ -3,8 +3,8 @@ package at.kigruapp.dto;
 import java.math.BigDecimal;
 import java.util.List;
 
-public record BilanzMatrixDTO(int year, String currentYearMonth, List<FamilyRow> families) {
-    public record FamilyRow(String familyId, String name, List<MonthCell> months, BigDecimal total) {}
+public record BilanzMatrixDTO(int year, String currentYearMonth, List<ChildRow> children) {
+    public record ChildRow(String personId, String name, List<MonthCell> months, BigDecimal total) {}
 
     public record MonthCell(
             int month,

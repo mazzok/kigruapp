@@ -180,10 +180,10 @@ public class BilanzResourceTest {
         ObjectId groupId = new ObjectId();
         setDefault(semesterId, groupId, defId, "340.00");
         ObjectId familyId = createFamily("Meier");
-        createChild(familyId, "Anna", semesterId, groupId, null, null);
+        ObjectId childId = createChild(familyId, "Anna", semesterId, groupId, null, null);
 
         given()
-            .queryParam("familyId", familyId.toString())
+            .queryParam("personId", childId.toString())
             .queryParam("year", 2020).queryParam("month", 3)
             .when().get("/api/v1/bilanzen/cell")
             .then().statusCode(200)
@@ -212,7 +212,7 @@ public class BilanzResourceTest {
             .when().put("/api/v1/bilanzen/overrides").then().statusCode(204);
 
         given()
-            .queryParam("familyId", familyId.toString())
+            .queryParam("personId", childId.toString())
             .queryParam("year", 2020).queryParam("month", 3)
             .when().get("/api/v1/bilanzen/cell")
             .then().statusCode(200)
@@ -225,8 +225,9 @@ public class BilanzResourceTest {
     void cellIsEmptyWhenNoCoveringSemester() {
         fullCleanup();
         ObjectId familyId = createFamily("Meier");
+        ObjectId childId = createChild(familyId, "Anna", new ObjectId(), new ObjectId(), null, null);
         given()
-            .queryParam("familyId", familyId.toString())
+            .queryParam("personId", childId.toString())
             .queryParam("year", 2020).queryParam("month", 3)
             .when().get("/api/v1/bilanzen/cell")
             .then().statusCode(200)
@@ -246,10 +247,10 @@ public class BilanzResourceTest {
         KostenDefinition d = KostenDefinition.findById(defId);
         d.active = false; d.update();
         ObjectId familyId = createFamily("Meier");
-        createChild(familyId, "Anna", semesterId, groupId, null, null);
+        ObjectId childId = createChild(familyId, "Anna", semesterId, groupId, null, null);
 
         given()
-            .queryParam("familyId", familyId.toString())
+            .queryParam("personId", childId.toString())
             .queryParam("year", 2020).queryParam("month", 3)
             .when().get("/api/v1/bilanzen/cell")
             .then().statusCode(200)
@@ -257,7 +258,7 @@ public class BilanzResourceTest {
     }
 
     @Test
-    void matrixSumsPerChildTwoChildrenSameGroupDouble() {
+    void matrixShowsOneRowPerChildNotAggregatedPerFamily() {
         fullCleanup();
         ObjectId semesterId = createSemester(2020);
         ObjectId currencyId = createCurrency("EUR", "€");
@@ -272,12 +273,42 @@ public class BilanzResourceTest {
             .queryParam("year", 2020)
             .when().get("/api/v1/bilanzen")
             .then().statusCode(200)
-            .body("families.size()", is(1))
-            .body("families[0].name", is("Meier"))
-            .body("families[0].months[2].month", is(3))     // March
-            .body("families[0].months[2].amount", is(200.00f))
-            .body("families[0].months[2].active", is(true))
-            .body("families[0].total", is(2400.00f));         // 200 * 12
+            .body("children.size()", is(2))
+            .body("children[0].name", is("Anna"))
+            .body("children[1].name", is("Ben"))
+            .body("children[0].months[2].month", is(3))     // March
+            .body("children[0].months[2].amount", is(100.00f))
+            .body("children[0].months[2].active", is(true))
+            .body("children[0].total", is(1200.00f))         // 100 * 12
+            .body("children[1].months[2].amount", is(100.00f))
+            .body("children[1].total", is(1200.00f));
+    }
+
+    @Test
+    void matrixChildNameFormatIsLastNameCommaFirstName() {
+        fullCleanup();
+        ObjectId semesterId = createSemester(2020);
+        ObjectId currencyId = createCurrency("EUR", "€");
+        ObjectId defId = createDefinition(currencyId, "Elternbeitrag");
+        ObjectId groupId = new ObjectId();
+        setDefault(semesterId, groupId, defId, "100.00");
+        ObjectId familyId = createFamily("Meier");
+        ObjectId childId = createChild(familyId, "Anna", semesterId, groupId, null, null);
+        ObjectId lastNameDefId = new ObjectId();
+        coll("field_definitions").insertOne(new Document("_id", lastNameDefId).append("fieldName", "lastName"));
+        ObjectId lastNameInstId = new ObjectId();
+        coll("field_instances").insertOne(new Document("_id", lastNameInstId)
+                .append("definitionId", lastNameDefId).append("value", "Meier"));
+        Person child = Person.findById(childId);
+        child.basicProperties = new java.util.ArrayList<>(child.basicProperties);
+        child.basicProperties.add(new FieldRef(lastNameDefId, lastNameInstId));
+        child.update();
+
+        given()
+            .queryParam("year", 2020)
+            .when().get("/api/v1/bilanzen")
+            .then().statusCode(200)
+            .body("children[0].name", is("Meier, Anna"));
     }
 
     @Test
@@ -298,7 +329,8 @@ public class BilanzResourceTest {
             .queryParam("year", 2020)
             .when().get("/api/v1/bilanzen")
             .then().statusCode(200)
-            .body("families[0].months[2].amount", is(250.00f));
+            .body("children[0].months[2].amount", is(100.00f))
+            .body("children[1].months[2].amount", is(150.00f));
     }
 
     @Test
@@ -320,23 +352,20 @@ public class BilanzResourceTest {
             .queryParam("year", 2020)
             .when().get("/api/v1/bilanzen")
             .then().statusCode(200)
-            .body("families[0].months[2].amount", is(500.00f))   // March overridden
-            .body("families[0].months[1].amount", is(100.00f));  // Feb still default
+            .body("children[0].months[2].amount", is(500.00f))   // March overridden
+            .body("children[0].months[1].amount", is(100.00f));  // Feb still default
     }
 
     @Test
-    void matrixEmptyFamilyShowsZeroRow() {
+    void matrixFamilyWithoutChildrenProducesNoRows() {
         fullCleanup();
         createSemester(2020);
-        ObjectId familyId = createFamily("Leer");
+        createFamily("Leer");
         given()
             .queryParam("year", 2020)
             .when().get("/api/v1/bilanzen")
             .then().statusCode(200)
-            .body("families.size()", is(1))
-            .body("families[0].months[2].amount", is(0))
-            .body("families[0].months[2].active", is(false))
-            .body("families[0].total", is(0));
+            .body("children.size()", is(0));
     }
 
     @Test
@@ -363,8 +392,8 @@ public class BilanzResourceTest {
             .queryParam("year", 2020)
             .when().get("/api/v1/bilanzen")
             .then().statusCode(200)
-            .body("families[0].months[6].amount", is(100.00f))   // July -> semester A
-            .body("families[0].months[7].amount", is(200.00f));  // August -> semester B
+            .body("children[0].months[6].amount", is(100.00f))   // July -> semester A
+            .body("children[0].months[7].amount", is(200.00f));  // August -> semester B
     }
 
     @Test
@@ -383,9 +412,9 @@ public class BilanzResourceTest {
             .queryParam("year", 2020)
             .when().get("/api/v1/bilanzen")
             .then().statusCode(200)
-            .body("families[0].months[0].amount", is(0))     // January: gap -> 0
-            .body("families[0].months[0].active", is(false))
-            .body("families[0].months[1].amount", is(100.00f)); // February
+            .body("children[0].months[0].amount", is(0))     // January: gap -> 0
+            .body("children[0].months[0].active", is(false))
+            .body("children[0].months[1].amount", is(100.00f)); // February
     }
 
     @Test
@@ -404,11 +433,11 @@ public class BilanzResourceTest {
             .queryParam("year", 2020)
             .when().get("/api/v1/bilanzen")
             .then().statusCode(200)
-            .body("families[0].months[2].amount", is(0))       // March: outside window
-            .body("families[0].months[2].active", is(false))
-            .body("families[0].months[2].editable", is(false))
-            .body("families[0].months[4].amount", is(100.00f)) // May: inside
-            .body("families[0].months[4].active", is(true));
+            .body("children[0].months[2].amount", is(0))       // March: outside window
+            .body("children[0].months[2].active", is(false))
+            .body("children[0].months[2].editable", is(false))
+            .body("children[0].months[4].amount", is(100.00f)) // May: inside
+            .body("children[0].months[4].active", is(true));
     }
 
     @Test
@@ -426,11 +455,11 @@ public class BilanzResourceTest {
             .queryParam("year", 2020)
             .when().get("/api/v1/bilanzen")
             .then().statusCode(200)
-            .body("families[0].months[4].amount", is(100.00f)) // May counts full
-            .body("families[0].months[4].entryMarker", is(true))
-            .body("families[0].months[4].exitMarker", is(false))
-            .body("families[0].months[3].amount", is(0))       // April: before entry
-            .body("families[0].months[3].active", is(false));
+            .body("children[0].months[4].amount", is(100.00f)) // May counts full
+            .body("children[0].months[4].entryMarker", is(true))
+            .body("children[0].months[4].exitMarker", is(false))
+            .body("children[0].months[3].amount", is(0))       // April: before entry
+            .body("children[0].months[3].active", is(false));
     }
 
     @Test
@@ -448,9 +477,9 @@ public class BilanzResourceTest {
             .queryParam("year", 2020)
             .when().get("/api/v1/bilanzen")
             .then().statusCode(200)
-            .body("families[0].months[8].exitMarker", is(true))   // September exit
-            .body("families[0].months[8].amount", is(100.00f))    // exit month counts full
-            .body("families[0].months[1].entryMarker", is(true)); // February entry
+            .body("children[0].months[8].exitMarker", is(true))   // September exit
+            .body("children[0].months[8].amount", is(100.00f))    // exit month counts full
+            .body("children[0].months[1].entryMarker", is(true)); // February entry
     }
 
     @Test
@@ -469,9 +498,9 @@ public class BilanzResourceTest {
             .queryParam("year", futureYear)
             .when().get("/api/v1/bilanzen")
             .then().statusCode(200)
-            .body("families[0].months[0].future", is(true))
-            .body("families[0].months[0].editable", is(false))
-            .body("families[0].total", is(0));   // all 12 months future -> excluded
+            .body("children[0].months[0].future", is(true))
+            .body("children[0].months[0].editable", is(false))
+            .body("children[0].total", is(0));   // all 12 months future -> excluded
     }
 
     @Test
@@ -492,7 +521,7 @@ public class BilanzResourceTest {
             .queryParam("year", 2020)
             .when().get("/api/v1/bilanzen")
             .then().statusCode(200)
-            .body("families[0].months[2].mixedCurrency", is(true));
+            .body("children[0].months[2].mixedCurrency", is(true));
     }
 
     @Test
@@ -517,7 +546,7 @@ public class BilanzResourceTest {
                 .queryParam("year", year)
                 .when().get("/api/v1/bilanzen")
                 .then().statusCode(200)
-                .extract().jsonPath().getList("families[0].months");
+                .extract().jsonPath().getList("children[0].months");
 
             for (int i = 0; i < months.size(); i++) {
                 @SuppressWarnings("unchecked")
