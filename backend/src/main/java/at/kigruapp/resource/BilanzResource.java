@@ -1,6 +1,7 @@
 package at.kigruapp.resource;
 
 import at.kigruapp.dto.BilanzCellDTO;
+import at.kigruapp.dto.BilanzMatrixDTO;
 import at.kigruapp.entity.BilanzOverride;
 import at.kigruapp.service.BilanzCalculationService;
 import jakarta.inject.Inject;
@@ -10,6 +11,7 @@ import jakarta.ws.rs.core.Response;
 import org.bson.types.ObjectId;
 
 import java.math.BigDecimal;
+import java.time.Year;
 
 @Path("/api/v1/bilanzen")
 @Produces(MediaType.APPLICATION_JSON)
@@ -21,6 +23,12 @@ public class BilanzResource {
 
     public record UpsertOverrideRequest(
             String personId, int year, int month, String definitionId, BigDecimal amount) {}
+
+    @GET
+    public BilanzMatrixDTO matrix(@QueryParam("year") Integer year) {
+        int y = year != null ? year : Year.now().getValue();
+        return calc.computeMatrix(y);
+    }
 
     @GET
     @Path("/cell")

@@ -255,4 +255,136 @@ public class BilanzResourceTest {
             .then().statusCode(200)
             .body("lines.size()", is(0));
     }
+
+    @Test
+    void matrixSumsPerChildTwoChildrenSameGroupDouble() {
+        fullCleanup();
+        ObjectId semesterId = createSemester(2020);
+        ObjectId currencyId = createCurrency("EUR", "€");
+        ObjectId defId = createDefinition(currencyId, "Elternbeitrag");
+        ObjectId groupId = new ObjectId();
+        setDefault(semesterId, groupId, defId, "100.00");
+        ObjectId familyId = createFamily("Meier");
+        createChild(familyId, "Anna", semesterId, groupId, null, null);
+        createChild(familyId, "Ben", semesterId, groupId, null, null);
+
+        given()
+            .queryParam("year", 2020)
+            .when().get("/api/v1/bilanzen")
+            .then().statusCode(200)
+            .body("families.size()", is(1))
+            .body("families[0].name", is("Meier"))
+            .body("families[0].months[2].month", is(3))     // March
+            .body("families[0].months[2].amount", is(200.00f))
+            .body("families[0].months[2].active", is(true))
+            .body("families[0].total", is(2400.00f));         // 200 * 12
+    }
+
+    @Test
+    void matrixSumsTwoChildrenDifferentGroups() {
+        fullCleanup();
+        ObjectId semesterId = createSemester(2020);
+        ObjectId currencyId = createCurrency("EUR", "€");
+        ObjectId defId = createDefinition(currencyId, "Elternbeitrag");
+        ObjectId groupA = new ObjectId();
+        ObjectId groupB = new ObjectId();
+        setDefault(semesterId, groupA, defId, "100.00");
+        setDefault(semesterId, groupB, defId, "150.00");
+        ObjectId familyId = createFamily("Meier");
+        createChild(familyId, "Anna", semesterId, groupA, null, null);
+        createChild(familyId, "Ben", semesterId, groupB, null, null);
+
+        given()
+            .queryParam("year", 2020)
+            .when().get("/api/v1/bilanzen")
+            .then().statusCode(200)
+            .body("families[0].months[2].amount", is(250.00f));
+    }
+
+    @Test
+    void matrixOverrideBeatsDefaultInCell() {
+        fullCleanup();
+        ObjectId semesterId = createSemester(2020);
+        ObjectId currencyId = createCurrency("EUR", "€");
+        ObjectId defId = createDefinition(currencyId, "Elternbeitrag");
+        ObjectId groupId = new ObjectId();
+        setDefault(semesterId, groupId, defId, "100.00");
+        ObjectId familyId = createFamily("Meier");
+        ObjectId childId = createChild(familyId, "Anna", semesterId, groupId, null, null);
+        given().contentType(ContentType.JSON)
+            .body("{\"personId\":\"" + childId + "\",\"year\":2020,\"month\":3,"
+                + "\"definitionId\":\"" + defId + "\",\"amount\":500.00}")
+            .when().put("/api/v1/bilanzen/overrides").then().statusCode(204);
+
+        given()
+            .queryParam("year", 2020)
+            .when().get("/api/v1/bilanzen")
+            .then().statusCode(200)
+            .body("families[0].months[2].amount", is(500.00f))   // March overridden
+            .body("families[0].months[1].amount", is(100.00f));  // Feb still default
+    }
+
+    @Test
+    void matrixEmptyFamilyShowsZeroRow() {
+        fullCleanup();
+        createSemester(2020);
+        ObjectId familyId = createFamily("Leer");
+        given()
+            .queryParam("year", 2020)
+            .when().get("/api/v1/bilanzen")
+            .then().statusCode(200)
+            .body("families.size()", is(1))
+            .body("families[0].months[2].amount", is(0))
+            .body("families[0].months[2].active", is(false))
+            .body("families[0].total", is(0));
+    }
+
+    @Test
+    void matrixMonthToSemesterBorderNoDoubleCount() {
+        fullCleanup();
+        // Semester A: 2020-01-01 .. 2020-07-31 ; Semester B: 2020-08-01 .. 2020-12-31
+        Semester a = new Semester(); a.start = utc(2020,1,1); a.end = utc(2020,7,31); a.createdAt = Instant.now(); a.persist();
+        Semester b = new Semester(); b.start = utc(2020,8,1); b.end = utc(2020,12,31); b.createdAt = Instant.now(); b.persist();
+        ObjectId currencyId = createCurrency("EUR", "€");
+        ObjectId defId = createDefinition(currencyId, "Elternbeitrag");
+        ObjectId groupId = new ObjectId();
+        setDefault(a.id, groupId, defId, "100.00");
+        setDefault(b.id, groupId, defId, "200.00");
+        ObjectId familyId = createFamily("Meier");
+        // child assigned in BOTH semesters
+        ObjectId childId = createChild(familyId, "Anna", a.id, groupId, null, null);
+        // add a second group assignment for semester B for the same child
+        coll("semester_assignments").insertOne(new Document("_id", new ObjectId())
+            .append("personId", childId).append("semesterId", b.id)
+            .append("section", "group").append("definitionId", new ObjectId())
+            .append("fieldInstanceId", groupId));
+
+        given()
+            .queryParam("year", 2020)
+            .when().get("/api/v1/bilanzen")
+            .then().statusCode(200)
+            .body("families[0].months[6].amount", is(100.00f))   // July -> semester A
+            .body("families[0].months[7].amount", is(200.00f));  // August -> semester B
+    }
+
+    @Test
+    void matrixMonthWithoutCoveringSemesterIsZero() {
+        fullCleanup();
+        // semester only covers Feb..Nov 2020
+        Semester s = new Semester(); s.start = utc(2020,2,1); s.end = utc(2020,11,30); s.createdAt = Instant.now(); s.persist();
+        ObjectId currencyId = createCurrency("EUR", "€");
+        ObjectId defId = createDefinition(currencyId, "Elternbeitrag");
+        ObjectId groupId = new ObjectId();
+        setDefault(s.id, groupId, defId, "100.00");
+        ObjectId familyId = createFamily("Meier");
+        createChild(familyId, "Anna", s.id, groupId, null, null);
+
+        given()
+            .queryParam("year", 2020)
+            .when().get("/api/v1/bilanzen")
+            .then().statusCode(200)
+            .body("families[0].months[0].amount", is(0))     // January: gap -> 0
+            .body("families[0].months[0].active", is(false))
+            .body("families[0].months[1].amount", is(100.00f)); // February
+    }
 }
