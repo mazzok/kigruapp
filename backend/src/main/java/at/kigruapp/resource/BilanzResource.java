@@ -1,6 +1,9 @@
 package at.kigruapp.resource;
 
+import at.kigruapp.dto.BilanzCellDTO;
 import at.kigruapp.entity.BilanzOverride;
+import at.kigruapp.service.BilanzCalculationService;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -13,8 +16,29 @@ import java.math.BigDecimal;
 @Consumes(MediaType.APPLICATION_JSON)
 public class BilanzResource {
 
+    @Inject
+    BilanzCalculationService calc;
+
     public record UpsertOverrideRequest(
             String personId, int year, int month, String definitionId, BigDecimal amount) {}
+
+    @GET
+    @Path("/cell")
+    public BilanzCellDTO cell(
+            @QueryParam("familyId") String familyId,
+            @QueryParam("year") Integer year,
+            @QueryParam("month") Integer month) {
+        if (familyId == null || !ObjectId.isValid(familyId)) {
+            throw new BadRequestException("familyId is required");
+        }
+        if (year == null) {
+            throw new BadRequestException("year is required");
+        }
+        if (month == null || month < 1 || month > 12) {
+            throw new BadRequestException("month must be 1..12");
+        }
+        return calc.computeCell(new ObjectId(familyId), year, month);
+    }
 
     @PUT
     @Path("/overrides")
