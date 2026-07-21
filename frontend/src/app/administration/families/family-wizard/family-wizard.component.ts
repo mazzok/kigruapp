@@ -1,8 +1,7 @@
 import { Component, Inject, OnInit, Optional, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatStepperModule, MatStepper } from '@angular/material/stepper';
-import { StepperSelectionEvent } from '@angular/cdk/stepper';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { FamilyStepComponent } from './steps/family-step.component';
 import { ChildStepComponent } from './steps/child-step.component';
@@ -10,28 +9,35 @@ import { ParentsStepComponent } from './steps/parents-step.component';
 import { FamilyService } from '../services/family.service';
 import { PersonService } from '../../../shared/services/person.service';
 import { CreatePersonRequest, PersonDTO } from '../../../shared/models/person.model';
-import { Family } from '../../../shared/models/family.model';
+import { Family, FamilyAddress } from '../../../shared/models/family.model';
 import { lastValueFrom } from 'rxjs';
+
+type WizardView = 'overview' | 'family' | 'children' | 'parents';
 
 @Component({
   selector: 'app-family-wizard',
   standalone: true,
   imports: [
     CommonModule,
-    MatStepperModule, MatButtonModule, MatDialogModule,
+    MatButtonModule, MatIconModule, MatDialogModule,
     FamilyStepComponent, ChildStepComponent, ParentsStepComponent,
   ],
   templateUrl: './family-wizard.component.html',
   styleUrl: './family-wizard.component.scss',
 })
 export class FamilyWizardComponent implements OnInit {
-  @ViewChild('stepper') stepper!: MatStepper;
   @ViewChild(FamilyStepComponent) familyStep!: FamilyStepComponent;
   @ViewChild(ChildStepComponent) childStep!: ChildStepComponent;
   @ViewChild(ParentsStepComponent) parentsStep!: ParentsStepComponent;
 
+  view: WizardView = 'overview';
   submitting = false;
   loading = false;
+  anyChanges = false;
+
+  resolvedFamilyId?: string;
+  familyName = '';
+  familyAddress: FamilyAddress | null = null;
 
   editFamily?: Family;
   existingChildren: { id: string; dto: PersonDTO }[] = [];
@@ -42,14 +48,14 @@ export class FamilyWizardComponent implements OnInit {
     @Optional() @Inject(MAT_DIALOG_DATA) public data: { familyId?: string } | null,
     private familyService: FamilyService,
     private personService: PersonService,
-  ) {}
-
-  get isEditMode(): boolean {
-    return !!this.data?.familyId;
+  ) {
+    if (this.data?.familyId) {
+      this.resolvedFamilyId = this.data.familyId;
+    }
   }
 
   ngOnInit(): void {
-    if (this.isEditMode) {
+    if (this.data?.familyId) {
       this.loadEditData();
     }
   }
@@ -60,6 +66,8 @@ export class FamilyWizardComponent implements OnInit {
       const familyId = this.data!.familyId!;
       const family = await lastValueFrom(this.familyService.get(familyId));
       this.editFamily = family;
+      this.familyName = family.name;
+      this.familyAddress = family.address ?? null;
 
       const persons = await lastValueFrom(this.personService.list(familyId));
       const dtos = await Promise.all(
@@ -79,126 +87,111 @@ export class FamilyWizardComponent implements OnInit {
     }
   }
 
-  onStepChange(event: StepperSelectionEvent): void {
-    const name = this.familyStep.newFamilyName;
-    const address = this.familyStep.address;
-    if (!name && !address) return;
-
-    if (event.selectedIndex === 1) {
-      this.childStep.prefill(name, address);
-    } else if (event.selectedIndex === 2) {
-      this.parentsStep.prefill(name, address);
+  openSection(target: 'family' | 'children' | 'parents'): void {
+    this.view = target;
+    if (target === 'children' || target === 'parents') {
+      const name = this.familyName;
+      const address = this.familyAddress;
+      if (name || address) {
+        setTimeout(() => {
+          if (target === 'children') this.childStep?.prefill(name, address);
+          else this.parentsStep?.prefill(name, address);
+        }, 0);
+      }
     }
   }
 
-  cancel(): void {
-    this.dialogRef.close(false);
+  backToOverview(): void {
+    this.view = 'overview';
   }
 
-  async submit(): Promise<void> {
+  cancel(): void {
+    this.dialogRef.close(this.anyChanges);
+  }
+
+  async saveFamily(): Promise<void> {
     this.submitting = true;
     try {
-      if (this.isEditMode) {
-        await this.submitEdit();
-      } else {
-        await this.submitCreate();
-      }
-      this.dialogRef.close(true);
+      const request = {
+        name: this.familyStep.newFamilyName,
+        address: this.familyStep.address ?? undefined,
+      };
+      const family = this.resolvedFamilyId
+        ? await lastValueFrom(this.familyService.update(this.resolvedFamilyId, request))
+        : await lastValueFrom(this.familyService.create(request));
+
+      this.resolvedFamilyId = family.id;
+      this.familyName = family.name;
+      this.familyAddress = family.address ?? null;
+      this.anyChanges = true;
+      this.view = 'overview';
     } catch (err) {
-      console.error('Wizard failed:', err);
+      console.error('Speichern der Familie fehlgeschlagen:', err);
+    } finally {
       this.submitting = false;
     }
   }
 
-  private async submitCreate(): Promise<void> {
-    let familyId: string;
-    if (this.familyStep.isNewFamily) {
-      const family = await lastValueFrom(
-        this.familyService.create({
-          name: this.familyStep.newFamilyName,
-          address: this.familyStep.address ?? undefined,
-        })
-      );
-      familyId = family.id!;
-    } else {
-      familyId = this.familyStep.selectedFamilyId!;
-    }
-
-    const childrenProps = this.childStep.getChildrenData();
-    for (const child of childrenProps) {
-      const childRequest: CreatePersonRequest = {
-        familyId,
-        basicProperties: child.basicProperties,
-        roles: [],
-        schedules: [],
-        duties: [],
-        finance: [],
-        customProperties: [],
-      };
-      await lastValueFrom(this.personService.create(childRequest));
-    }
-
-    const parentsProps = this.parentsStep?.getParentsBasicProperties() ?? [];
-    for (const parentProps of parentsProps) {
-      const parentRequest: CreatePersonRequest = {
-        familyId,
-        basicProperties: parentProps,
-        roles: [],
-        schedules: [],
-        duties: [],
-        finance: [],
-        customProperties: [],
-      };
-      await lastValueFrom(this.personService.create(parentRequest));
+  async saveChildren(): Promise<void> {
+    this.submitting = true;
+    try {
+      const familyId = this.resolvedFamilyId!;
+      for (const child of this.childStep.getChildrenData()) {
+        const req: CreatePersonRequest = { familyId, basicProperties: child.basicProperties };
+        if (child.id) {
+          await lastValueFrom(this.personService.update(child.id, req));
+        } else {
+          await lastValueFrom(this.personService.create(req));
+        }
+      }
+      for (const id of this.childStep.removedChildIds ?? []) {
+        await lastValueFrom(this.personService.delete(id));
+      }
+      this.existingChildren = await this.loadPersonsByType(familyId, 'CHILD');
+      this.anyChanges = true;
+      this.view = 'overview';
+    } catch (err) {
+      console.error('Speichern der Kinder fehlgeschlagen:', err);
+    } finally {
+      this.submitting = false;
     }
   }
 
-  private async submitEdit(): Promise<void> {
-    const familyId = this.data!.familyId!;
-
-    // 1. Update family metadata
-    await lastValueFrom(this.familyService.update(familyId, {
-      name: this.familyStep.newFamilyName,
-      address: this.familyStep.address ?? undefined,
-    }));
-
-    // 2. Save children (create new, update existing)
-    const childrenData = this.childStep.getChildrenData();
-    for (const child of childrenData) {
-      const req: CreatePersonRequest = {
-        familyId,
-        basicProperties: child.basicProperties,
-        // roles/schedules/duties/finance/customProperties intentionally omitted to preserve existing values
-      };
-      if (child.id) {
-        await lastValueFrom(this.personService.update(child.id, req));
-      } else {
-        await lastValueFrom(this.personService.create(req));
+  async saveParents(): Promise<void> {
+    this.submitting = true;
+    try {
+      const familyId = this.resolvedFamilyId!;
+      for (const parent of this.parentsStep.getParentsData()) {
+        const req: CreatePersonRequest = { familyId, basicProperties: parent.basicProperties };
+        if (parent.id) {
+          await lastValueFrom(this.personService.update(parent.id, req));
+        } else {
+          await lastValueFrom(this.personService.create(req));
+        }
       }
-    }
-
-    // 3. Save parents (create new, update existing)
-    const parentsData = this.parentsStep.getParentsData();
-    for (const parent of parentsData) {
-      const req: CreatePersonRequest = {
-        familyId,
-        basicProperties: parent.basicProperties,
-        // roles/schedules/duties/finance/customProperties intentionally omitted to preserve existing values
-      };
-      if (parent.id) {
-        await lastValueFrom(this.personService.update(parent.id, req));
-      } else {
-        await lastValueFrom(this.personService.create(req));
+      for (const id of this.parentsStep.removedParentIds ?? []) {
+        await lastValueFrom(this.personService.delete(id));
       }
+      this.existingParents = await this.loadPersonsByType(familyId, 'PARENT');
+      this.anyChanges = true;
+      this.view = 'overview';
+    } catch (err) {
+      console.error('Speichern der Eltern fehlgeschlagen:', err);
+    } finally {
+      this.submitting = false;
     }
+  }
 
-    // 4. Delete removed persons
-    const removedIds = [
-      ...(this.childStep.removedChildIds ?? []),
-      ...(this.parentsStep.removedParentIds ?? []),
-    ];
-    for (const id of removedIds) {
-      await lastValueFrom(this.personService.delete(id));
-    }
+  private async loadPersonsByType(
+    familyId: string,
+    type: 'CHILD' | 'PARENT',
+  ): Promise<{ id: string; dto: PersonDTO }[]> {
+    const persons = await lastValueFrom(this.personService.list(familyId));
+    const dtos = await Promise.all(
+      persons.filter((p) => !!p.id).map((p) => lastValueFrom(this.personService.getFull(p.id!)))
+    );
+    return dtos
+      .filter((dto) => dto.basicProperties?.find((f) => f.fieldName === 'personType')?.value === type)
+      .map((dto) => ({ id: dto.id!, dto }));
   }
 }

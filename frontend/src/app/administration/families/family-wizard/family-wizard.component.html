@@ -1,50 +1,73 @@
-<h2 mat-dialog-title>{{ isEditMode ? 'Familie bearbeiten' : 'Neues Kind' }}</h2>
+<h2 mat-dialog-title>{{ resolvedFamilyId ? 'Familie bearbeiten' : 'Familie erstellen' }}</h2>
 
 <mat-dialog-content>
   @if (loading) {
     <p>Laden…</p>
   } @else {
-    <mat-stepper #stepper (selectionChange)="onStepChange($event)">
-      <mat-step>
-        <ng-template matStepLabel>Familie</ng-template>
-        <div class="step-actions">
-          <button mat-button (click)="cancel()">Abbrechen</button>
-          <button mat-raised-button color="primary" matStepperNext
-            [disabled]="familyStep ? !familyStep.isValid : true">Weiter</button>
-        </div>
-        <app-family-step [editFamily]="editFamily"></app-family-step>
-      </mat-step>
+    @if (view === 'overview') {
+      <div class="section-actions">
+        <button mat-button (click)="cancel()">Abbrechen</button>
+      </div>
 
-      <mat-step>
-        <ng-template matStepLabel>Kind</ng-template>
-        <div class="step-actions">
-          <button mat-button matStepperPrevious>Zurück</button>
-          <button mat-button (click)="cancel()">Abbrechen</button>
-          @if (familyStep?.isNewFamily || isEditMode) {
-            <button mat-raised-button color="primary" matStepperNext
-              [disabled]="childStep ? !childStep.isValid : true">Weiter</button>
+      <div class="overview-tiles">
+        <button mat-stroked-button class="overview-tile" (click)="openSection('family')">
+          <mat-icon>home</mat-icon>
+          <span>Familie</span>
+          <mat-icon class="chevron">chevron_right</mat-icon>
+        </button>
+
+        <button mat-stroked-button class="overview-tile" [disabled]="!resolvedFamilyId"
+          (click)="openSection('children')">
+          <mat-icon>child_care</mat-icon>
+          <span>Kinder ({{ existingChildren.length }})</span>
+          @if (!resolvedFamilyId) {
+            <span class="hint">Erst Familie speichern</span>
           } @else {
-            <button mat-raised-button color="primary"
-              [disabled]="(childStep ? !childStep.isValid : true) || submitting"
-              (click)="submit()">Kind anlegen</button>
+            <mat-icon class="chevron">chevron_right</mat-icon>
           }
-        </div>
-        <app-child-step [existingChildren]="existingChildren"></app-child-step>
-      </mat-step>
+        </button>
 
-      @if (familyStep?.isNewFamily || isEditMode) {
-        <mat-step>
-          <ng-template matStepLabel>Eltern</ng-template>
-          <div class="step-actions">
-            <button mat-button matStepperPrevious>Zurück</button>
-            <button mat-button (click)="cancel()">Abbrechen</button>
-            <button mat-raised-button color="primary"
-              [disabled]="(parentsStep ? !parentsStep.isValid : true) || submitting"
-              (click)="submit()">{{ isEditMode ? 'Speichern' : 'Familie erstellen' }}</button>
-          </div>
-          <app-parents-step [existingParents]="existingParents"></app-parents-step>
-        </mat-step>
-      }
-    </mat-stepper>
+        <button mat-stroked-button class="overview-tile" [disabled]="!resolvedFamilyId"
+          (click)="openSection('parents')">
+          <mat-icon>person</mat-icon>
+          <span>Eltern ({{ existingParents.length }})</span>
+          @if (!resolvedFamilyId) {
+            <span class="hint">Erst Familie speichern</span>
+          } @else {
+            <mat-icon class="chevron">chevron_right</mat-icon>
+          }
+        </button>
+      </div>
+    }
+
+    @if (view === 'family') {
+      <div class="section-actions">
+        <button mat-button (click)="backToOverview()">Abbrechen</button>
+        <button mat-raised-button color="primary"
+          [disabled]="(familyStep ? !familyStep.isValid : true) || submitting"
+          (click)="saveFamily()">Speichern</button>
+      </div>
+      <app-family-step [editFamily]="editFamily"></app-family-step>
+    }
+
+    @if (view === 'children') {
+      <div class="section-actions">
+        <button mat-button (click)="backToOverview()">Abbrechen</button>
+        <button mat-raised-button color="primary"
+          [disabled]="(childStep ? !childStep.isValid : true) || submitting"
+          (click)="saveChildren()">Speichern</button>
+      </div>
+      <app-child-step [existingChildren]="existingChildren"></app-child-step>
+    }
+
+    @if (view === 'parents') {
+      <div class="section-actions">
+        <button mat-button (click)="backToOverview()">Abbrechen</button>
+        <button mat-raised-button color="primary"
+          [disabled]="(parentsStep ? !parentsStep.isValid : true) || submitting"
+          (click)="saveParents()">Speichern</button>
+      </div>
+      <app-parents-step [existingParents]="existingParents"></app-parents-step>
+    }
   }
 </mat-dialog-content>

@@ -1,17 +1,8 @@
 <div [formGroup]="form">
-  @if (!editMode) {
-    <mat-radio-group formControlName="mode">
-      <mat-radio-button value="new">Neue Familie erstellen</mat-radio-button>
-      <mat-radio-button value="existing">Bestehende Familie verwenden</mat-radio-button>
-    </mat-radio-group>
-  }
-
-  @if (form.value.mode === 'new') {
-    <mat-form-field appearance="outline" class="full-width">
-      <mat-label>Familienname</mat-label>
-      <input matInput formControlName="newFamilyName" placeholder="z.B. Familie Müller">
-    </mat-form-field>
-  }
+  <mat-form-field appearance="outline" class="full-width">
+    <mat-label>Familienname</mat-label>
+    <input matInput formControlName="newFamilyName" placeholder="z.B. Familie Müller">
+  </mat-form-field>
 
   <h4>Adresse</h4>
   <mat-form-field appearance="outline" class="full-width">
@@ -28,16 +19,4 @@
       <input matInput formControlName="city">
     </mat-form-field>
   </div>
-
-  @if (form.value.mode === 'existing') {
-    <mat-form-field appearance="outline" class="full-width">
-      <mat-label>Familie auswählen</mat-label>
-      <mat-select formControlName="existingFamilyId">
-        @for (family of existingFamilies; track family.id) {
-          <mat-option [value]="family.id">{{ family.name }}</mat-option>
-        }
-      </mat-select>
-    </mat-form-field>
-  }
-
 </div>
