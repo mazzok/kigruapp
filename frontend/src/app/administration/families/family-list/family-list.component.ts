@@ -80,7 +80,7 @@ export class FamilyListComponent implements OnInit {
     });
   }
 
-  openWizard(): void {
+  openCreateWizard(): void {
     const dialogRef = this.dialog.open(FamilyWizardComponent, {
       width: '700px',
       maxWidth: '95vw',
