@@ -10,8 +10,8 @@ export interface BilanzMonthCell {
   exitMarker: boolean;
 }
 
-export interface BilanzFamilyRow {
-  familyId: string;
+export interface BilanzChildRow {
+  personId: string;
   name: string;
   months: BilanzMonthCell[];
   total: number;
@@ -20,7 +20,7 @@ export interface BilanzFamilyRow {
 export interface BilanzMatrix {
   year: number;
   currentYearMonth: string;
-  families: BilanzFamilyRow[];
+  children: BilanzChildRow[];
 }
 
 export interface BilanzCellLine {

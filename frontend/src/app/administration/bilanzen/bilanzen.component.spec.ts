@@ -15,11 +15,11 @@ function cell(partial: Partial<BilanzMonthCell>): BilanzMonthCell {
 }
 
 class FakeBilanzService {
-  matrix: BilanzMatrix = { year: 2026, currentYearMonth: '2026-07', families: [] };
+  matrix: BilanzMatrix = { year: 2026, currentYearMonth: '2026-07', children: [] };
   cell: BilanzCell = { lines: [], sum: 0, mixedCurrency: false };
   upsertCalls: unknown[] = [];
   getMatrix(_year: number) { return of(this.matrix); }
-  getCell(_familyId: string, _year: number, _month: number) { return of(this.cell); }
+  getCell(_personId: string, _year: number, _month: number) { return of(this.cell); }
   upsertOverride(req: unknown) { this.upsertCalls.push(req); return of(undefined); }
 }
 
@@ -117,7 +117,7 @@ describe('BilanzenComponent', () => {
     const spy = spyOn(dialog, 'open').and.callThrough();
     component.editing = true;
     component.onCellClick(
-      { familyId: 'f1', name: 'Meier', months: [], total: 0 },
+      { personId: 'p1', name: 'Meier, Anna', months: [], total: 0 },
       cell({ editable: false }));
     expect(spy).not.toHaveBeenCalled();
   });
@@ -135,7 +135,7 @@ describe('BilanzenComponent', () => {
     const reload = spyOn(bilanz, 'getMatrix').and.callThrough();
 
     component.onCellClick(
-      { familyId: 'f1', name: 'Meier', months: [], total: 0 },
+      { personId: 'p1', name: 'Meier, Anna', months: [], total: 0 },
       cell({ month: 3, editable: true, active: true }));
 
     expect(bilanz.upsertCalls).toEqual([
@@ -149,7 +149,7 @@ describe('BilanzenComponent', () => {
     bilanz.cell = { lines: [], sum: 0, mixedCurrency: false };
     dialog.result = undefined; // cancelled
     component.onCellClick(
-      { familyId: 'f1', name: 'Meier', months: [], total: 0 },
+      { personId: 'p1', name: 'Meier, Anna', months: [], total: 0 },
       cell({ month: 3, editable: true, active: true }));
     expect(bilanz.upsertCalls.length).toBe(0);
   });

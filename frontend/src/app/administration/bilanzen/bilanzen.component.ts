@@ -11,7 +11,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { BilanzService } from '../../shared/services/bilanz.service';
 import { SemesterService } from '../../shared/services/semester.service';
-import { BilanzMatrix, BilanzFamilyRow, BilanzMonthCell } from '../../shared/models/bilanz.model';
+import { BilanzMatrix, BilanzChildRow, BilanzMonthCell } from '../../shared/models/bilanz.model';
 import {
   BilanzCellDialogComponent,
   BilanzCellDialogData,
@@ -49,9 +49,9 @@ import {
         <mat-spinner diameter="40"></mat-spinner>
       } @else if (matrix) {
         <div class="table-scroll">
-          <table mat-table [dataSource]="matrix.families" class="mat-elevation-z2">
-            <ng-container matColumnDef="family" sticky>
-              <th mat-header-cell *matHeaderCellDef>Familie</th>
+          <table mat-table [dataSource]="matrix.children" class="mat-elevation-z2">
+            <ng-container matColumnDef="child" sticky>
+              <th mat-header-cell *matHeaderCellDef>Kind</th>
               <td mat-cell *matCellDef="let row">{{ row.name }}</td>
             </ng-container>
 
@@ -113,7 +113,7 @@ export class BilanzenComponent implements OnInit {
 
   monthColumns = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
   monthLabels = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
-  displayedColumns = ['family', 'm1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'm8', 'm9', 'm10', 'm11', 'm12', 'total'];
+  displayedColumns = ['child', 'm1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'm8', 'm9', 'm10', 'm11', 'm12', 'total'];
 
   constructor(
     private bilanzService: BilanzService,
@@ -161,11 +161,11 @@ export class BilanzenComponent implements OnInit {
     return this.editing && cell.editable;
   }
 
-  onCellClick(row: BilanzFamilyRow, cell: BilanzMonthCell): void {
+  onCellClick(row: BilanzChildRow, cell: BilanzMonthCell): void {
     if (!this.editing || !cell.editable) return;
-    this.bilanzService.getCell(row.familyId, this.selectedYear, cell.month).subscribe((loaded) => {
+    this.bilanzService.getCell(row.personId, this.selectedYear, cell.month).subscribe((loaded) => {
       const data: BilanzCellDialogData = {
-        familyName: row.name,
+        childName: row.name,
         year: this.selectedYear,
         month: cell.month,
         cell: loaded,

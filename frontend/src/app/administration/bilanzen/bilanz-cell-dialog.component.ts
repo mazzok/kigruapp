@@ -8,7 +8,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { BilanzCell, BilanzCellLine } from '../../shared/models/bilanz.model';
 
 export interface BilanzCellDialogData {
-  familyName: string;
+  childName: string;
   year: number;
   month: number;
   cell: BilanzCell;
@@ -26,7 +26,7 @@ export interface BilanzCellDialogResult {
     MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule,
   ],
   template: `
-    <h2 mat-dialog-title>{{ data.familyName }} — {{ data.month }}/{{ data.year }}</h2>
+    <h2 mat-dialog-title>{{ data.childName }} — {{ data.month }}/{{ data.year }}</h2>
     <mat-dialog-content class="dialog-content">
       @if (data.cell.lines.length === 0) {
         <p>keine Posten für diesen Monat</p>
@@ -34,7 +34,7 @@ export interface BilanzCellDialogResult {
         <form [formGroup]="form" class="lines-grid">
           @for (line of data.cell.lines; track key(line)) {
             <div class="line-row">
-              <span class="line-label">{{ line.childName }} – {{ line.label }}</span>
+              <span class="line-label">{{ line.label }}</span>
               <mat-form-field appearance="outline" class="line-field">
                 <input matInput type="number" step="0.01" [formControlName]="key(line)">
                 <span matTextSuffix>{{ line.currencySymbol }}</span>

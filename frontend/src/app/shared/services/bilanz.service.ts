@@ -11,8 +11,8 @@ export class BilanzService {
     return this.api.get<BilanzMatrix>(`/bilanzen?year=${year}`);
   }
 
-  getCell(familyId: string, year: number, month: number): Observable<BilanzCell> {
-    return this.api.get<BilanzCell>(`/bilanzen/cell?familyId=${familyId}&year=${year}&month=${month}`);
+  getCell(personId: string, year: number, month: number): Observable<BilanzCell> {
+    return this.api.get<BilanzCell>(`/bilanzen/cell?personId=${personId}&year=${year}&month=${month}`);
   }
 
   upsertOverride(req: UpsertOverrideRequest): Observable<void> {
