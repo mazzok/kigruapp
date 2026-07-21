@@ -27,17 +27,19 @@ export interface BilanzCellDialogResult {
   ],
   template: `
     <h2 mat-dialog-title>{{ data.familyName }} — {{ data.month }}/{{ data.year }}</h2>
-    <mat-dialog-content>
+    <mat-dialog-content class="dialog-content">
       @if (data.cell.lines.length === 0) {
         <p>keine Posten für diesen Monat</p>
       } @else {
-        <form [formGroup]="form">
+        <form [formGroup]="form" class="lines-grid">
           @for (line of data.cell.lines; track key(line)) {
-            <mat-form-field appearance="outline" class="line-field">
-              <mat-label>{{ line.childName }} – {{ line.label }}</mat-label>
-              <input matInput type="number" step="0.01" [formControlName]="key(line)">
-              <span matTextSuffix>{{ line.currencySymbol }}</span>
-            </mat-form-field>
+            <div class="line-row">
+              <span class="line-label">{{ line.childName }} – {{ line.label }}</span>
+              <mat-form-field appearance="outline" class="line-field">
+                <input matInput type="number" step="0.01" [formControlName]="key(line)">
+                <span matTextSuffix>{{ line.currencySymbol }}</span>
+              </mat-form-field>
+            </div>
           }
         </form>
       }
@@ -48,7 +50,30 @@ export interface BilanzCellDialogResult {
     </mat-dialog-actions>
   `,
   styles: [`
-    .line-field { display: block; width: 100%; margin-bottom: 8px; }
+    .dialog-content {
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+    .lines-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .line-row {
+      display: grid;
+      grid-template-columns: 1fr 140px;
+      align-items: center;
+      column-gap: 16px;
+    }
+    .line-label {
+      font-size: 14px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .line-field {
+      width: 100%;
+    }
   `],
 })
 export class BilanzCellDialogComponent {
