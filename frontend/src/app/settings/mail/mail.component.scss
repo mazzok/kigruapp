@@ -1,0 +1,28 @@
+.mail-settings {
+  max-width: 640px;
+  padding: 1rem;
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.test-mail {
+  margin-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.test-result {
+  &.success {
+    color: green;
+  }
+
+  &.failure {
+    color: #c62828;
+  }
+}

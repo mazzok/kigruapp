@@ -87,6 +87,11 @@ export const routes: Routes = [
             m => m.PermissionsComponent
           ),
       },
+      {
+        path: 'mail',
+        loadComponent: () =>
+          import('./settings/mail/mail.component').then(m => m.MailComponent),
+      },
     ],
   },
   { path: '', redirectTo: 'cooking', pathMatch: 'full' },

@@ -227,4 +227,32 @@ class SecurityFilterTest {
 
         assertForbidden();
     }
+
+    // 15. /mail-settings — non-admin → 403 (not whitelisted; default-deny). Regression guard for R5.
+    @Test
+    void mailSettingsRequiresAdmin() {
+        filter.oidcEnabled = true; // production mode; the class default (false) would bypass all checks
+        givenPath("/api/v1/mail-settings", "GET");
+        Person person = new Person();
+        when(currentUserService.getCurrentPerson()).thenReturn(person);
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        filter.filter(ctx);
+
+        assertForbidden();
+    }
+
+    // 16. /mail-settings — admin → allowed
+    @Test
+    void mailSettings_admin_allowed() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/mail-settings", "PUT");
+        Person person = new Person();
+        when(currentUserService.getCurrentPerson()).thenReturn(person);
+        when(currentUserService.isAdmin()).thenReturn(true);
+
+        filter.filter(ctx);
+
+        assertPassThrough();
+    }
 }
