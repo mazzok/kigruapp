@@ -1,0 +1,112 @@
+<div class="board-container">
+  <h1>Vorstand</h1>
+
+  <mat-tab-group>
+    <!-- Definition tab -->
+    <mat-tab label="Definition">
+      <div class="tab-content">
+        <section class="board-team">
+          <h2>Vorstand-Team</h2>
+          <form [formGroup]="boardForm" (ngSubmit)="saveBoard()" class="inline-form">
+            <mat-form-field appearance="outline">
+              <mat-label>Bezeichnung</mat-label>
+              <input matInput formControlName="labelDe" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Farbe</mat-label>
+              <input matInput type="color" formControlName="color" />
+            </mat-form-field>
+            <button mat-raised-button color="primary" type="submit" [disabled]="!boardForm.valid || !boardTeam">
+              Speichern
+            </button>
+          </form>
+        </section>
+
+        <section class="board-roles">
+          <h2>Vorstandsrollen</h2>
+
+          <ul class="role-list">
+            @for (role of boardRoles; track role.id) {
+              <li>
+                <span class="role-label">{{ getRoleLabel(role) }}</span>
+                <button mat-icon-button color="warn" type="button" (click)="deleteRole(role)" aria-label="Rolle löschen">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </li>
+            }
+            @empty {
+              <li class="empty">Noch keine Rollen definiert.</li>
+            }
+          </ul>
+
+          <form [formGroup]="addRoleForm" (ngSubmit)="addRole()" class="inline-form">
+            <mat-form-field appearance="outline">
+              <mat-label>Rolle</mat-label>
+              <input matInput formControlName="labelDe" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Min</mat-label>
+              <input matInput type="number" formControlName="min" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Max</mat-label>
+              <input matInput type="number" formControlName="max" />
+            </mat-form-field>
+            <button mat-raised-button color="primary" type="submit" [disabled]="!addRoleForm.valid">
+              Rolle hinzufügen
+            </button>
+          </form>
+        </section>
+      </div>
+    </mat-tab>
+
+    <!-- Zuweisung tab -->
+    <mat-tab label="Zuweisung">
+      <div class="tab-content">
+        @if (assignmentDisabled()) {
+          <p class="placeholder">Es existiert noch kein Semester. Bitte zuerst ein Semester anlegen.</p>
+        } @else {
+          <div class="selectors">
+            <mat-form-field appearance="outline">
+              <mat-label>Semester</mat-label>
+              <mat-select [(ngModel)]="selectedSemesterId" (selectionChange)="onSemesterChange()">
+                @for (semester of semesters; track semester.id) {
+                  <mat-option [value]="semester.id">{{ getSemesterLabel(semester) }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          @if (boardRoles.length === 0) {
+            <p class="placeholder">Noch keine Vorstandsrollen definiert. Bitte zuerst im Reiter „Definition" anlegen.</p>
+          } @else {
+            <table class="assignment-table">
+              @for (row of parentRows; track row.person.id) {
+                <tr>
+                  <td class="parent-name">{{ row.name }}</td>
+                  <td>
+                    <mat-chip-set>
+                      @for (role of boardRoles; track role.id) {
+                        <mat-chip
+                          class="role-chip"
+                          [style.background-color]="isBoardRoleAssigned(row.person, role) ? getBoardColor() : 'transparent'"
+                          [style.border-color]="getBoardColor()"
+                          [style.color]="isBoardRoleAssigned(row.person, role) ? '#fff' : getBoardColor()"
+                          (click)="toggleBoardRole(row, role)">
+                          {{ getRoleLabel(role) }}
+                        </mat-chip>
+                      }
+                    </mat-chip-set>
+                  </td>
+                </tr>
+              }
+              @empty {
+                <tr><td class="empty">Keine Eltern gefunden.</td></tr>
+              }
+            </table>
+          }
+        }
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+</div>

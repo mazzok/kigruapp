@@ -39,3 +39,21 @@ mat-chip {
   font-size: 11px;
   border: 1px solid transparent;
 }
+
+/* Board (Vorstand) — read-only; roles shown under the Vorstand team label. Editing happens on the
+   Administration > Vorstand page. The team's configured colour is applied via inline style bindings
+   (getTeamColor), so no colour is hardcoded here. */
+.board-section {
+  cursor: not-allowed;
+}
+
+.board-team-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.board-role-chip {
+  color: #fff !important;
+}

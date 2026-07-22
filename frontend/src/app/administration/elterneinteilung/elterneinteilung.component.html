@@ -71,6 +71,26 @@
               </mat-chip-set>
             </div>
           </ng-container>
+
+          <!-- Board (Vorstand): read-only; roles shown under the team. Edited via Administration > Vorstand. -->
+          <div class="team-role-section board-section"
+            *ngIf="getBoardTeam(row.person) as boardTeam"
+            [style.border-left-color]="getTeamColor(boardTeam)"
+            [matTooltip]="'Vorstand — bearbeiten unter Administration > Vorstand'">
+            <span class="board-team-label" [style.color]="getTeamColor(boardTeam)">
+              {{ getBoardLabel(boardTeam) }}
+            </span>
+            <mat-chip-set>
+              <mat-chip
+                *ngFor="let boardRole of getBoardRoles(row.person)"
+                class="role-chip board-role-chip"
+                [style.background-color]="getTeamColor(boardTeam)"
+                [style.border-color]="getTeamColor(boardTeam)"
+                [disabled]="true">
+                {{ getRoleLabel(boardRole) }}
+              </mat-chip>
+            </mat-chip-set>
+          </div>
         </td>
       </ng-container>
 

@@ -42,6 +42,10 @@ export class ElterneinteilungComponent implements OnInit {
   roles: FieldInstanceDTO[] = [];
   parentTeamsDefinitionId: string | null = null;
   parentTeamRolesDefinitionId: string | null = null;
+  // Board (Vorstand) — read-only display only (edited via Administration > Vorstand); never part of
+  // the toggleable parent-teams set.
+  boardTeamInstanceId: string | null = null;
+  boardRoleInstanceIds = new Set<string>();
   allParents: ParentRow[] = [];
   displayedParents: ParentRow[] = [];
   filterTeamId: string | null = null;
@@ -87,8 +91,14 @@ export class ElterneinteilungComponent implements OnInit {
       rolesOrg: this.orgService.getByTag('parent-team-roles').pipe(
         catchError(() => of({ id: '', tag: 'parent-team-roles', definitions: [], entries: [] } as any))
       ),
+      boardOrg: this.orgService.getByTag('board').pipe(
+        catchError(() => of({ id: '', tag: 'board', definitions: [], entries: [] } as any))
+      ),
+      boardRolesOrg: this.orgService.getByTag('board-roles').pipe(
+        catchError(() => of({ id: '', tag: 'board-roles', definitions: [], entries: [] } as any))
+      ),
     }).pipe(
-      switchMap(({ teamsOrg, rolesOrg }) => {
+      switchMap(({ teamsOrg, rolesOrg, boardOrg, boardRolesOrg }) => {
         const teamDef = teamsOrg.definitions.find(
           (d: { fieldName: string; outdatedAt?: string | null }) =>
             d.fieldName === 'parent-team' && !d.outdatedAt
@@ -96,6 +106,14 @@ export class ElterneinteilungComponent implements OnInit {
         const roleDef = rolesOrg.definitions.find(
           (d: { fieldName: string; outdatedAt?: string | null }) =>
             d.fieldName === 'parent-team-role' && !d.outdatedAt
+        );
+        const boardDef = boardOrg.definitions.find(
+          (d: { fieldName: string; outdatedAt?: string | null }) =>
+            d.fieldName === 'board' && !d.outdatedAt
+        );
+        const boardRoleDef = boardRolesOrg.definitions.find(
+          (d: { fieldName: string; outdatedAt?: string | null }) =>
+            d.fieldName === 'board-role' && !d.outdatedAt
         );
         this.parentTeamsDefinitionId = teamDef?.id ?? null;
         this.parentTeamRolesDefinitionId = roleDef?.id ?? null;
@@ -106,12 +124,20 @@ export class ElterneinteilungComponent implements OnInit {
         const roles$ = roleDef
           ? this.fieldInstanceService.listByDefinitionId(roleDef.id!)
           : of([] as FieldInstanceDTO[]);
+        const boardTeams$ = boardDef
+          ? this.fieldInstanceService.listByDefinitionId(boardDef.id!)
+          : of([] as FieldInstanceDTO[]);
+        const boardRoles$ = boardRoleDef
+          ? this.fieldInstanceService.listByDefinitionId(boardRoleDef.id!)
+          : of([] as FieldInstanceDTO[]);
 
-        return forkJoin({ teams: teams$, roles: roles$ });
+        return forkJoin({ teams: teams$, roles: roles$, boardTeams: boardTeams$, boardRoles: boardRoles$ });
       }),
-      switchMap(({ teams, roles }) => {
+      switchMap(({ teams, roles, boardTeams, boardRoles }) => {
         this.teams = teams;
         this.roles = roles;
+        this.boardTeamInstanceId = boardTeams[0]?.id ?? null;
+        this.boardRoleInstanceIds = new Set(boardRoles.map((r) => r.id!).filter((id): id is string => !!id));
         return this.personService.list();
       }),
       switchMap((persons) => {
@@ -271,5 +297,20 @@ export class ElterneinteilungComponent implements OnInit {
 
   getRoleLabel(role: FieldInstanceDTO): string {
     return (role.value as Record<string, unknown>)?.['label'] as string ?? role.id ?? '';
+  }
+
+  /** The person's board-team membership (read-only), or null. Selected by board instance id (D2 distinct-class). */
+  getBoardTeam(person: PersonDTO): FieldInstanceDTO | null {
+    if (!this.boardTeamInstanceId) return null;
+    return (person.assignedDuty ?? []).find((d) => d.id === this.boardTeamInstanceId) ?? null;
+  }
+
+  /** The person's board roles (read-only). Selected by board-role instance ids (D2 distinct-class). */
+  getBoardRoles(person: PersonDTO): FieldInstanceDTO[] {
+    return (person.assignedRole ?? []).filter((r) => r.id != null && this.boardRoleInstanceIds.has(r.id));
+  }
+
+  getBoardLabel(team: FieldInstanceDTO): string {
+    return (team.value as Record<string, unknown>)?.['label'] as string ?? team.id ?? '';
   }
 }

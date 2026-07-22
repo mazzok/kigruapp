@@ -517,4 +517,205 @@ public class PersonResourceTest {
             .body("find { it.id == '" + personId + "' }.groupInstanceId", is(groupInstId2))
             .body("find { it.id == '" + personId + "' }.entryDate", nullValue());
     }
+
+    // --- Board (Vorstand) role endpoints ---
+
+    private record BoardFixture(String teamDefId, String teamInstId, String roleDefId, String roleInstId) {}
+
+    private String createFamily(String name) {
+        return given()
+            .contentType(ContentType.JSON)
+            .body("{\"name\": \"" + name + "\"}")
+            .when().post("/api/v1/families")
+            .then().statusCode(201)
+            .extract().path("id");
+    }
+
+    private String createParent(String familyId) {
+        return given()
+            .contentType(ContentType.JSON)
+            .body("{\"familyId\": \"" + familyId + "\", \"basicProperties\": []}")
+            .when().post("/api/v1/persons")
+            .then().statusCode(201)
+            .extract().path("id");
+    }
+
+    private String createSemester(String start, String end) {
+        return given()
+            .contentType(ContentType.JSON)
+            .body("{\"start\": \"" + start + "\", \"end\": \"" + end + "\"}")
+            .when().post("/api/v1/semesters")
+            .then().statusCode(201)
+            .extract().path("id");
+    }
+
+    /**
+     * Creates the board-team singleton (registered under the {@code board} org tag) and one
+     * board role (registered under {@code board-roles}), mirroring the Definition-tab setup.
+     */
+    private BoardFixture setupBoard() {
+        String teamDefId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"fieldName\": \"board\", \"label\": {\"de\": \"Vorstand\"}, \"jsonSchema\": {\"type\": \"object\"}, \"required\": false}")
+            .when().post("/api/v1/field-definitions")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String teamInstId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"definitionId\": \"" + teamDefId + "\", \"value\": {\"label\": \"Vorstand\", \"color\": \"#4285f4\"}}")
+            .when().post("/api/v1/field-instances")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String boardOrgId = given()
+            .when().get("/api/v1/organisation/board")
+            .then().statusCode(200)
+            .extract().path("id");
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"definitionIds\": [\"" + teamDefId + "\"], \"entries\": []}")
+            .when().put("/api/v1/organisation/id/" + boardOrgId)
+            .then().statusCode(200);
+
+        String roleDefId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"fieldName\": \"board-role\", \"label\": {\"de\": \"Vorstandsrolle\"}, \"jsonSchema\": {\"type\": \"object\"}, \"required\": false}")
+            .when().post("/api/v1/field-definitions")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String roleInstId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"definitionId\": \"" + roleDefId + "\", \"value\": {\"label\": \"Obmann\"}}")
+            .when().post("/api/v1/field-instances")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String rolesOrgId = given()
+            .when().get("/api/v1/organisation/board-roles")
+            .then().statusCode(200)
+            .extract().path("id");
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"definitionIds\": [\"" + roleDefId + "\"], \"entries\": []}")
+            .when().put("/api/v1/organisation/id/" + rolesOrgId)
+            .then().statusCode(200);
+
+        return new BoardFixture(teamDefId, teamInstId, roleDefId, roleInstId);
+    }
+
+    @Test
+    public void testBoardRoleAssignmentAddsBoardTeam() {
+        BoardFixture board = setupBoard();
+        String familyId = createFamily("Testfamilie-Board-Add");
+        String personId = createParent(familyId);
+        String semesterId = createSemester("2023-09-01T00:00:00Z", "2024-08-31T00:00:00Z");
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"definitionId\": \"" + board.roleDefId() + "\", \"fieldInstanceId\": \"" + board.roleInstId() + "\"}")
+            .when().patch("/api/v1/persons/" + personId + "/board-role?semesterId=" + semesterId)
+            .then().statusCode(200)
+            .body("assignedRole.find { it.id == '" + board.roleInstId() + "' }", notNullValue())
+            .body("assignedDuty.find { it.id == '" + board.teamInstId() + "' }", notNullValue());
+
+        given()
+            .when().get("/api/v1/persons/" + personId + "/full?semesterId=" + semesterId)
+            .then().statusCode(200)
+            .body("assignedDuty.find { it.id == '" + board.teamInstId() + "' }", notNullValue())
+            .body("assignedRole.find { it.id == '" + board.roleInstId() + "' }", notNullValue());
+    }
+
+    @Test
+    public void testUnassignLastBoardRoleRemovesBoardTeam() {
+        BoardFixture board = setupBoard();
+        String familyId = createFamily("Testfamilie-Board-Remove");
+        String personId = createParent(familyId);
+        String semesterId = createSemester("2022-09-01T00:00:00Z", "2023-08-31T00:00:00Z");
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"definitionId\": \"" + board.roleDefId() + "\", \"fieldInstanceId\": \"" + board.roleInstId() + "\"}")
+            .when().patch("/api/v1/persons/" + personId + "/board-role?semesterId=" + semesterId)
+            .then().statusCode(200)
+            .body("assignedDuty.find { it.id == '" + board.teamInstId() + "' }", notNullValue());
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"definitionId\": \"" + board.roleDefId() + "\", \"fieldInstanceId\": \"" + board.roleInstId() + "\"}")
+            .when().patch("/api/v1/persons/" + personId + "/board-role?semesterId=" + semesterId)
+            .then().statusCode(200)
+            .body("assignedRole.size()", is(0))
+            .body("assignedDuty.size()", is(0));
+    }
+
+    @Test
+    public void testParentTeamRoleDoesNotCreateBoardTeam() {
+        BoardFixture board = setupBoard();
+        String familyId = createFamily("Testfamilie-Board-ParentRole");
+        String personId = createParent(familyId);
+        String semesterId = createSemester("2021-09-01T00:00:00Z", "2022-08-31T00:00:00Z");
+
+        String parentRoleDefId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"fieldName\": \"parent-role\", \"label\": {\"de\": \"Rollen\"}, \"jsonSchema\": {\"type\": \"object\"}, \"required\": false}")
+            .when().post("/api/v1/field-definitions")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String parentRoleInstId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"definitionId\": \"" + parentRoleDefId + "\", \"value\": {\"label\": \"Leader\"}}")
+            .when().post("/api/v1/field-instances")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"definitionId\": \"" + parentRoleDefId + "\", \"fieldInstanceId\": \"" + parentRoleInstId + "\"}")
+            .when().patch("/api/v1/persons/" + personId + "/assigned-role?semesterId=" + semesterId)
+            .then().statusCode(204);
+
+        given()
+            .when().get("/api/v1/persons/" + personId + "/full?semesterId=" + semesterId)
+            .then().statusCode(200)
+            .body("assignedRole.size()", is(1))
+            .body("assignedDuty.find { it.id == '" + board.teamInstId() + "' }", nullValue());
+    }
+
+    @Test
+    public void testDeleteBoardRoleCascadesAndRemovesOrphanedBoardTeam() {
+        BoardFixture board = setupBoard();
+        String familyId = createFamily("Testfamilie-Board-Delete");
+        String personId = createParent(familyId);
+        String semesterId = createSemester("2020-09-01T00:00:00Z", "2021-08-31T00:00:00Z");
+
+        // Assign the single board role → board team present
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"definitionId\": \"" + board.roleDefId() + "\", \"fieldInstanceId\": \"" + board.roleInstId() + "\"}")
+            .when().patch("/api/v1/persons/" + personId + "/board-role?semesterId=" + semesterId)
+            .then().statusCode(200)
+            .body("assignedDuty.find { it.id == '" + board.teamInstId() + "' }", notNullValue());
+
+        // Delete the board-role instance entirely
+        given()
+            .when().delete("/api/v1/persons/board-role/" + board.roleInstId())
+            .then().statusCode(204);
+
+        // The person's board-team row for the semester is gone (last board role removed)
+        given()
+            .when().get("/api/v1/persons/" + personId + "/full?semesterId=" + semesterId)
+            .then().statusCode(200)
+            .body("assignedRole.size()", is(0))
+            .body("assignedDuty.size()", is(0));
+
+        // The board-role field-instance no longer exists
+        given()
+            .when().get("/api/v1/field-instances/" + board.roleInstId())
+            .then().statusCode(404);
+    }
 }

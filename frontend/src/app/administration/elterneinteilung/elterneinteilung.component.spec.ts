@@ -76,6 +76,63 @@ describe('ElterneinteilungComponent - Team-Farbe & Gruppierung', () => {
   });
 });
 
+function boardTeamInstance(id: string, label: string): FieldInstanceDTO {
+  return {
+    id, definitionId: 'def-board', fieldName: 'board',
+    label: { de: 'Vorstand' }, jsonSchema: {}, required: false,
+    value: { label, color: '#4285f4' }, definitionOutdated: false,
+  };
+}
+
+function boardRoleInstance(id: string, label: string): FieldInstanceDTO {
+  return {
+    id, definitionId: 'def-board-role', fieldName: 'board-role',
+    label: { de: 'Vorstandsrolle' }, jsonSchema: {}, required: false,
+    value: { label }, definitionOutdated: false,
+  };
+}
+
+describe('ElterneinteilungComponent - Board (read-only)', () => {
+  let component: ElterneinteilungComponent;
+
+  beforeEach(() => {
+    component = new ElterneinteilungComponent(
+      {} as PersonService,
+      {} as OrganisationService,
+      {} as FieldInstanceService,
+      {} as SemesterService,
+      {} as MatDialog,
+    );
+  });
+
+  it('selects the board team and board roles from a person by board instance ids', () => {
+    const bt = boardTeamInstance('bt1', 'Vorstand');
+    const br = boardRoleInstance('br1', 'Obmann');
+    component.boardTeamInstanceId = 'bt1';
+    component.boardRoleInstanceIds = new Set(['br1']);
+
+    const p = person([bt]);
+    p.assignedRole = [br];
+
+    expect(component.getBoardTeam(p)).toEqual(bt);
+    expect(component.getBoardRoles(p)).toEqual([br]);
+  });
+
+  it('excludes board entries from the toggleable parent-teams set', () => {
+    const gartenTeam = team('team-1', 'Garten', '#ff0000');
+    const bt = boardTeamInstance('bt1', 'Vorstand');
+    component.teams = [gartenTeam]; // parent-teams only; board never added here
+    component.boardTeamInstanceId = 'bt1';
+
+    const p = person([gartenTeam, bt]);
+
+    // The board team is present as read-only, but never in the toggleable chip set.
+    expect(component.getAssignedTeams(p).some((t) => t.id === 'bt1')).toBe(false);
+    expect(component.teams.some((t) => t.id === 'bt1')).toBe(false);
+    expect(component.getBoardTeam(p)).toEqual(bt);
+  });
+});
+
 class FakeSemesterServiceForElterneinteilung {
   getAll() {
     return of([]);

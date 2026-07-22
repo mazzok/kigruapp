@@ -53,6 +53,13 @@ export const routes: Routes = [
             m => m.ElterneinteilungComponent
           ),
       },
+      {
+        path: 'board',
+        loadComponent: () =>
+          import('./administration/board/board.component').then(
+            m => m.BoardComponent
+          ),
+      },
     ],
   },
   {

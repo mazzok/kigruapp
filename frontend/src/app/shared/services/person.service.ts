@@ -50,6 +50,15 @@ export class PersonService {
     return this.api.patch<void>(`/persons/${personId}/assigned-role${params}`, { definitionId, fieldInstanceId });
   }
 
+  assignBoardRole(personId: string, definitionId: string, fieldInstanceId: string, semesterId?: string): Observable<PersonDTO> {
+    const params = semesterId ? `?semesterId=${semesterId}` : '';
+    return this.api.patch<PersonDTO>(`/persons/${personId}/board-role${params}`, { definitionId, fieldInstanceId });
+  }
+
+  deleteBoardRole(fieldInstanceId: string): Observable<void> {
+    return this.api.delete(`/persons/board-role/${fieldInstanceId}`);
+  }
+
   update(id: string, request: CreatePersonRequest): Observable<Person> {
     return this.api.put<Person>(`/persons/${id}`, request);
   }

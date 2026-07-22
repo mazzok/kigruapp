@@ -5,6 +5,7 @@ import at.kigruapp.dto.PersonDTO;
 import at.kigruapp.entity.FieldDefinition;
 import at.kigruapp.entity.FieldInstance;
 import at.kigruapp.entity.FieldRef;
+import at.kigruapp.entity.Organisation;
 import at.kigruapp.entity.Person;
 import at.kigruapp.entity.Semester;
 import at.kigruapp.entity.SemesterAssignment;
@@ -24,8 +25,10 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Path("/api/v1/persons")
 @Produces(MediaType.APPLICATION_JSON)
@@ -169,6 +172,8 @@ public class PersonResource {
     public record TeamAssignmentRequest(String definitionId, String fieldInstanceId) {}
 
     public record RoleAssignmentRequest(String definitionId, String fieldInstanceId) {}
+
+    public record BoardRoleAssignmentRequest(String definitionId, String fieldInstanceId) {}
 
     public record CreatePersonRequest(
         String familyId,
@@ -494,6 +499,134 @@ public class PersonResource {
 
         toggleAssignment(person.id, semesterId, "role", defId, instId);
         return Response.noContent().build();
+    }
+
+    @PATCH
+    @Path("/{id}/board-role")
+    public Response patchBoardRole(
+            @PathParam("id") String id,
+            @QueryParam("semesterId") String semesterIdParam,
+            BoardRoleAssignmentRequest request) {
+        Person person = Person.findById(new ObjectId(id));
+        if (person == null) throw new NotFoundException();
+
+        ObjectId semesterId = requireSemesterId(semesterIdParam);
+        ObjectId defId = new ObjectId(request.definitionId());
+        ObjectId instId = new ObjectId(request.fieldInstanceId());
+
+        // The board-team singleton must exist before any board role can be assigned
+        // (a board role is only created after the team singleton in the Definition tab).
+        if (resolveBoardTeamInstance() == null) {
+            throw new BadRequestException("board not initialized");
+        }
+
+        toggleAssignment(person.id, semesterId, "role", defId, instId);
+        syncBoardTeam(person.id, semesterId);
+        return Response.ok(toFullDTO(person, semesterId)).build();
+    }
+
+    @DELETE
+    @Path("/board-role/{fieldInstanceId}")
+    public Response deleteBoardRole(@PathParam("fieldInstanceId") String fieldInstanceId) {
+        ObjectId instId = new ObjectId(fieldInstanceId);
+        MongoCollection<Document> assignments = getSemesterAssignmentsCollection();
+
+        // Collect the distinct (personId, semesterId) pairs that hold this board role, across all semesters.
+        Document roleFilter = new Document("section", "role").append("fieldInstanceId", instId);
+        List<ObjectId[]> affected = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        for (Document row : assignments.find(roleFilter)) {
+            ObjectId pid = row.getObjectId("personId");
+            ObjectId sid = row.getObjectId("semesterId");
+            if (seen.add(pid.toHexString() + ":" + sid.toHexString())) {
+                affected.add(new ObjectId[]{pid, sid});
+            }
+        }
+
+        // Remove the role assignments, then re-heal board-team membership for each affected person/semester.
+        assignments.deleteMany(roleFilter);
+        for (ObjectId[] pair : affected) {
+            syncBoardTeam(pair[0], pair[1]);
+        }
+
+        // Finally drop the board-role field-instance itself.
+        getFieldInstancesCollection().deleteOne(new Document("_id", instId));
+
+        return Response.noContent().build();
+    }
+
+    /** The board-team singleton field-instance document (from the {@code board} org tag), or null. */
+    private Document resolveBoardTeamInstance() {
+        Organisation boardOrg = Organisation.findByTag("board");
+        if (boardOrg == null || boardOrg.definitionIds == null) {
+            return null;
+        }
+        for (ObjectId defId : boardOrg.definitionIds) {
+            Document inst = getFieldInstancesCollection().find(new Document("definitionId", defId)).first();
+            if (inst != null) {
+                return inst;
+            }
+        }
+        return null;
+    }
+
+    /** All board-role field-instance ids (instances of the definitions under the {@code board-roles} org tag). */
+    private Set<ObjectId> resolveBoardRoleInstanceIds() {
+        Set<ObjectId> ids = new HashSet<>();
+        Organisation rolesOrg = Organisation.findByTag("board-roles");
+        if (rolesOrg == null || rolesOrg.definitionIds == null) {
+            return ids;
+        }
+        for (ObjectId defId : rolesOrg.definitionIds) {
+            for (Document inst : getFieldInstancesCollection().find(new Document("definitionId", defId))) {
+                ids.add(inst.getObjectId("_id"));
+            }
+        }
+        return ids;
+    }
+
+    /**
+     * Keeps the person's board-team membership in sync with their board-role count for the semester:
+     * if they hold at least one board role the board-team row is present, otherwise it is removed.
+     * Written as the last mutation so the invariant self-heals on every board-role change. 400 if the
+     * board-team singleton is absent.
+     */
+    private void syncBoardTeam(ObjectId personId, ObjectId semesterId) {
+        Document boardTeamInst = resolveBoardTeamInstance();
+        if (boardTeamInst == null) {
+            throw new BadRequestException("board not initialized");
+        }
+        ObjectId boardTeamInstId = boardTeamInst.getObjectId("_id");
+        ObjectId boardTeamDefId = boardTeamInst.getObjectId("definitionId");
+        Set<ObjectId> boardRoleInstIds = resolveBoardRoleInstanceIds();
+
+        MongoCollection<Document> assignments = getSemesterAssignmentsCollection();
+        long boardRoleCount = 0;
+        for (Document row : assignments.find(new Document("personId", personId)
+                .append("semesterId", semesterId)
+                .append("section", "role"))) {
+            ObjectId fiid = row.getObjectId("fieldInstanceId");
+            if (fiid != null && boardRoleInstIds.contains(fiid)) {
+                boardRoleCount++;
+            }
+        }
+
+        Document teamFilter = new Document("personId", personId)
+                .append("semesterId", semesterId)
+                .append("section", "team")
+                .append("fieldInstanceId", boardTeamInstId);
+        boolean hasTeamRow = assignments.countDocuments(teamFilter) > 0;
+
+        if (boardRoleCount > 0 && !hasTeamRow) {
+            assignments.insertOne(new Document("_id", new ObjectId())
+                    .append("personId", personId)
+                    .append("semesterId", semesterId)
+                    .append("section", "team")
+                    .append("definitionId", boardTeamDefId)
+                    .append("fieldInstanceId", boardTeamInstId));
+        } else if (boardRoleCount == 0 && hasTeamRow) {
+            assignments.deleteMany(teamFilter);
+        }
     }
 
     private boolean isChild(Person person) {
