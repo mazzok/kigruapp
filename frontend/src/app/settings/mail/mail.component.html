@@ -1,6 +1,9 @@
 <div class="mail-settings">
   <h1>Mail-Einstellungen</h1>
 
+  <mat-tab-group>
+    <mat-tab label="SMTP">
+      <div class="tab-content">
   <form [formGroup]="form" class="settings-form" (ngSubmit)="save()">
     <mat-slide-toggle formControlName="enabled">Mailversand aktiviert</mat-slide-toggle>
 
@@ -59,4 +62,19 @@
       {{ testResult.message }} ({{ testResult.category }})
     </p>
   </section>
+      </div>
+    </mat-tab>
+
+    <mat-tab label="Vorlagen">
+      <div class="tab-content">
+        <app-mail-template-editor></app-mail-template-editor>
+      </div>
+    </mat-tab>
+
+    <mat-tab label="Jobs">
+      <div class="tab-content">
+        <app-mail-job-editor></app-mail-job-editor>
+      </div>
+    </mat-tab>
+  </mat-tab-group>
 </div>

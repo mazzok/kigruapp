@@ -6,6 +6,9 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatTabsModule } from '@angular/material/tabs';
+import { MailTemplateEditorComponent } from './mail-template-editor/mail-template-editor.component';
+import { MailJobEditorComponent } from './mail-job-editor/mail-job-editor.component';
 import { MailSettingsService } from '../../shared/services/mail-settings.service';
 import {
   MailEncryption,
@@ -19,7 +22,8 @@ import {
   imports: [
     CommonModule, ReactiveFormsModule,
     MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatButtonModule, MatSlideToggleModule,
+    MatButtonModule, MatSlideToggleModule, MatTabsModule,
+    MailTemplateEditorComponent, MailJobEditorComponent,
   ],
   templateUrl: './mail.component.html',
   styleUrl: './mail.component.scss',

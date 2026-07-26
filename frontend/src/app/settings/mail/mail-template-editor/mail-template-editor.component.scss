@@ -1,0 +1,16 @@
+.mail-template-editor {
+  display: flex;
+  gap: 2rem;
+}
+
+.template-list {
+  min-width: 200px;
+}
+
+.template-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 640px;
+  flex: 1;
+}

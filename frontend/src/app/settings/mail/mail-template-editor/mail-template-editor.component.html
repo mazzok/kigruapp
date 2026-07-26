@@ -1,0 +1,29 @@
+<div class="mail-template-editor">
+  <div class="template-list">
+    <h2>Vorlagen</h2>
+    <mat-nav-list>
+      <a mat-list-item *ngFor="let t of templates" (click)="selectForEdit(t)">{{ t.name }}</a>
+    </mat-nav-list>
+    <button mat-stroked-button type="button" (click)="newTemplate()">Neue Vorlage</button>
+  </div>
+
+  <form [formGroup]="form" class="template-form" (ngSubmit)="save()">
+    <mat-form-field appearance="outline">
+      <mat-label>Name</mat-label>
+      <input matInput formControlName="name" />
+    </mat-form-field>
+
+    <label>Inhalt</label>
+    <quill-editor formControlName="bodyHtml" [modules]="quillModules"
+                  (onEditorCreated)="onEditorCreated($event)"></quill-editor>
+
+    <button mat-raised-button color="primary" type="submit" [disabled]="form.invalid">Speichern</button>
+  </form>
+
+  <div class="placeholder-tiles">
+    <h2>Platzhalter</h2>
+    <button mat-stroked-button type="button" *ngFor="let tile of placeholders" (click)="insertPlaceholder(tile)">
+      {{ tile.label['de'] || tile.fieldName }}
+    </button>
+  </div>
+</div>

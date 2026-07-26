@@ -27,6 +27,50 @@ public class MailService {
 
     /** Send a plaintext mail using the stored settings. */
     public void send(String recipient, String subject, String body) {
+        try {
+            MimeMessage msg = prepareMessage(recipient, subject);
+            msg.setText(body, "UTF-8");
+            Transport.send(msg);
+        } catch (AuthenticationFailedException e) {
+            throw new MailException(MailException.Category.AUTH_FAILED,
+                    "Authentifizierung am Mailserver fehlgeschlagen", e);
+        } catch (MessagingException e) {
+            throw new MailException(MailException.Category.CONNECTION_FAILED,
+                    "Verbindung zum Mailserver fehlgeschlagen", e);
+        } catch (MailException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new MailException(MailException.Category.UNKNOWN,
+                    "Unbekannter Fehler beim Mailversand", e);
+        }
+    }
+
+    /** Send an HTML mail using the stored settings. */
+    public void sendHtml(String recipient, String subject, String htmlBody) {
+        try {
+            MimeMessage msg = prepareMessage(recipient, subject);
+            msg.setContent(htmlBody, "text/html; charset=UTF-8");
+            Transport.send(msg);
+        } catch (AuthenticationFailedException e) {
+            throw new MailException(MailException.Category.AUTH_FAILED,
+                    "Authentifizierung am Mailserver fehlgeschlagen", e);
+        } catch (MessagingException e) {
+            throw new MailException(MailException.Category.CONNECTION_FAILED,
+                    "Verbindung zum Mailserver fehlgeschlagen", e);
+        } catch (MailException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new MailException(MailException.Category.UNKNOWN,
+                    "Unbekannter Fehler beim Mailversand", e);
+        }
+    }
+
+    /**
+     * Runs the guard checks, builds the session, and returns a MimeMessage with
+     * from/to/subject already set. Shared by {@link #send} and {@link #sendHtml}.
+     */
+    private MimeMessage prepareMessage(String recipient, String subject)
+            throws MessagingException, java.io.UnsupportedEncodingException {
         if (!encryptionService.isConfigured()) {
             throw new MailException(MailException.Category.CONFIG_MISSING,
                     "Verschlüsselung ist nicht konfiguriert");
@@ -59,27 +103,15 @@ public class MailService {
             session = Session.getInstance(props);
         }
 
-        try {
-            MimeMessage msg = new MimeMessage(session);
-            if (s.fromName != null && !s.fromName.isBlank()) {
-                msg.setFrom(new InternetAddress(s.fromAddress, s.fromName));
-            } else {
-                msg.setFrom(new InternetAddress(s.fromAddress));
-            }
-            msg.setRecipients(Message.RecipientType.TO, InternetAddress.parse(recipient));
-            msg.setSubject(subject);
-            msg.setText(body, "UTF-8");
-            Transport.send(msg);
-        } catch (AuthenticationFailedException e) {
-            throw new MailException(MailException.Category.AUTH_FAILED,
-                    "Authentifizierung am Mailserver fehlgeschlagen", e);
-        } catch (MessagingException e) {
-            throw new MailException(MailException.Category.CONNECTION_FAILED,
-                    "Verbindung zum Mailserver fehlgeschlagen", e);
-        } catch (Exception e) {
-            throw new MailException(MailException.Category.UNKNOWN,
-                    "Unbekannter Fehler beim Mailversand", e);
+        MimeMessage msg = new MimeMessage(session);
+        if (s.fromName != null && !s.fromName.isBlank()) {
+            msg.setFrom(new InternetAddress(s.fromAddress, s.fromName));
+        } else {
+            msg.setFrom(new InternetAddress(s.fromAddress));
         }
+        msg.setRecipients(Message.RecipientType.TO, InternetAddress.parse(recipient));
+        msg.setSubject(subject);
+        return msg;
     }
 
     private boolean isIncomplete(MailSettings s) {

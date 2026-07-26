@@ -1,0 +1,75 @@
+<div class="mail-job-editor">
+  <div class="job-list">
+    <h2>Jobs</h2>
+    <mat-nav-list>
+      <a mat-list-item *ngFor="let j of jobs" (click)="selectForEdit(j)">
+        {{ j.name }}
+        <span *ngIf="j.active" class="active-badge">aktiv</span>
+        <span *ngIf="j.lastRunStatus" class="status-chip" [ngClass]="statusClass(j.lastRunStatus)">
+          {{ j.lastRunStatus }}
+        </span>
+        <mat-slide-toggle [checked]="j.active" (click)="$event.stopPropagation()"
+                          (change)="toggleActive(j)"></mat-slide-toggle>
+      </a>
+    </mat-nav-list>
+    <button mat-stroked-button type="button" (click)="newJob()">Neuer Job</button>
+  </div>
+
+  <form [formGroup]="form" class="job-form" (ngSubmit)="save()">
+    <mat-form-field appearance="outline">
+      <mat-label>Name</mat-label>
+      <input matInput formControlName="name" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Vorlage</mat-label>
+      <mat-select formControlName="templateId">
+        <mat-option *ngFor="let t of templates" [value]="t.id">{{ t.name }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Betreff</mat-label>
+      <input matInput formControlName="subject" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Absender-Konto</mat-label>
+      <mat-select formControlName="senderAccountId">
+        <mat-option *ngFor="let a of accounts" [value]="a.id">{{ a.fromAddress }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Zeitplan</mat-label>
+      <mat-select (selectionChange)="selectCronPreset($event.value)">
+        <mat-option *ngFor="let preset of cronPresets" [value]="preset.cron">{{ preset.label }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <button mat-stroked-button type="button" (click)="toggleAdvancedCron()">Erweitert</button>
+
+    <mat-form-field appearance="outline" *ngIf="showAdvancedCron">
+      <mat-label>Cron (roh)</mat-label>
+      <input matInput formControlName="cron" />
+    </mat-form-field>
+
+    <div class="recipient-selection">
+      <h3>Empfänger</h3>
+      <mat-radio-group>
+        <mat-radio-button [checked]="form.value.recipientMode === 'ALL_PARENTS'" (change)="selectAllParents()">
+          Alle Eltern
+        </mat-radio-button>
+      </mat-radio-group>
+      <div class="group-checkboxes">
+        <mat-checkbox *ngFor="let g of groups"
+                      [checked]="isGroupSelected(g.id)"
+                      (change)="toggleGroup(g.id, $event.checked)">
+          {{ g.label['de'] || g.fieldName }}
+        </mat-checkbox>
+      </div>
+    </div>
+
+    <button mat-raised-button color="primary" type="submit" [disabled]="form.invalid">Speichern</button>
+  </form>
+</div>

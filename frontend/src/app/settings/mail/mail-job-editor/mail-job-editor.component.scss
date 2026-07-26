@@ -1,0 +1,39 @@
+.mail-job-editor {
+  display: flex;
+  gap: 2rem;
+}
+
+.job-list {
+  min-width: 200px;
+}
+
+.job-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 640px;
+  flex: 1;
+}
+
+.active-badge {
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  color: green;
+}
+
+.status-chip {
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+
+  &.status-success {
+    background: #e6f4ea;
+    color: #1e7e34;
+  }
+
+  &.status-attention {
+    background: #fdecea;
+    color: #a94442;
+  }
+}
