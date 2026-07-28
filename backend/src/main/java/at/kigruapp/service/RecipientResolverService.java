@@ -67,10 +67,12 @@ public class RecipientResolverService {
 
     /**
      * Resolves the deduped set of parent Persons who have a child assigned to
-     * one of the given group definitionIds in the given semester.
+     * one of the given groups in the given semester. The ids identify individual
+     * groups (field instances of the "group" template), matching how group
+     * assignments are stored (a shared definitionId + a per-group fieldInstanceId).
      */
-    public List<Person> resolveGroupParents(List<ObjectId> groupDefinitionIds, ObjectId semesterId) {
-        if (groupDefinitionIds == null || groupDefinitionIds.isEmpty() || semesterId == null) {
+    public List<Person> resolveGroupParents(List<ObjectId> groupInstanceIds, ObjectId semesterId) {
+        if (groupInstanceIds == null || groupInstanceIds.isEmpty() || semesterId == null) {
             return List.of();
         }
 
@@ -78,7 +80,7 @@ public class RecipientResolverService {
         for (Document doc : semesterAssignments().find(Filters.and(
                 Filters.eq("section", "group"),
                 Filters.eq("semesterId", semesterId),
-                Filters.in("definitionId", groupDefinitionIds)))) {
+                Filters.in("fieldInstanceId", groupInstanceIds)))) {
             SemesterAssignment sa = SemesterAssignment.fromDocument(doc);
             if (sa.personId != null) {
                 childPersonIds.add(sa.personId);

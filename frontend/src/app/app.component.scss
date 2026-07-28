@@ -2,6 +2,13 @@
   height: 100vh;
 }
 
+/* Toolbar stays pinned; only <main> scrolls. The drawer content is turned into
+   a fixed-height flex column globally (see styles.scss) so it no longer scrolls
+   the whole page. */
+mat-toolbar {
+  flex: 0 0 auto;
+}
+
 .sidenav {
   width: 250px;
 }
@@ -17,6 +24,9 @@
 }
 
 main {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
   padding: 0;
 }
 

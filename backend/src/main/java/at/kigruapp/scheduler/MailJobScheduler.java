@@ -6,6 +6,7 @@ import at.kigruapp.entity.Semester;
 import at.kigruapp.service.MailTemplateRenderer;
 import at.kigruapp.service.RecipientResolverService;
 import at.kigruapp.service.MailService;
+import io.quarkus.logging.Log;
 import io.quarkus.panache.common.Sort;
 import io.quarkus.scheduler.Scheduler;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -74,8 +75,10 @@ public class MailJobScheduler {
         if (job == null) {
             return;
         }
+        Log.infof("MailJob '%s' (%s) fired", job.name, jobId.toHexString());
         MailTemplate template = MailTemplate.findById(job.templateId);
         if (template == null) {
+            Log.warnf("MailJob '%s' (%s) deactivated: template %s missing", job.name, jobId.toHexString(), job.templateId);
             job.lastRunAt = Instant.now();
             job.lastRunStatus = "FAILED";
             job.lastRunError = "template missing";
@@ -105,6 +108,7 @@ public class MailJobScheduler {
                     recipientResolverService.resolve(job, semesterId);
 
             if (recipients.isEmpty()) {
+                Log.warnf("MailJob '%s' (%s): no recipients resolved, nothing sent", job.name, job.id.toHexString());
                 job.lastRunAt = Instant.now();
                 job.lastRunStatus = "NO_RECIPIENTS";
                 job.lastRunError = null;
@@ -112,6 +116,7 @@ public class MailJobScheduler {
                 return;
             }
 
+            Log.infof("MailJob '%s' (%s): sending to %d recipient(s)", job.name, job.id.toHexString(), recipients.size());
             int successCount = 0;
             int failureCount = 0;
             String lastError = null;
@@ -120,9 +125,11 @@ public class MailJobScheduler {
                     String renderedHtml = renderer.render(template.bodyHtml, recipient.properties());
                     mailService.sendHtml(recipient.email(), job.subject, renderedHtml);
                     successCount++;
+                    Log.infof("MailJob '%s': sent to %s", job.name, recipient.email());
                 } catch (Exception e) {
                     failureCount++;
                     lastError = e.getMessage();
+                    Log.errorf(e, "MailJob '%s': send to %s failed: %s", job.name, recipient.email(), e.getMessage());
                 }
             }
 
@@ -137,6 +144,8 @@ public class MailJobScheduler {
                 job.lastRunStatus = "FAILED";
                 job.lastRunError = failureCount + " of " + recipients.size() + " failed; last error: " + lastError;
             }
+            Log.infof("MailJob '%s' (%s) finished: status=%s, sent=%d, failed=%d",
+                    job.name, job.id.toHexString(), job.lastRunStatus, successCount, failureCount);
             job.update();
         } finally {
             runningJobIds.remove(job.id);

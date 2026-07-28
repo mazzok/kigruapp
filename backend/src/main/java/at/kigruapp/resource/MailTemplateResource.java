@@ -43,6 +43,16 @@ public class MailTemplateResource {
             .allowStandardUrlProtocols()
             .toFactory();
 
+    /**
+     * Sanitize the body, then strip the empty comments the sanitizer wedges
+     * between braces (e.g. {@code {<!-- -->{}) to neutralize template syntax.
+     * Without this, stored {@code {{person.x}}} tokens are broken and neither the
+     * renderer nor the editor's token→pill conversion can match them.
+     */
+    private static String sanitizeBody(String bodyHtml) {
+        return HTML_POLICY.sanitize(bodyHtml).replaceAll("<!--\\s*-->", "");
+    }
+
     public record PlaceholderTile(String token, String fieldName, Map<String, String> label) {}
 
     @GET
@@ -81,7 +91,7 @@ public class MailTemplateResource {
         validate(request);
         MailTemplate template = new MailTemplate();
         template.name = request.name;
-        template.bodyHtml = HTML_POLICY.sanitize(request.bodyHtml);
+        template.bodyHtml = sanitizeBody(request.bodyHtml);
         template.createdAt = Instant.now();
         template.updatedAt = template.createdAt;
         template.persist();
@@ -97,7 +107,7 @@ public class MailTemplateResource {
         }
         validate(request);
         template.name = request.name;
-        template.bodyHtml = HTML_POLICY.sanitize(request.bodyHtml);
+        template.bodyHtml = sanitizeBody(request.bodyHtml);
         template.updatedAt = Instant.now();
         template.update();
         return template;

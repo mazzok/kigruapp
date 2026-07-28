@@ -31,6 +31,15 @@ class MailTemplateRendererTest {
     }
 
     @Test
+    void substitutesTokensMangledBySanitizerComments() {
+        // The OWASP sanitizer wedges an empty comment between braces on save.
+        String result = renderer.render(
+                "<p>Hi {<!-- -->{person.firstName}}{<!-- -->{person.lastName}}</p>",
+                Map.of("firstName", "Anna", "lastName", "Muster"));
+        assertEquals("<p>Hi AnnaMuster</p>", result);
+    }
+
+    @Test
     void htmlEscapesSubstitutedValue() {
         String result = renderer.render("<p>{{person.notes}}</p>", Map.of("notes", "<script>alert(1)</script>"));
         assertEquals("<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>", result);

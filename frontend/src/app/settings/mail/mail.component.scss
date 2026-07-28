@@ -1,12 +1,16 @@
 .mail-settings {
-  max-width: 640px;
-  padding: 1rem;
+  padding: 1rem 1.5rem 2.5rem;
+}
+
+.tab-content {
+  padding-top: 1.5rem;
 }
 
 .settings-form {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  max-width: 520px;
 }
 
 .test-mail {
@@ -15,6 +19,7 @@
   flex-direction: column;
   gap: 0.5rem;
   align-items: flex-start;
+  max-width: 520px;
 }
 
 .test-result {

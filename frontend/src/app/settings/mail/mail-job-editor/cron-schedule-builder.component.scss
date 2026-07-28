@@ -1,0 +1,40 @@
+.cron-builder {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    align-items: baseline;
+
+    mat-form-field {
+      flex: 1 1 150px;
+      min-width: 140px;
+    }
+  }
+
+  .weekday-group {
+    flex-wrap: wrap;
+  }
+
+  .summary {
+    margin: 0.25rem 0 0;
+    font-weight: 500;
+    color: rgba(0, 0, 0, 0.75);
+  }
+
+  .raw-panel {
+    box-shadow: none;
+    background: transparent;
+  }
+
+  .raw-cron {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.9rem;
+    padding: 0.25rem 0.5rem;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 4px;
+  }
+}

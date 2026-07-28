@@ -1,29 +1,72 @@
 <div class="mail-template-editor">
-  <div class="template-list">
-    <h2>Vorlagen</h2>
-    <mat-nav-list>
-      <a mat-list-item *ngFor="let t of templates" (click)="selectForEdit(t)">{{ t.name }}</a>
-    </mat-nav-list>
-    <button mat-stroked-button type="button" (click)="newTemplate()">Neue Vorlage</button>
+  <aside class="tpl-list">
+    <div class="list-head">
+      <h2>Vorlagen</h2>
+      <button mat-stroked-button color="primary" type="button" (click)="newTemplate()">
+        <mat-icon>add</mat-icon> Neue Vorlage
+      </button>
+    </div>
+
+    <nav class="tpls" *ngIf="templates.length; else emptyList">
+      <div class="tpl-item" *ngFor="let t of templates" [class.selected]="t.id === selectedId">
+        <button class="tpl-main" type="button" (click)="selectForEdit(t)">
+          <span class="tpl-name">{{ t.name }}</span>
+        </button>
+        <button mat-icon-button type="button" class="delete-btn"
+                (click)="$event.stopPropagation(); delete(t)" matTooltip="Löschen">
+          <mat-icon>delete_outline</mat-icon>
+        </button>
+      </div>
+    </nav>
+
+    <ng-template #emptyList>
+      <p class="empty">Noch keine Vorlagen angelegt.</p>
+    </ng-template>
+  </aside>
+
+  <div class="tpl-placeholder" *ngIf="!editing">
+    <mat-icon>description</mat-icon>
+    <p class="placeholder-title">Keine Vorlage ausgewählt</p>
+    <p class="placeholder-sub">Wähle links eine bestehende Vorlage zum Bearbeiten oder lege über
+      „Neue Vorlage“ eine neue an.</p>
   </div>
 
-  <form [formGroup]="form" class="template-form" (ngSubmit)="save()">
+  <form *ngIf="editing" [formGroup]="form" class="template-form" (ngSubmit)="save()">
+    <header class="form-head">
+      <h2>{{ selectedId ? 'Vorlage bearbeiten' : 'Neue Vorlage' }}</h2>
+    </header>
+
     <mat-form-field appearance="outline">
       <mat-label>Name</mat-label>
       <input matInput formControlName="name" />
     </mat-form-field>
 
-    <label>Inhalt</label>
-    <quill-editor formControlName="bodyHtml" [modules]="quillModules"
-                  (onEditorCreated)="onEditorCreated($event)"></quill-editor>
+    <div class="chip-bar">
+      <span class="chip-hint">Platzhalter einfügen (klicken oder in den Text ziehen):</span>
+      <button class="chip" type="button"
+              *ngFor="let tile of placeholders"
+              draggable="true"
+              (dragstart)="onChipDragStart($event, tile)"
+              (click)="insertPlaceholder(tile)">
+        {{ tile.label['de'] || tile.fieldName }}
+      </button>
+    </div>
 
-    <button mat-raised-button color="primary" type="submit" [disabled]="form.invalid">Speichern</button>
+    <label class="field-label">Inhalt</label>
+    <div class="editor-wrap" (dragover)="onEditorDragOver($event)" (drop)="onEditorDrop($event)">
+      <quill-editor formControlName="bodyHtml" [modules]="quillModules"
+                    (onEditorCreated)="onEditorCreated($event)"></quill-editor>
+    </div>
+
+    <div class="preview">
+      <label class="field-label">Vorschau <span class="muted">(mit Beispiel-Daten)</span></label>
+      <div class="preview-box" [innerHTML]="previewHtml"></div>
+    </div>
+
+    <footer class="actions">
+      <button mat-button type="button" (click)="closeEditor()">Verwerfen</button>
+      <span class="spacer"></span>
+      <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid">Speichern</button>
+    </footer>
   </form>
-
-  <div class="placeholder-tiles">
-    <h2>Platzhalter</h2>
-    <button mat-stroked-button type="button" *ngFor="let tile of placeholders" (click)="insertPlaceholder(tile)">
-      {{ tile.label['de'] || tile.fieldName }}
-    </button>
-  </div>
 </div>

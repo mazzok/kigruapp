@@ -97,13 +97,13 @@ class MailJobRunTest {
         return id;
     }
 
-    private void assignToGroup(ObjectId childId, ObjectId groupDefinitionId) {
+    private void assignToGroup(ObjectId childId, ObjectId groupInstanceId) {
         SemesterAssignment sa = new SemesterAssignment();
         sa.personId = childId;
         sa.semesterId = semesterId;
         sa.section = "group";
-        sa.definitionId = groupDefinitionId;
-        sa.fieldInstanceId = new ObjectId();
+        sa.definitionId = groupDef.id;
+        sa.fieldInstanceId = groupInstanceId;
         semesterAssignments().insertOne(sa.toDocument());
     }
 
@@ -133,13 +133,14 @@ class MailJobRunTest {
         child.familyId = familyId;
         child.basicProperties = List.of(new FieldRef(personTypeDef.id, persistFieldInstance(personTypeDef.id, "CHILD")));
         child.persist();
-        assignToGroup(child.id, groupDef.id);
+        ObjectId groupInstanceId = new ObjectId();
+        assignToGroup(child.id, groupInstanceId);
 
         MailJob job = new MailJob();
         job.templateId = template.id;
         job.subject = "Willkommen";
         job.recipientMode = RecipientMode.GROUPS;
-        job.recipientGroupDefinitionIds = List.of(groupDef.id);
+        job.recipientGroupDefinitionIds = List.of(groupInstanceId);
         job.persist();
 
         mailJobScheduler.runJob(job, template);

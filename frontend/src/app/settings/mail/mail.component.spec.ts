@@ -1,6 +1,7 @@
 import { of } from 'rxjs';
 import { MailComponent } from './mail.component';
 import { MailSettingsService } from '../../shared/services/mail-settings.service';
+import { NotificationService } from '../../shared/services/notification.service';
 import {
   MailSettings,
   MailTestResult,
@@ -35,13 +36,32 @@ class FakeMailSettingsService {
   }
 }
 
+class FakeNotificationService {
+  successCalls: string[] = [];
+  errorCalls: string[] = [];
+  success(message: string) {
+    this.successCalls.push(message);
+  }
+  error(message: string) {
+    this.errorCalls.push(message);
+  }
+  extractError() {
+    return 'error';
+  }
+}
+
 describe('MailComponent', () => {
   let component: MailComponent;
   let service: FakeMailSettingsService;
+  let notify: FakeNotificationService;
 
   beforeEach(() => {
     service = new FakeMailSettingsService();
-    component = new MailComponent(service as unknown as MailSettingsService);
+    notify = new FakeNotificationService();
+    component = new MailComponent(
+      service as unknown as MailSettingsService,
+      notify as unknown as NotificationService,
+    );
     component.ngOnInit();
   });
 

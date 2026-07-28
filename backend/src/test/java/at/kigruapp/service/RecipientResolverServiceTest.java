@@ -83,13 +83,13 @@ class RecipientResolverServiceTest {
         return p;
     }
 
-    private void assignToGroup(ObjectId childId, ObjectId semesterId, ObjectId groupDefinitionId) {
+    private void assignToGroup(ObjectId childId, ObjectId semesterId, ObjectId groupInstanceId) {
         SemesterAssignment sa = new SemesterAssignment();
         sa.personId = childId;
         sa.semesterId = semesterId;
         sa.section = "group";
-        sa.definitionId = groupDefinitionId;
-        sa.fieldInstanceId = new ObjectId();
+        sa.definitionId = groupDef.id;
+        sa.fieldInstanceId = groupInstanceId;
         semesterAssignments().insertOne(sa.toDocument());
     }
 
@@ -108,11 +108,12 @@ class RecipientResolverServiceTest {
         Person child2 = persistPerson(familyWithEmail, "CHILD", null); // second child, same family -> dedup
         Person child3 = persistPerson(familyWithoutEmail, "CHILD", null);
 
-        assignToGroup(child1.id, semesterId, groupDef.id);
-        assignToGroup(child2.id, semesterId, groupDef.id);
-        assignToGroup(child3.id, semesterId, groupDef.id);
+        ObjectId targetGroupInstanceId = new ObjectId();
+        assignToGroup(child1.id, semesterId, targetGroupInstanceId);
+        assignToGroup(child2.id, semesterId, targetGroupInstanceId);
+        assignToGroup(child3.id, semesterId, targetGroupInstanceId);
 
-        List<Person> result = resolver.resolveGroupParents(List.of(groupDef.id), semesterId);
+        List<Person> result = resolver.resolveGroupParents(List.of(targetGroupInstanceId), semesterId);
 
         assertEquals(1, result.size(), "must be deduped and exclude the parent without email");
         assertEquals(parentWithEmail.id, result.get(0).id);
@@ -143,11 +144,12 @@ class RecipientResolverServiceTest {
         parent.update();
 
         Person child = persistPerson(familyId, "CHILD", null);
-        assignToGroup(child.id, semesterId, groupDef.id);
+        ObjectId groupInstanceId = new ObjectId();
+        assignToGroup(child.id, semesterId, groupInstanceId);
 
         MailJob groupsJob = new MailJob();
         groupsJob.recipientMode = RecipientMode.GROUPS;
-        groupsJob.recipientGroupDefinitionIds = List.of(groupDef.id);
+        groupsJob.recipientGroupDefinitionIds = List.of(groupInstanceId);
 
         List<RecipientResolverService.ResolvedRecipient> groupsResult = resolver.resolve(groupsJob, semesterId);
         assertEquals(1, groupsResult.size());

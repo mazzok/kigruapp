@@ -5,11 +5,14 @@ import at.kigruapp.entity.MailEncryption;
 import at.kigruapp.entity.MailJob;
 import at.kigruapp.entity.MailSettings;
 import at.kigruapp.entity.RecipientMode;
+import com.mongodb.client.MongoClient;
 import io.quarkus.scheduler.Scheduler;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import jakarta.inject.Inject;
+import org.bson.Document;
 import org.bson.types.ObjectId;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -25,11 +28,28 @@ class MailJobResourceTest {
     @Inject
     Scheduler scheduler;
 
+    @Inject
+    MongoClient mongoClient;
+
+    @ConfigProperty(name = "quarkus.mongodb.database")
+    String databaseName;
+
+    /** Inserts a group field instance and returns its id (a selectable group). */
+    private ObjectId persistGroupInstance(ObjectId groupDefinitionId) {
+        ObjectId id = new ObjectId();
+        mongoClient.getDatabase(databaseName).getCollection("field_instances")
+                .insertOne(new Document("_id", id)
+                        .append("definitionId", groupDefinitionId)
+                        .append("value", new Document("label", "Bären")));
+        return id;
+    }
+
     @BeforeEach
     void cleanup() {
         MailJob.deleteAll();
         MailSettings.deleteAll();
         FieldDefinition.deleteAll();
+        mongoClient.getDatabase(databaseName).getCollection("field_instances").deleteMany(new Document());
         MailSettings s = new MailSettings();
         s.host = "smtp.example.test";
         s.port = 587;
@@ -118,6 +138,16 @@ class MailJobResourceTest {
     }
 
     @Test
+    void validationErrorBodyCarriesMessageForClientFeedback() {
+        given()
+                .contentType(ContentType.JSON)
+                .body(validPayload(new ObjectId()).replace("0 0 8 * * ?", "not-a-cron"))
+                .when().post("/api/v1/mail-jobs")
+                .then().statusCode(400)
+                .body("message", org.hamcrest.Matchers.containsString("invalid cron expression"));
+    }
+
+    @Test
     void rejectsInvalidCronOnUpdate() {
         MailJob job = persistJob("Inactive");
 
@@ -174,10 +204,11 @@ class MailJobResourceTest {
         group.fieldName = "group";
         group.createdAt = java.time.Instant.now();
         group.persist();
+        ObjectId groupInstanceId = persistGroupInstance(group.id);
 
         String payload = validPayload(new ObjectId())
                 .replace("\"recipientMode\":\"ALL_PARENTS\"",
-                        "\"recipientMode\":\"GROUPS\",\"recipientGroupDefinitionIds\":[\"" + group.id + "\"]");
+                        "\"recipientMode\":\"GROUPS\",\"recipientGroupDefinitionIds\":[\"" + groupInstanceId + "\"]");
 
         given()
                 .contentType(ContentType.JSON)

@@ -8,12 +8,16 @@ import at.kigruapp.scheduler.MailJobScheduler;
 import com.cronutils.model.CronType;
 import com.cronutils.model.definition.CronDefinitionBuilder;
 import com.cronutils.parser.CronParser;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.model.Filters;
 import io.quarkus.panache.common.Sort;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.bson.Document;
 import org.bson.types.ObjectId;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Instant;
 import java.util.List;
@@ -32,6 +36,12 @@ public class MailJobResource {
 
     @Inject
     MailJobScheduler mailJobScheduler;
+
+    @Inject
+    MongoClient mongoClient;
+
+    @ConfigProperty(name = "quarkus.mongodb.database")
+    String databaseName;
 
     @GET
     public List<MailJob> list() {
@@ -159,6 +169,11 @@ public class MailJobResource {
         validateRecipientGroupDefinitionIds(request);
     }
 
+    /**
+     * The ids identify individual groups, i.e. field instances of the "group"
+     * template definition. Each must exist and resolve (via its definitionId) to
+     * a non-outdated "group" definition.
+     */
     private void validateRecipientGroupDefinitionIds(MailJob request) {
         if (request.recipientMode != RecipientMode.GROUPS) {
             return;
@@ -167,12 +182,27 @@ public class MailJobResource {
         if (ids == null) {
             return;
         }
-        for (ObjectId defId : ids) {
-            FieldDefinition def = FieldDefinition.findById(defId);
-            if (def == null || def.outdatedAt != null || !"group".equals(def.fieldName)) {
-                throw new BadRequestException("recipientGroupDefinitionIds contains an unknown or outdated group: " + defId);
+        for (ObjectId instanceId : ids) {
+            if (!isGroupInstance(instanceId)) {
+                throw new BadRequestException("recipientGroupDefinitionIds contains an unknown or outdated group: " + instanceId);
             }
         }
+    }
+
+    private boolean isGroupInstance(ObjectId instanceId) {
+        Document inst = mongoClient.getDatabase(databaseName)
+                .getCollection("field_instances")
+                .find(Filters.eq("_id", instanceId))
+                .first();
+        if (inst == null) {
+            return false;
+        }
+        ObjectId definitionId = inst.getObjectId("definitionId");
+        if (definitionId == null) {
+            return false;
+        }
+        FieldDefinition def = FieldDefinition.findById(definitionId);
+        return def != null && def.outdatedAt == null && "group".equals(def.fieldName);
     }
 
     private void validateSenderAccountId(String senderAccountId) {

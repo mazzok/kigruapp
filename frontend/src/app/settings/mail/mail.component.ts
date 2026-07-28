@@ -10,6 +10,7 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MailTemplateEditorComponent } from './mail-template-editor/mail-template-editor.component';
 import { MailJobEditorComponent } from './mail-job-editor/mail-job-editor.component';
 import { MailSettingsService } from '../../shared/services/mail-settings.service';
+import { NotificationService } from '../../shared/services/notification.service';
 import {
   MailEncryption,
   MailTestResult,
@@ -47,7 +48,10 @@ export class MailComponent implements OnInit {
 
   testRecipient = new FormControl('');
 
-  constructor(private mailSettingsService: MailSettingsService) {}
+  constructor(
+    private mailSettingsService: MailSettingsService,
+    private notify: NotificationService,
+  ) {}
 
   ngOnInit(): void {
     this.mailSettingsService.get().subscribe((s) => {
@@ -80,16 +84,28 @@ export class MailComponent implements OnInit {
     if (password && password.trim().length > 0) {
       request.password = password;
     }
-    this.mailSettingsService.update(request).subscribe((s) => {
-      this.passwordSet = s.passwordSet;
-      this.form.get('password')!.reset('');
+    this.mailSettingsService.update(request).subscribe({
+      next: (s) => {
+        this.passwordSet = s.passwordSet;
+        this.form.get('password')!.reset('');
+        this.notify.success('Einstellungen gespeichert');
+      },
+      error: (err) => this.notify.error(this.notify.extractError(err)),
     });
   }
 
   sendTest(): void {
     const recipient = this.testRecipient.value ?? '';
-    this.mailSettingsService.test(recipient).subscribe((result) => {
-      this.testResult = result;
+    this.mailSettingsService.test(recipient).subscribe({
+      next: (result) => {
+        this.testResult = result;
+        if (result.success) {
+          this.notify.success('Testmail gesendet');
+        } else {
+          this.notify.error(result.message ?? 'Testmail fehlgeschlagen');
+        }
+      },
+      error: (err) => this.notify.error(this.notify.extractError(err)),
     });
   }
 }

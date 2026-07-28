@@ -1,4 +1,52 @@
 /* You can add global styles to this file, and also import other style files */
 
 html, body { height: 100%; }
-body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; overflow: hidden; }
+
+/* Single-scroll app shell.
+   Material's .mat-drawer-content (the mat-sidenav-content host) defaults to
+   height:100%; overflow:auto, so it scrolls the ENTIRE page — toolbar included —
+   producing an outer scrollbar that starts at the app header. Turn it into a
+   fixed-height flex column and stop it scrolling; <main> (flex:1; overflow:auto,
+   in app.component.scss) becomes the one and only scroll region, below the
+   pinned toolbar. Global + !important so it reliably beats Material's own rule
+   regardless of view encapsulation. */
+.mat-drawer-container { height: 100vh; }
+.mat-drawer-content {
+  display: flex !important;
+  flex-direction: column;
+  overflow: hidden !important;
+}
+
+/* Angular Material sizes the tab-body wrapper to a JS-measured height that ends
+   up ~6px shorter than the real content, and the tab body itself is overflow:auto
+   — so it spawns a second, nested scrollbar next to the page scroll. Let the tab
+   subtree grow to its content and flow into <main> (the single scroll region)
+   instead. Global + !important so it beats Material's own rules and inline height.
+   The wrapper keeps overflow:hidden but with height:auto it fits exactly (no clip),
+   which also clips the horizontally-translated inactive tabs during animation. */
+.mat-mdc-tab-body-wrapper {
+  height: auto !important;
+}
+.mat-mdc-tab-body,
+.mat-mdc-tab-body-content {
+  overflow: visible !important;
+}
+/* Material fixes the content box to height:100% of a wrapper it measures ~6px
+   short, so overflow:hidden on the wrapper shaves the bottom of the tab. Let the
+   content take its natural height so the wrapper grows to fit and nothing clips. */
+.mat-mdc-tab-body-content {
+  height: auto !important;
+}
+
+/* Snackbar feedback colors (NotificationService) */
+.snack-success {
+  --mdc-snackbar-container-color: #2e7d32;
+  --mdc-snackbar-supporting-text-color: #ffffff;
+  --mat-snack-bar-button-color: #ffffff;
+}
+.snack-error {
+  --mdc-snackbar-container-color: #c62828;
+  --mdc-snackbar-supporting-text-color: #ffffff;
+  --mat-snack-bar-button-color: #ffffff;
+}

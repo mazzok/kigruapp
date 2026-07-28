@@ -1,0 +1,50 @@
+<div class="cron-builder">
+  <div class="row">
+    <mat-form-field appearance="outline">
+      <mat-label>Frequenz</mat-label>
+      <mat-select [value]="model.frequency" (selectionChange)="setFrequency($event.value)" [disabled]="disabled">
+        <mat-option *ngFor="let f of frequencies" [value]="f.value">{{ f.label }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" *ngIf="showHour">
+      <mat-label>Stunde</mat-label>
+      <mat-select [value]="model.hour" (selectionChange)="setHour($event.value)" [disabled]="disabled">
+        <mat-option *ngFor="let h of hours" [value]="h">{{ h < 10 ? '0' + h : h }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" *ngIf="showMinute">
+      <mat-label>Minute</mat-label>
+      <mat-select [value]="model.minute" (selectionChange)="setMinute($event.value)" [disabled]="disabled">
+        <mat-option *ngFor="let m of minutes" [value]="m">{{ m < 10 ? '0' + m : m }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" *ngIf="showDayOfMonth">
+      <mat-label>Tag im Monat</mat-label>
+      <mat-select [value]="model.dayOfMonth" (selectionChange)="setDayOfMonth($event.value)" [disabled]="disabled">
+        <mat-option *ngFor="let d of daysOfMonth" [value]="d">{{ d }}.</mat-option>
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  <mat-button-toggle-group
+    *ngIf="showWeekdays"
+    multiple
+    [value]="model.weekdays"
+    (change)="setWeekdays($event.value)"
+    class="weekday-group"
+    [disabled]="disabled">
+    <mat-button-toggle *ngFor="let w of weekdays" [value]="w.value">{{ w.label }}</mat-button-toggle>
+  </mat-button-toggle-group>
+
+  <p class="summary">{{ summary }}</p>
+
+  <mat-expansion-panel class="raw-panel">
+    <mat-expansion-panel-header>
+      <mat-panel-title>Cron-Ausdruck anzeigen</mat-panel-title>
+    </mat-expansion-panel-header>
+    <code class="raw-cron">{{ cron }}</code>
+  </mat-expansion-panel>
+</div>

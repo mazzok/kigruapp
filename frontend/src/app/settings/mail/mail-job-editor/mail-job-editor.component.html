@@ -1,75 +1,115 @@
 <div class="mail-job-editor">
-  <div class="job-list">
-    <h2>Jobs</h2>
-    <mat-nav-list>
-      <a mat-list-item *ngFor="let j of jobs" (click)="selectForEdit(j)">
-        {{ j.name }}
-        <span *ngIf="j.active" class="active-badge">aktiv</span>
-        <span *ngIf="j.lastRunStatus" class="status-chip" [ngClass]="statusClass(j.lastRunStatus)">
-          {{ j.lastRunStatus }}
-        </span>
-        <mat-slide-toggle [checked]="j.active" (click)="$event.stopPropagation()"
-                          (change)="toggleActive(j)"></mat-slide-toggle>
-      </a>
-    </mat-nav-list>
-    <button mat-stroked-button type="button" (click)="newJob()">Neuer Job</button>
+  <aside class="job-list">
+    <div class="list-head">
+      <h2>Jobs</h2>
+      <button mat-stroked-button color="primary" type="button" (click)="newJob()">
+        <mat-icon>add</mat-icon> Neuer Job
+      </button>
+    </div>
+
+    <nav class="jobs" *ngIf="jobs.length; else emptyList">
+      <div class="job-item" *ngFor="let j of jobs" [class.selected]="j.id === selectedId">
+        <button class="job-main" type="button" (click)="selectForEdit(j)">
+          <span class="job-name">{{ j.name }}</span>
+          <span class="job-meta">
+            <span *ngIf="j.active" class="badge">aktiv</span>
+            <span *ngIf="j.lastRunStatus" class="status-chip" [ngClass]="statusClass(j.lastRunStatus)"
+                  [matTooltip]="statusTooltip(j)">
+              {{ statusLabel(j) }}
+            </span>
+          </span>
+        </button>
+        <div class="job-controls">
+          <mat-slide-toggle
+            [checked]="j.active"
+            (click)="$event.stopPropagation()"
+            (change)="toggleActive(j)"
+            matTooltip="{{ j.active ? 'Deaktivieren' : 'Aktivieren' }}"></mat-slide-toggle>
+          <button mat-icon-button type="button" class="delete-btn"
+                  (click)="$event.stopPropagation(); delete(j)" matTooltip="Löschen">
+            <mat-icon>delete_outline</mat-icon>
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <ng-template #emptyList>
+      <p class="empty">Noch keine Jobs angelegt.</p>
+    </ng-template>
+  </aside>
+
+  <div class="job-placeholder" *ngIf="!editing">
+    <mat-icon>mail_outline</mat-icon>
+    <p class="placeholder-title">Kein Job ausgewählt</p>
+    <p class="placeholder-sub">Wähle links einen bestehenden Job zum Bearbeiten oder lege über
+      „Neuer Job“ einen neuen an.</p>
   </div>
 
-  <form [formGroup]="form" class="job-form" (ngSubmit)="save()">
-    <mat-form-field appearance="outline">
-      <mat-label>Name</mat-label>
-      <input matInput formControlName="name" />
-    </mat-form-field>
+  <form *ngIf="editing" [formGroup]="form" class="job-form" (ngSubmit)="save()">
+    <header class="form-head">
+      <h2>{{ selectedId ? 'Job bearbeiten' : 'Neuer Job' }}</h2>
+      <p class="sub">Plant den automatischen Versand einer Vorlage an eine Empfängergruppe.</p>
+    </header>
 
-    <mat-form-field appearance="outline">
-      <mat-label>Vorlage</mat-label>
-      <mat-select formControlName="templateId">
-        <mat-option *ngFor="let t of templates" [value]="t.id">{{ t.name }}</mat-option>
-      </mat-select>
-    </mat-form-field>
+    <section class="card">
+      <p class="eyebrow">Grunddaten</p>
+      <div class="grid">
+        <mat-form-field appearance="outline" class="span-2">
+          <mat-label>Name</mat-label>
+          <input matInput formControlName="name" />
+        </mat-form-field>
 
-    <mat-form-field appearance="outline">
-      <mat-label>Betreff</mat-label>
-      <input matInput formControlName="subject" />
-    </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Vorlage</mat-label>
+          <mat-select formControlName="templateId">
+            <mat-option *ngFor="let t of templates" [value]="t.id">{{ t.name }}</mat-option>
+          </mat-select>
+        </mat-form-field>
 
-    <mat-form-field appearance="outline">
-      <mat-label>Absender-Konto</mat-label>
-      <mat-select formControlName="senderAccountId">
-        <mat-option *ngFor="let a of accounts" [value]="a.id">{{ a.fromAddress }}</mat-option>
-      </mat-select>
-    </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Absender-Konto</mat-label>
+          <mat-select formControlName="senderAccountId">
+            <mat-option *ngFor="let a of accounts" [value]="a.id">{{ a.fromAddress }}</mat-option>
+          </mat-select>
+        </mat-form-field>
 
-    <mat-form-field appearance="outline">
-      <mat-label>Zeitplan</mat-label>
-      <mat-select (selectionChange)="selectCronPreset($event.value)">
-        <mat-option *ngFor="let preset of cronPresets" [value]="preset.cron">{{ preset.label }}</mat-option>
-      </mat-select>
-    </mat-form-field>
+        <mat-form-field appearance="outline" class="span-2">
+          <mat-label>Betreff</mat-label>
+          <input matInput formControlName="subject" />
+        </mat-form-field>
+      </div>
+    </section>
 
-    <button mat-stroked-button type="button" (click)="toggleAdvancedCron()">Erweitert</button>
+    <section class="card">
+      <p class="eyebrow">Zeitplan</p>
+      <app-cron-schedule-builder formControlName="cron"></app-cron-schedule-builder>
+    </section>
 
-    <mat-form-field appearance="outline" *ngIf="showAdvancedCron">
-      <mat-label>Cron (roh)</mat-label>
-      <input matInput formControlName="cron" />
-    </mat-form-field>
-
-    <div class="recipient-selection">
-      <h3>Empfänger</h3>
-      <mat-radio-group>
+    <section class="card">
+      <p class="eyebrow">Empfänger</p>
+      <mat-radio-group class="recipient-mode">
         <mat-radio-button [checked]="form.value.recipientMode === 'ALL_PARENTS'" (change)="selectAllParents()">
           Alle Eltern
         </mat-radio-button>
       </mat-radio-group>
-      <div class="group-checkboxes">
-        <mat-checkbox *ngFor="let g of groups"
-                      [checked]="isGroupSelected(g.id)"
-                      (change)="toggleGroup(g.id, $event.checked)">
-          {{ g.label['de'] || g.fieldName }}
-        </mat-checkbox>
-      </div>
-    </div>
 
-    <button mat-raised-button color="primary" type="submit" [disabled]="form.invalid">Speichern</button>
+      <div class="groups" *ngIf="groups.length">
+        <p class="sub-label">oder bestimmte Gruppen</p>
+        <mat-form-field appearance="outline" class="group-select">
+          <mat-label>Gruppen auswählen</mat-label>
+          <mat-select multiple
+                      [value]="form.value.recipientGroupDefinitionIds"
+                      (selectionChange)="onGroupsChange($event.value)">
+            <mat-option *ngFor="let g of groups" [value]="g.id">{{ groupLabel(g) }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+    </section>
+
+    <footer class="actions">
+      <button mat-button type="button" (click)="closeEditor()">Verwerfen</button>
+      <span class="spacer"></span>
+      <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid">Speichern</button>
+    </footer>
   </form>
 </div>

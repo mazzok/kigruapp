@@ -110,6 +110,21 @@ class MailTemplateResourceTest {
     }
 
     @Test
+    void keepsPlaceholderTokensIntactThroughSanitizer() {
+        // Sanitizer would otherwise wedge <!-- --> between the braces, breaking substitution.
+        String returnedBody = given()
+                .contentType(ContentType.JSON)
+                .body("{\"name\":\"Tokens\",\"bodyHtml\":\"<p>Hi {{person.firstName}} {{person.lastName}}</p>\"}")
+                .when().post("/api/v1/mail-templates")
+                .then().statusCode(201)
+                .extract().path("bodyHtml");
+
+        org.junit.jupiter.api.Assertions.assertTrue(returnedBody.contains("{{person.firstName}}"), returnedBody);
+        org.junit.jupiter.api.Assertions.assertTrue(returnedBody.contains("{{person.lastName}}"), returnedBody);
+        org.junit.jupiter.api.Assertions.assertFalse(returnedBody.contains("<!--"), returnedBody);
+    }
+
+    @Test
     void deleteRejectedWhenReferencedByJob() {
         MailTemplate t = persistTemplate("Referenced", "<p>x</p>");
         MailJob job = new MailJob();

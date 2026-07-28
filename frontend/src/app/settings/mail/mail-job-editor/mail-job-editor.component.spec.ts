@@ -1,5 +1,7 @@
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
 import { MailJobEditorComponent } from './mail-job-editor.component';
+import { NotificationService } from '../../../shared/services/notification.service';
 import { MailJobService } from '../../../shared/services/mail-job.service';
 import { MailJob, SaveMailJobRequest } from '../../../shared/models/mail-job.model';
 import { MailTemplateService } from '../../../shared/services/mail-template.service';
@@ -8,6 +10,8 @@ import { MailAccountService } from '../../../shared/services/mail-account.servic
 import { MailAccount } from '../../../shared/models/mail-account.model';
 import { OrganisationService } from '../../../shared/services/organisation.service';
 import { OrganisationDTO } from '../../../shared/models/organisation.model';
+import { FieldInstanceService } from '../../../shared/services/field-instance.service';
+import { FieldInstanceDTO } from '../../../shared/models/field-instance.model';
 
 class FakeMailJobService {
   jobs: MailJob[] = [
@@ -69,14 +73,40 @@ class FakeOrganisationService {
   org: OrganisationDTO = {
     id: 'org1',
     tag: 'groups',
+    // A single "group" template definition; the actual groups are its instances.
     definitions: [
-      { id: 'g1', fieldName: 'group', label: { de: 'Rote Gruppe' }, jsonSchema: {}, required: false },
-      { id: 'g2', fieldName: 'group', label: { de: 'Blaue Gruppe' }, jsonSchema: {}, required: false },
+      { id: 'def-group', fieldName: 'group', label: { de: 'Gruppen' }, jsonSchema: {}, required: false },
     ],
     entries: [],
   };
   getByTag(tag: string) {
     return of(this.org);
+  }
+}
+
+class FakeFieldInstanceService {
+  instances: FieldInstanceDTO[] = [
+    { id: 'g1', definitionId: 'def-group', fieldName: 'group', label: { de: 'Gruppen' }, jsonSchema: {}, required: false, value: { label: 'Rote Gruppe' }, definitionOutdated: false },
+    { id: 'g2', definitionId: 'def-group', fieldName: 'group', label: { de: 'Gruppen' }, jsonSchema: {}, required: false, value: { label: 'Blaue Gruppe' }, definitionOutdated: false },
+  ];
+  listByDefinitionIdCalls: string[] = [];
+  listByDefinitionId(definitionId: string) {
+    this.listByDefinitionIdCalls.push(definitionId);
+    return of(this.instances);
+  }
+}
+
+class FakeNotificationService {
+  successCalls: string[] = [];
+  errorCalls: string[] = [];
+  success(message: string) {
+    this.successCalls.push(message);
+  }
+  error(message: string) {
+    this.errorCalls.push(message);
+  }
+  extractError(err: unknown) {
+    return err instanceof HttpErrorResponse ? String(err.error) : 'error';
   }
 }
 
@@ -86,17 +116,23 @@ describe('MailJobEditorComponent', () => {
   let templateService: FakeMailTemplateService;
   let accountService: FakeMailAccountService;
   let organisationService: FakeOrganisationService;
+  let fieldInstanceService: FakeFieldInstanceService;
+  let notify: FakeNotificationService;
 
   beforeEach(() => {
     jobService = new FakeMailJobService();
     templateService = new FakeMailTemplateService();
     accountService = new FakeMailAccountService();
     organisationService = new FakeOrganisationService();
+    fieldInstanceService = new FakeFieldInstanceService();
+    notify = new FakeNotificationService();
     component = new MailJobEditorComponent(
       jobService as unknown as MailJobService,
       templateService as unknown as MailTemplateService,
       accountService as unknown as MailAccountService,
       organisationService as unknown as OrganisationService,
+      fieldInstanceService as unknown as FieldInstanceService,
+      notify as unknown as NotificationService,
     );
     component.ngOnInit();
   });
@@ -121,6 +157,21 @@ describe('MailJobEditorComponent', () => {
 
     expect(jobService.createCalls.length).toBe(1);
     expect(jobService.createCalls[0].name).toBe('Neu');
+    expect(notify.successCalls).toEqual(['Job gespeichert']);
+  });
+
+  it('shows an error popup when saving fails (surfacing the backend reason)', () => {
+    jobService.create = () =>
+      throwError(() => new HttpErrorResponse({ status: 400, error: 'invalid cron expression: nope' }));
+    component.newJob();
+    component.form.patchValue({
+      name: 'Neu', templateId: 't1', subject: 'Betreff', senderAccountId: 'acc1', cron: 'nope',
+    });
+
+    component.save();
+
+    expect(notify.errorCalls).toEqual(['invalid cron expression: nope']);
+    expect(notify.successCalls).toEqual([]);
   });
 
   it('saving an existing (selected) job calls update', () => {
@@ -139,21 +190,31 @@ describe('MailJobEditorComponent', () => {
     expect(jobService.deleteCalls).toEqual(['j1']);
   });
 
-  it('renders group checkboxes from the organisation service', () => {
+  it('loads the actual groups (field instances of the "group" template), not the template itself', () => {
+    expect(fieldInstanceService.listByDefinitionIdCalls).toEqual(['def-group']);
     expect(component.groups.length).toBe(2);
-    expect(component.groups[0].label['de']).toBe('Rote Gruppe');
+    expect(component.groupLabel(component.groups[0])).toBe('Rote Gruppe');
+    expect(component.groupLabel(component.groups[1])).toBe('Blaue Gruppe');
   });
 
   it('selecting groups sets GROUPS mode and populates recipientGroupDefinitionIds', () => {
-    component.toggleGroup('g1', true);
-    component.toggleGroup('g2', true);
+    component.onGroupsChange(['g1', 'g2']);
 
     expect(component.form.value.recipientMode).toBe('GROUPS');
     expect(component.form.value.recipientGroupDefinitionIds).toEqual(['g1', 'g2']);
   });
 
+  it('clearing the group selection falls back to ALL_PARENTS mode', () => {
+    component.onGroupsChange(['g1']);
+
+    component.onGroupsChange([]);
+
+    expect(component.form.value.recipientMode).toBe('ALL_PARENTS');
+    expect(component.form.value.recipientGroupDefinitionIds).toEqual([]);
+  });
+
   it('selecting ALL clears group selection and sets ALL_PARENTS mode', () => {
-    component.toggleGroup('g1', true);
+    component.onGroupsChange(['g1']);
 
     component.selectAllParents();
 
@@ -161,25 +222,56 @@ describe('MailJobEditorComponent', () => {
     expect(component.form.value.recipientGroupDefinitionIds).toEqual([]);
   });
 
-  it('selecting a preset sets the cron control value', () => {
-    component.selectCronPreset('0 0 8 ? * MON');
+  it('starts with the editor closed and opens it via newJob / selectForEdit', () => {
+    expect(component.editing).toBe(false);
 
-    expect(component.form.value.cron).toBe('0 0 8 ? * MON');
+    component.newJob();
+    expect(component.editing).toBe(true);
+
+    component.closeEditor();
+    expect(component.editing).toBe(false);
+
+    component.selectForEdit(jobService.jobs[0]);
+    expect(component.editing).toBe(true);
   });
 
-  it('the advanced toggle reveals the raw cron field', () => {
-    expect(component.showAdvancedCron).toBeFalse();
+  it('closes the editor after a successful save', () => {
+    component.newJob();
+    component.form.patchValue({
+      name: 'Neu', templateId: 't1', subject: 'Betreff', senderAccountId: 'acc1', cron: '0 0 8 * * ?',
+    });
 
-    component.toggleAdvancedCron();
+    component.save();
 
-    expect(component.showAdvancedCron).toBeTrue();
+    expect(component.editing).toBe(false);
   });
 
-  it('the raw cron field edits the same control as presets', () => {
-    component.selectCronPreset('0 0 8 * * ?');
-    component.form.patchValue({ cron: '0 0 9 * * ?' }); // simulates typing in the raw field
+  it('shows the last-run timestamp as DD.MM.YYYY HH:MM in local time', () => {
+    const iso = '2026-03-09T07:05:00Z';
+    const d = new Date(iso);
+    const p = (n: number) => `${n}`.padStart(2, '0');
+    const expected = `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+    const job = { ...jobService.jobs[0], lastRunStatus: 'SUCCESS', lastRunAt: iso };
+    expect(component.statusLabel(job)).toBe(expected);
+  });
 
-    expect(component.form.value.cron).toBe('0 0 9 * * ?');
+  it('treats a timezone-less timestamp as UTC (identical to an explicit Z)', () => {
+    const naive = { ...jobService.jobs[0], lastRunStatus: 'SUCCESS', lastRunAt: '2026-03-09T07:05:00' };
+    const withZ = { ...jobService.jobs[0], lastRunStatus: 'SUCCESS', lastRunAt: '2026-03-09T07:05:00Z' };
+    expect(component.statusLabel(naive)).toBe(component.statusLabel(withZ));
+  });
+
+  it('a new job starts with a valid default cron so the form is submittable', () => {
+    component.newJob();
+
+    expect(component.form.value.cron).toBe('0 0 8 * * ?');
+  });
+
+  it('the schedule builder writes the generated cron into the form control', () => {
+    // simulates the CronScheduleBuilder (ControlValueAccessor) emitting a value
+    component.form.controls.cron.setValue('0 30 7 ? * MON,WED');
+
+    expect(component.form.value.cron).toBe('0 30 7 ? * MON,WED');
   });
 
   it('toggling an inactive job calls activate', () => {
