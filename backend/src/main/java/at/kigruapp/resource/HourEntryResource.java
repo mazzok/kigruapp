@@ -80,6 +80,17 @@ public class HourEntryResource {
     }
 
     @GET
+    @Path("/role-options")
+    public List<RoleOptionDto> roleOptions(@QueryParam("semesterId") String semesterIdParam) {
+        Person me = requireCurrentPerson();
+        ObjectId semesterId = resolveSemesterId(semesterIdParam);
+        if (semesterId == null) {
+            return List.of(cookingOption());
+        }
+        return resolveRoleOptions(me.id, semesterId);
+    }
+
+    @GET
     @Path("/me")
     public List<HourEntryDto> listMine() {
         Person me = requireCurrentPerson();
@@ -140,9 +151,36 @@ public class HourEntryResource {
         return dto;
     }
 
-    // resolveRoleOptions(...) wird in Task 2 ergänzt.
+    /** Zugewiesene Rollen (section="role") des Semesters + fixe "Kochen"-Option. */
     List<RoleOptionDto> resolveRoleOptions(ObjectId personId, ObjectId semesterId) {
-        return new ArrayList<>(List.of(cookingOption()));
+        List<RoleOptionDto> options = new ArrayList<>();
+        Document filter = new Document("personId", personId)
+                .append("semesterId", semesterId)
+                .append("section", "role");
+        for (Document assignment : semesterAssignments().find(filter)) {
+            ObjectId instId = assignment.getObjectId("fieldInstanceId");
+            ObjectId defId = assignment.getObjectId("definitionId");
+            RoleOptionDto opt = new RoleOptionDto();
+            opt.fieldInstanceId = instId == null ? null : instId.toHexString();
+            opt.definitionId = defId == null ? null : defId.toHexString();
+            opt.label = resolveInstanceLabel(instId);
+            options.add(opt);
+        }
+        options.add(cookingOption());
+        return options;
+    }
+
+    /** Liest field_instances.value.label; Fallback auf value.toString() bzw. leeren String. */
+    private String resolveInstanceLabel(ObjectId instanceId) {
+        if (instanceId == null) return "";
+        Document inst = fieldInstances().find(Filters.eq("_id", instanceId)).first();
+        if (inst == null) return "";
+        Object value = inst.get("value");
+        if (value instanceof Document valueDoc) {
+            String label = valueDoc.getString("label");
+            return label != null ? label : "";
+        }
+        return value == null ? "" : value.toString();
     }
 
     static HourEntryDto toDto(HourEntry e) {

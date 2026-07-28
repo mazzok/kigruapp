@@ -7,6 +7,7 @@ import com.mongodb.client.MongoClient;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import jakarta.inject.Inject;
+import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.junit.jupiter.api.BeforeEach;
@@ -108,5 +109,42 @@ class HourEntryResourceTest {
             .body("{\"roleFieldInstanceId\":null,\"date\":\"05.10.2026\",\"minutes\":30,\"comment\":\"\"}")
             .when().post("/api/v1/hour-entries")
             .then().statusCode(400);
+    }
+
+    /** Legt eine Rollen-Zuweisung (section="role") inkl. field_instance mit Label an. */
+    private String assignRole(ObjectId personId, String semesterId, String label) {
+        ObjectId defId = new ObjectId();
+        ObjectId instId = new ObjectId();
+        fieldInstancesForTest().insertOne(new Document("_id", instId)
+                .append("definitionId", defId)
+                .append("value", new Document("label", label)));
+        semesterAssignmentsForTest().insertOne(new Document("_id", new ObjectId())
+                .append("personId", personId)
+                .append("semesterId", new ObjectId(semesterId))
+                .append("section", "role")
+                .append("definitionId", defId)
+                .append("fieldInstanceId", instId));
+        return instId.toHexString();
+    }
+
+    private com.mongodb.client.MongoCollection<Document> semesterAssignmentsForTest() {
+        return mongoClient.getDatabase(databaseName).getCollection("semester_assignments");
+    }
+
+    private com.mongodb.client.MongoCollection<Document> fieldInstancesForTest() {
+        return mongoClient.getDatabase(databaseName).getCollection("field_instances");
+    }
+
+    @Test
+    void roleOptionsReturnsAssignedRolesPlusKochen() {
+        Person me = persistCurrentPerson();
+        String semesterId = persistSemester();
+        assignRole(me.id, semesterId, "Gartenteam");
+
+        given()
+            .when().get("/api/v1/hour-entries/role-options")
+            .then().statusCode(200)
+            .body("label", hasItem("Gartenteam"))
+            .body("label", hasItem("Kochen"));
     }
 }
