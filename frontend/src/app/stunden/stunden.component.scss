@@ -1,3 +1,34 @@
+.positive { color: green; }
+.negative { color: red; }
+
+.family-total {
+  padding: 8px 16px;
+  font-weight: 600;
+}
+
+.month-block {
+  padding: 0 16px 8px;
+}
+
+.month-head {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 600;
+  padding: 4px 0;
+}
+
+.entry-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 0;
+}
+
+.entry-row-actions {
+  display: flex;
+  gap: 4px;
+}
+
 .stunden-grid {
   display: grid;
   grid-template-columns: 264px minmax(0, 1fr);

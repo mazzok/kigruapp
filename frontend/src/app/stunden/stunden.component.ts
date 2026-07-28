@@ -11,7 +11,8 @@ import { provideNativeDateAdapter } from '@angular/material/core';
 import { MAT_DATE_LOCALE } from '@angular/material/core';
 import { HourEntryService } from '../shared/services/hour-entry.service';
 import { NotificationService } from '../shared/services/notification.service';
-import { HourEntry, RoleOption } from '../shared/models/hour-entry.model';
+import { HourEntry, OurHours, OurHoursEntry, OurHoursMonthRow, RoleOption } from '../shared/models/hour-entry.model';
+import { CurrentUserService } from '../core/services/current-user.service';
 import {
   parseHhmm, formatMinutes, toIsoDate, parseIsoDate, formatIsoDateDe,
 } from '../shared/util/time-format.util';
@@ -40,6 +41,7 @@ export class StundenComponent implements OnInit {
   extraOption: { key: string; label: string } | null = null;
   selectedId: string | null = null;
   editing = false;
+  our: OurHours | null = null;
 
   form = new FormGroup({
     roleKey: new FormControl<string | null>(null, Validators.required),
@@ -51,10 +53,12 @@ export class StundenComponent implements OnInit {
   constructor(
     private hourService: HourEntryService,
     private notify: NotificationService,
+    public currentUser: CurrentUserService,
   ) {}
 
   ngOnInit(): void {
     this.load();
+    this.loadOur();
     this.hourService.roleOptions().subscribe({
       next: (opts) => (this.options = opts),
       error: (err) => this.notify.error(this.notify.extractError(err)),
@@ -66,6 +70,30 @@ export class StundenComponent implements OnInit {
       next: (entries) => (this.entries = entries),
       error: (err) => this.notify.error(this.notify.extractError(err)),
     });
+  }
+
+  loadOur(): void {
+    this.hourService.our('').subscribe({    // '' -> Backend nimmt jüngstes Semester
+      next: (o) => (this.our = o),
+      error: (err) => this.notify.error(this.notify.extractError(err)),
+    });
+  }
+
+  entriesForMonth(month: string): OurHoursEntry[] {
+    return (this.our?.entries ?? []).filter((e) => (e.date ?? '').startsWith(month));
+  }
+
+  monthIsNegative(row: OurHoursMonthRow): boolean {
+    return row.istMinutes < row.sollMinutes;
+  }
+
+  isOwn(entry: OurHoursEntry): boolean {
+    return this.currentUser.currentPerson?.id === entry.personId;
+  }
+
+  /** Findet den eigenen HourEntry (Formular-Modell) zu einem OurHoursEntry, für Bearbeiten/Löschen. */
+  ownEntryFor(entry: OurHoursEntry): HourEntry | undefined {
+    return this.entries.find((e) => e.id === entry.id);
   }
 
   private timeValidator(control: FormControl): { [k: string]: boolean } | null {
@@ -81,6 +109,7 @@ export class StundenComponent implements OnInit {
   }
 
   formatMinutes = formatMinutes;
+  formatIsoDateDe = formatIsoDateDe;
 
   newEntry(): void {
     this.selectedId = null;
@@ -137,6 +166,7 @@ export class StundenComponent implements OnInit {
         this.notify.success(isUpdate ? 'Eintrag aktualisiert' : 'Eintrag gespeichert');
         this.closeEditor();
         this.load();
+        this.loadOur();
       },
       error: (err) => this.notify.error(this.notify.extractError(err)),
     });
@@ -150,6 +180,7 @@ export class StundenComponent implements OnInit {
           this.closeEditor();
         }
         this.load();
+        this.loadOur();
       },
       error: (err) => this.notify.error(this.notify.extractError(err)),
     });

@@ -1,3 +1,37 @@
+<h2>Unsere Stunden</h2>
+
+@if (our) {
+  <div class="family-total" [class.negative]="our.istMinutes < our.sollMinutes" [class.positive]="our.istMinutes >= our.sollMinutes">
+    Familie gesamt: {{ formatMinutes(our.istMinutes) }} / {{ formatMinutes(our.sollMinutes) }} (Semester)
+  </div>
+
+  @for (row of our.months; track row.month) {
+    <div class="month-block">
+      <div class="month-head" [class.negative]="monthIsNegative(row)" [class.positive]="!monthIsNegative(row)">
+        <span>{{ row.month }}</span>
+        <span>{{ formatMinutes(row.istMinutes) }} / {{ formatMinutes(row.sollMinutes) }}</span>
+      </div>
+      @for (entry of entriesForMonth(row.month); track entry.id) {
+        <div class="entry-row">
+          <span>{{ formatIsoDateDe(entry.date) }} · {{ entry.roleLabel }} · {{ formatMinutes(entry.minutes) }} · {{ entry.personName }}</span>
+          @if (isOwn(entry)) {
+            <span class="entry-row-actions">
+              <button mat-icon-button type="button" aria-label="Bearbeiten"
+                      (click)="ownEntryFor(entry) && selectForEdit(ownEntryFor(entry)!)">
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button mat-icon-button type="button" aria-label="Löschen"
+                      (click)="ownEntryFor(entry) && delete(ownEntryFor(entry)!)">
+                <mat-icon>delete_outline</mat-icon>
+              </button>
+            </span>
+          }
+        </div>
+      }
+    </div>
+  }
+}
+
 <div class="stunden-grid">
   <aside class="entry-list">
     <button mat-stroked-button type="button" (click)="newEntry()">
