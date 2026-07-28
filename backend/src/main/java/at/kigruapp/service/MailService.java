@@ -1,6 +1,6 @@
 package at.kigruapp.service;
 
-import at.kigruapp.entity.MailSettings;
+import at.kigruapp.entity.MailAccount;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.mail.AuthenticationFailedException;
@@ -16,8 +16,8 @@ import jakarta.mail.internet.MimeMessage;
 import java.util.Properties;
 
 /**
- * Sends mail via jakarta.mail using the stored {@link MailSettings}. A fresh
- * {@code Session} is built per send from the runtime DB settings.
+ * Sends mail via jakarta.mail using the account's SMTP config. A fresh
+ * {@code Session} is built per send from the given {@link MailAccount}.
  */
 @ApplicationScoped
 public class MailService {
@@ -25,30 +25,10 @@ public class MailService {
     @Inject
     EncryptionService encryptionService;
 
-    /** Send a plaintext mail using the stored settings. */
-    public void send(String recipient, String subject, String body) {
+    /** Send an HTML mail using the given account's SMTP config. */
+    public void sendHtml(MailAccount account, String recipient, String subject, String htmlBody) {
         try {
-            MimeMessage msg = prepareMessage(recipient, subject);
-            msg.setText(body, "UTF-8");
-            Transport.send(msg);
-        } catch (AuthenticationFailedException e) {
-            throw new MailException(MailException.Category.AUTH_FAILED,
-                    "Authentifizierung am Mailserver fehlgeschlagen", e);
-        } catch (MessagingException e) {
-            throw new MailException(MailException.Category.CONNECTION_FAILED,
-                    "Verbindung zum Mailserver fehlgeschlagen", e);
-        } catch (MailException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new MailException(MailException.Category.UNKNOWN,
-                    "Unbekannter Fehler beim Mailversand", e);
-        }
-    }
-
-    /** Send an HTML mail using the stored settings. */
-    public void sendHtml(String recipient, String subject, String htmlBody) {
-        try {
-            MimeMessage msg = prepareMessage(recipient, subject);
+            MimeMessage msg = prepareMessage(account, recipient, subject);
             msg.setContent(htmlBody, "text/html; charset=UTF-8");
             Transport.send(msg);
         } catch (AuthenticationFailedException e) {
@@ -65,33 +45,28 @@ public class MailService {
         }
     }
 
-    /**
-     * Runs the guard checks, builds the session, and returns a MimeMessage with
-     * from/to/subject already set. Shared by {@link #send} and {@link #sendHtml}.
-     */
-    private MimeMessage prepareMessage(String recipient, String subject)
+    private MimeMessage prepareMessage(MailAccount account, String recipient, String subject)
             throws MessagingException, java.io.UnsupportedEncodingException {
         if (!encryptionService.isConfigured()) {
             throw new MailException(MailException.Category.CONFIG_MISSING,
                     "Verschlüsselung ist nicht konfiguriert");
         }
-        MailSettings s = MailSettings.findSingleton();
-        if (s == null || !s.enabled) {
+        if (account == null || !account.enabled) {
             throw new MailException(MailException.Category.CONFIG_MISSING,
                     "Mailversand ist deaktiviert");
         }
-        if (isIncomplete(s)) {
+        if (isIncomplete(account)) {
             throw new MailException(MailException.Category.CONFIG_MISSING,
                     "Mail-Einstellungen sind unvollständig");
         }
-        Properties props = buildProperties(s);
-        String password = (s.encryptedPassword != null && !s.encryptedPassword.isBlank())
-                ? encryptionService.decrypt(s.encryptedPassword)
+        Properties props = buildProperties(account);
+        String password = (account.encryptedPassword != null && !account.encryptedPassword.isBlank())
+                ? encryptionService.decrypt(account.encryptedPassword)
                 : null;
 
         Session session;
-        if (s.username != null && !s.username.isBlank() && password != null) {
-            final String user = s.username;
+        if (account.username != null && !account.username.isBlank() && password != null) {
+            final String user = account.username;
             final String pw = password;
             session = Session.getInstance(props, new Authenticator() {
                 @Override
@@ -104,46 +79,46 @@ public class MailService {
         }
 
         MimeMessage msg = new MimeMessage(session);
-        if (s.fromName != null && !s.fromName.isBlank()) {
-            msg.setFrom(new InternetAddress(s.fromAddress, s.fromName));
+        if (account.fromName != null && !account.fromName.isBlank()) {
+            msg.setFrom(new InternetAddress(account.fromAddress, account.fromName));
         } else {
-            msg.setFrom(new InternetAddress(s.fromAddress));
+            msg.setFrom(new InternetAddress(account.fromAddress));
         }
         msg.setRecipients(Message.RecipientType.TO, InternetAddress.parse(recipient));
         msg.setSubject(subject);
         return msg;
     }
 
-    private boolean isIncomplete(MailSettings s) {
-        if (s.host == null || s.host.isBlank()) {
+    private boolean isIncomplete(MailAccount a) {
+        if (a.host == null || a.host.isBlank()) {
             return true;
         }
-        if (s.port < 1 || s.port > 65535) {
+        if (a.port < 1 || a.port > 65535) {
             return true;
         }
-        if (s.encryption == null) {
+        if (a.encryption == null) {
             return true;
         }
-        if (s.fromAddress == null || s.fromAddress.isBlank()) {
+        if (a.fromAddress == null || a.fromAddress.isBlank()) {
             return true;
         }
         // username set but no stored password → incomplete auth config
-        return s.username != null && !s.username.isBlank()
-                && (s.encryptedPassword == null || s.encryptedPassword.isBlank());
+        return a.username != null && !a.username.isBlank()
+                && (a.encryptedPassword == null || a.encryptedPassword.isBlank());
     }
 
-    /** Build jakarta.mail SMTP properties from settings (timeouts + transport hardening). */
-    Properties buildProperties(MailSettings s) {
+    /** Build jakarta.mail SMTP properties from the account (timeouts + transport hardening). */
+    Properties buildProperties(MailAccount a) {
         Properties p = new Properties();
-        p.put("mail.smtp.host", s.host);
-        p.put("mail.smtp.port", String.valueOf(s.port));
+        p.put("mail.smtp.host", a.host);
+        p.put("mail.smtp.port", String.valueOf(a.port));
         p.put("mail.smtp.connectiontimeout", "10000");
         p.put("mail.smtp.timeout", "10000");
         p.put("mail.smtp.ssl.checkserveridentity", "true");
-        if (s.username != null && !s.username.isBlank()) {
+        if (a.username != null && !a.username.isBlank()) {
             p.put("mail.smtp.auth", "true");
         }
-        switch (s.encryption) {
+        switch (a.encryption) {
             case STARTTLS -> {
                 p.put("mail.smtp.starttls.enable", "true");
                 p.put("mail.smtp.starttls.required", "true");

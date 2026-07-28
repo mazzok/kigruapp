@@ -2,66 +2,9 @@
   <h1>Mail-Einstellungen</h1>
 
   <mat-tab-group>
-    <mat-tab label="SMTP">
+    <mat-tab label="Mail-Accounts">
       <div class="tab-content">
-  <form [formGroup]="form" class="settings-form" (ngSubmit)="save()">
-    <mat-slide-toggle formControlName="enabled">Mailversand aktiviert</mat-slide-toggle>
-
-    <mat-form-field appearance="outline">
-      <mat-label>SMTP-Host</mat-label>
-      <input matInput formControlName="host" />
-    </mat-form-field>
-
-    <mat-form-field appearance="outline">
-      <mat-label>Port</mat-label>
-      <input matInput type="number" formControlName="port" />
-    </mat-form-field>
-
-    <mat-form-field appearance="outline">
-      <mat-label>Verschlüsselung</mat-label>
-      <mat-select formControlName="encryption">
-        <mat-option *ngFor="let opt of encryptionOptions" [value]="opt">{{ opt }}</mat-option>
-      </mat-select>
-    </mat-form-field>
-
-    <mat-form-field appearance="outline">
-      <mat-label>Benutzername</mat-label>
-      <input matInput formControlName="username" autocomplete="off" />
-    </mat-form-field>
-
-    <mat-form-field appearance="outline">
-      <mat-label>Passwort</mat-label>
-      <input matInput type="password" formControlName="password" autocomplete="new-password"
-             [placeholder]="passwordSet ? '•••••••• (gesetzt)' : ''" />
-      <mat-hint *ngIf="passwordSet">Ein Passwort ist gespeichert. Leer lassen, um es unverändert zu übernehmen.</mat-hint>
-    </mat-form-field>
-
-    <mat-form-field appearance="outline">
-      <mat-label>Absender-Adresse</mat-label>
-      <input matInput formControlName="fromAddress" />
-    </mat-form-field>
-
-    <mat-form-field appearance="outline">
-      <mat-label>Absender-Name</mat-label>
-      <input matInput formControlName="fromName" />
-    </mat-form-field>
-
-    <button mat-raised-button color="primary" type="submit" [disabled]="form.invalid">Speichern</button>
-  </form>
-
-  <section class="test-mail">
-    <h2>Testmail senden</h2>
-    <mat-form-field appearance="outline">
-      <mat-label>Empfänger</mat-label>
-      <input matInput [formControl]="testRecipient" />
-    </mat-form-field>
-    <button mat-stroked-button type="button" (click)="sendTest()">Testmail senden</button>
-
-    <p *ngIf="testResult" class="test-result"
-       [class.success]="testResult.success" [class.failure]="!testResult.success">
-      {{ testResult.message }} ({{ testResult.category }})
-    </p>
-  </section>
+        <app-mail-account-editor></app-mail-account-editor>
       </div>
     </mat-tab>
 

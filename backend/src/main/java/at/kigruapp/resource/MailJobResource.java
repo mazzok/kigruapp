@@ -2,7 +2,6 @@ package at.kigruapp.resource;
 
 import at.kigruapp.entity.FieldDefinition;
 import at.kigruapp.entity.MailJob;
-import at.kigruapp.entity.MailSettings;
 import at.kigruapp.entity.RecipientMode;
 import at.kigruapp.scheduler.MailJobScheduler;
 import com.cronutils.model.CronType;
@@ -206,10 +205,19 @@ public class MailJobResource {
     }
 
     private void validateSenderAccountId(String senderAccountId) {
-        MailSettings settings = MailSettings.findSingleton();
-        String validId = settings != null ? MailSettings.SINGLETON_ID.toHexString() : null;
-        if (validId == null || !validId.equals(senderAccountId)) {
+        at.kigruapp.entity.MailAccount account = null;
+        if (senderAccountId != null) {
+            try {
+                account = at.kigruapp.entity.MailAccount.findById(new ObjectId(senderAccountId));
+            } catch (IllegalArgumentException ignored) {
+                // malformed id -> treated as unknown below
+            }
+        }
+        if (account == null) {
             throw new BadRequestException("senderAccountId does not reference a known mail account");
+        }
+        if (!account.enabled) {
+            throw new BadRequestException("senderAccountId references a disabled mail account");
         }
     }
 }

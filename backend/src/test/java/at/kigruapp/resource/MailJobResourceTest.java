@@ -1,9 +1,9 @@
 package at.kigruapp.resource;
 
 import at.kigruapp.entity.FieldDefinition;
+import at.kigruapp.entity.MailAccount;
 import at.kigruapp.entity.MailEncryption;
 import at.kigruapp.entity.MailJob;
-import at.kigruapp.entity.MailSettings;
 import at.kigruapp.entity.RecipientMode;
 import com.mongodb.client.MongoClient;
 import io.quarkus.scheduler.Scheduler;
@@ -44,26 +44,30 @@ class MailJobResourceTest {
         return id;
     }
 
+    private String enabledAccountId;
+
     @BeforeEach
     void cleanup() {
         MailJob.deleteAll();
-        MailSettings.deleteAll();
         FieldDefinition.deleteAll();
         mongoClient.getDatabase(databaseName).getCollection("field_instances").deleteMany(new Document());
-        MailSettings s = new MailSettings();
-        s.host = "smtp.example.test";
-        s.port = 587;
-        s.encryption = MailEncryption.STARTTLS;
-        s.fromAddress = "kita@example.test";
-        s.fromName = "Kita";
-        s.enabled = true;
-        s.persistSingleton();
+
+        MailAccount.deleteAll();
+        MailAccount acc = new MailAccount();
+        acc.name = "Haupt";
+        acc.host = "smtp.example.test";
+        acc.port = 587;
+        acc.encryption = MailEncryption.STARTTLS;
+        acc.fromAddress = "kita@example.test";
+        acc.enabled = true;
+        acc.persist();
+        enabledAccountId = acc.id.toHexString();
     }
 
     private String validPayload(ObjectId templateId) {
         return "{\"name\":\"Willkommen-Job\",\"templateId\":\"" + templateId
                 + "\",\"subject\":\"Willkommen\",\"cron\":\"0 0 8 * * ?\",\"recipientMode\":\"ALL_PARENTS\","
-                + "\"senderAccountId\":\"" + MailSettings.SINGLETON_ID.toHexString() + "\"}";
+                + "\"senderAccountId\":\"" + enabledAccountId + "\"}";
     }
 
     private MailJob persistJob(String name) {
@@ -73,7 +77,7 @@ class MailJobResourceTest {
         job.subject = "Subject";
         job.cron = "0 0 8 * * ?";
         job.recipientMode = RecipientMode.ALL_PARENTS;
-        job.senderAccountId = MailSettings.SINGLETON_ID.toHexString();
+        job.senderAccountId = enabledAccountId;
         job.createdAt = java.time.Instant.now();
         job.updatedAt = job.createdAt;
         job.persist();
@@ -168,12 +172,28 @@ class MailJobResourceTest {
     }
 
     @Test
-    void rejectsUnknownSenderAccountId() {
-        given()
-                .contentType(ContentType.JSON)
-                .body(validPayload(new ObjectId()).replace(MailSettings.SINGLETON_ID.toHexString(), "000000000000000000000099"))
-                .when().post("/api/v1/mail-jobs")
-                .then().statusCode(400);
+    void rejectsUnknownSenderAccount() {
+        String payload = validPayload(new ObjectId())
+                .replace(enabledAccountId, new ObjectId().toHexString());
+        given().contentType(ContentType.JSON).body(payload)
+                .when().post("/api/v1/mail-jobs").then().statusCode(400);
+    }
+
+    @Test
+    void rejectsDisabledSenderAccount() {
+        MailAccount disabled = new MailAccount();
+        disabled.name = "Aus";
+        disabled.host = "smtp.example.test";
+        disabled.port = 587;
+        disabled.encryption = MailEncryption.STARTTLS;
+        disabled.fromAddress = "aus@example.test";
+        disabled.enabled = false;
+        disabled.persist();
+
+        String payload = validPayload(new ObjectId())
+                .replace(enabledAccountId, disabled.id.toHexString());
+        given().contentType(ContentType.JSON).body(payload)
+                .when().post("/api/v1/mail-jobs").then().statusCode(400);
     }
 
     @Test

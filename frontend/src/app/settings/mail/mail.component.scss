@@ -5,29 +5,3 @@
 .tab-content {
   padding-top: 1.5rem;
 }
-
-.settings-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  max-width: 520px;
-}
-
-.test-mail {
-  margin-top: 2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  align-items: flex-start;
-  max-width: 520px;
-}
-
-.test-result {
-  &.success {
-    color: green;
-  }
-
-  &.failure {
-    color: #c62828;
-  }
-}

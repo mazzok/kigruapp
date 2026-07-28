@@ -1,5 +1,6 @@
 package at.kigruapp.scheduler;
 
+import at.kigruapp.entity.MailAccount;
 import at.kigruapp.entity.MailJob;
 import at.kigruapp.entity.MailTemplate;
 import at.kigruapp.entity.Semester;
@@ -103,6 +104,21 @@ public class MailJobScheduler {
             return;
         }
         try {
+            MailAccount account = null;
+            try {
+                account = MailAccount.findById(new ObjectId(job.senderAccountId));
+            } catch (IllegalArgumentException ignored) {
+                // malformed id -> treated as missing below
+            }
+            if (account == null || !account.enabled) {
+                Log.warnf("MailJob '%s' (%s): sender account missing or disabled", job.name, job.id.toHexString());
+                job.lastRunAt = Instant.now();
+                job.lastRunStatus = "FAILED";
+                job.lastRunError = "sender account missing or disabled";
+                job.update();
+                return;
+            }
+
             ObjectId semesterId = resolveCurrentSemesterId();
             List<RecipientResolverService.ResolvedRecipient> recipients =
                     recipientResolverService.resolve(job, semesterId);
@@ -123,7 +139,7 @@ public class MailJobScheduler {
             for (RecipientResolverService.ResolvedRecipient recipient : recipients) {
                 try {
                     String renderedHtml = renderer.render(template.bodyHtml, recipient.properties());
-                    mailService.sendHtml(recipient.email(), job.subject, renderedHtml);
+                    mailService.sendHtml(account, recipient.email(), job.subject, renderedHtml);
                     successCount++;
                     Log.infof("MailJob '%s': sent to %s", job.name, recipient.email());
                 } catch (Exception e) {

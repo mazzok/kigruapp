@@ -63,7 +63,11 @@ class FakeMailTemplateService {
 }
 
 class FakeMailAccountService {
-  accounts: MailAccount[] = [{ id: 'acc1', fromAddress: 'kita@example.test', fromName: 'Kita', enabled: true }];
+  accounts: MailAccount[] = [{
+    id: 'acc1', name: 'Haupt', host: 'smtp.example.test', port: 587,
+    encryption: 'STARTTLS', username: '', fromAddress: 'kita@example.test',
+    fromName: 'Kita', enabled: true, passwordSet: false,
+  }];
   list() {
     return of(this.accounts);
   }

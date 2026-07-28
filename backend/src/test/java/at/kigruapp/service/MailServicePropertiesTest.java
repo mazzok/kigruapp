@@ -1,7 +1,7 @@
 package at.kigruapp.service;
 
+import at.kigruapp.entity.MailAccount;
 import at.kigruapp.entity.MailEncryption;
-import at.kigruapp.entity.MailSettings;
 import org.junit.jupiter.api.Test;
 
 import java.util.Properties;
@@ -13,8 +13,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 /** Plain unit test of the SMTP properties builder (no CDI, no network). */
 class MailServicePropertiesTest {
 
-    private MailSettings settings(MailEncryption enc, String username) {
-        MailSettings s = new MailSettings();
+    private MailAccount settings(MailEncryption enc, String username) {
+        MailAccount s = new MailAccount();
         s.host = "smtp.example.test";
         s.port = 587;
         s.encryption = enc;

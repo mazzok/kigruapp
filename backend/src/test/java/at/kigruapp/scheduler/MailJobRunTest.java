@@ -50,19 +50,10 @@ class MailJobRunTest {
         FieldDefinition.deleteAll();
         MailJob.deleteAll();
         MailTemplate.deleteAll();
-        MailSettings.deleteAll();
+        MailAccount.deleteAll();
         Semester.deleteAll();
         fieldInstances().deleteMany(new Document());
         semesterAssignments().deleteMany(new Document());
-
-        MailSettings s = new MailSettings();
-        s.host = "localhost";
-        s.port = ServerSetupTest.SMTP.getPort();
-        s.encryption = MailEncryption.NONE;
-        s.fromAddress = "kita@example.test";
-        s.fromName = "Kita";
-        s.enabled = true;
-        s.persistSingleton();
 
         Semester semester = new Semester();
         semester.createdAt = java.time.Instant.now();
@@ -115,6 +106,19 @@ class MailJobRunTest {
         return t;
     }
 
+    private MailAccount persistEnabledAccount() {
+        MailAccount a = new MailAccount();
+        a.name = "Test";
+        a.host = "localhost";
+        a.port = ServerSetupTest.SMTP.getPort();
+        a.encryption = MailEncryption.NONE;
+        a.fromAddress = "kita@example.test";
+        a.fromName = "Kita";
+        a.enabled = true;
+        a.persist();
+        return a;
+    }
+
     @Test
     void runJobSendsToAllRecipientsAndRecordsSuccess() {
         MailTemplate template = persistTemplate();
@@ -141,6 +145,8 @@ class MailJobRunTest {
         job.subject = "Willkommen";
         job.recipientMode = RecipientMode.GROUPS;
         job.recipientGroupDefinitionIds = List.of(groupInstanceId);
+        MailAccount account = persistEnabledAccount();
+        job.senderAccountId = account.id.toHexString();
         job.persist();
 
         mailJobScheduler.runJob(job, template);
@@ -178,6 +184,8 @@ class MailJobRunTest {
         job.subject = "Willkommen";
         job.recipientMode = RecipientMode.GROUPS;
         job.recipientGroupDefinitionIds = List.of(groupDef.id); // no children assigned to this group
+        MailAccount account = persistEnabledAccount();
+        job.senderAccountId = account.id.toHexString();
         job.persist();
 
         mailJobScheduler.runJob(job, template);
@@ -229,6 +237,8 @@ class MailJobRunTest {
         job.templateId = template.id;
         job.subject = "Willkommen";
         job.recipientMode = RecipientMode.ALL_PARENTS;
+        MailAccount account = persistEnabledAccount();
+        job.senderAccountId = account.id.toHexString();
         job.persist();
 
         mailJobScheduler.runJob(job, template);
@@ -236,5 +246,21 @@ class MailJobRunTest {
         assertEquals("PARTIAL", job.lastRunStatus);
         assertNotNull(job.lastRunError);
         assertEquals(1, greenMail.getReceivedMessages().length, "the valid recipient must still receive mail");
+    }
+
+    @Test
+    void runJobFailsWhenSenderAccountMissing() {
+        MailTemplate template = persistTemplate();
+        MailJob job = new MailJob();
+        job.templateId = template.id;
+        job.subject = "Willkommen";
+        job.recipientMode = RecipientMode.ALL_PARENTS;
+        job.senderAccountId = new ObjectId().toHexString(); // no such account
+        job.persist();
+
+        mailJobScheduler.runJob(job, template);
+
+        assertEquals("FAILED", job.lastRunStatus);
+        assertEquals(0, greenMail.getReceivedMessages().length);
     }
 }
