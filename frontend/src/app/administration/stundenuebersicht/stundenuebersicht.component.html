@@ -1,0 +1,60 @@
+<div class="uebersicht">
+  <div class="toolbar">
+    <mat-form-field appearance="outline">
+      <mat-label>Semester</mat-label>
+      <mat-select [(value)]="selectedSemesterId" (selectionChange)="onSemesterChange()">
+        <mat-option *ngFor="let s of semesters" [value]="s.id">
+          {{ formatIsoDateDe((s.start || '').substring(0,10)) }} – {{ formatIsoDateDe((s.end || '').substring(0,10)) }}
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  <p class="empty-hint" *ngIf="summaries.length === 0">Keine Einträge in diesem Semester.</p>
+
+  <mat-accordion>
+    <mat-expansion-panel *ngFor="let s of summaries">
+      <mat-expansion-panel-header>
+        <mat-panel-title>{{ s.name }}</mat-panel-title>
+        <mat-panel-description>Summe: {{ formatMinutes(s.totalMinutes) }}</mat-panel-description>
+      </mat-expansion-panel-header>
+
+      <div class="entry-row" *ngFor="let e of s.entries">
+        <ng-container *ngIf="editingEntryId !== e.id; else editRow">
+          <span class="entry-date">{{ formatIsoDateDe(e.date) }}</span>
+          <span class="entry-role">{{ e.roleLabel }}</span>
+          <span class="entry-dur">{{ formatMinutes(e.minutes) }}</span>
+          <span class="entry-comment">{{ e.comment }}</span>
+          <button mat-icon-button type="button" (click)="startEdit(e)" aria-label="Bearbeiten">
+            <mat-icon>edit</mat-icon>
+          </button>
+          <button mat-icon-button type="button" (click)="delete(e)" aria-label="Löschen">
+            <mat-icon>delete_outline</mat-icon>
+          </button>
+        </ng-container>
+
+        <ng-template #editRow>
+          <form class="edit-form" [formGroup]="editForm" (ngSubmit)="saveEdit(e)">
+            <mat-form-field appearance="outline">
+              <mat-label>Datum</mat-label>
+              <input matInput [matDatepicker]="picker" formControlName="date" />
+              <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+              <mat-datepicker #picker></mat-datepicker>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Dauer (HH:MM)</mat-label>
+              <input matInput formControlName="time" placeholder="01:30" />
+              <mat-error *ngIf="editForm.controls.time.hasError('time')">Format HH:MM</mat-error>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Kommentar</mat-label>
+              <input matInput formControlName="comment" />
+            </mat-form-field>
+            <button mat-flat-button color="primary" type="submit">Speichern</button>
+            <button mat-button type="button" (click)="cancelEdit()">Abbrechen</button>
+          </form>
+        </ng-template>
+      </div>
+    </mat-expansion-panel>
+  </mat-accordion>
+</div>

@@ -1,0 +1,31 @@
+.uebersicht {
+  padding: 16px;
+}
+
+.toolbar {
+  margin-bottom: 12px;
+}
+
+.empty-hint {
+  color: rgba(0, 0, 0, 0.54);
+}
+
+.entry-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+
+  .entry-date { width: 96px; }
+  .entry-role { width: 160px; font-weight: 500; }
+  .entry-dur { width: 64px; }
+  .entry-comment { flex: 1; color: rgba(0, 0, 0, 0.6); }
+}
+
+.edit-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}

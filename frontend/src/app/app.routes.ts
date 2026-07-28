@@ -66,6 +66,13 @@ export const routes: Routes = [
             m => m.BoardComponent
           ),
       },
+      {
+        path: 'stundenuebersicht',
+        loadComponent: () =>
+          import('./administration/stundenuebersicht/stundenuebersicht.component').then(
+            m => m.StundenuebersichtComponent
+          ),
+      },
     ],
   },
   {
