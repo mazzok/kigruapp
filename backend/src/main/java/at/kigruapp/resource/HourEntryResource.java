@@ -272,6 +272,7 @@ public class HourEntryResource {
         dto.istMinutes = ist;
 
         // Alle Kalendermonate des Semesters als Zeile ausgeben.
+        java.util.Set<String> coveredMonths = new java.util.HashSet<>();
         if (semester != null && semester.start != null && semester.end != null) {
             YearMonth cur = YearMonth.from(semester.start.atZone(ZoneOffset.UTC));
             YearMonth end = YearMonth.from(semester.end.atZone(ZoneOffset.UTC));
@@ -281,9 +282,23 @@ public class HourEntryResource {
                 row.sollMinutes = familyMonthly;
                 row.istMinutes = istByMonth.getOrDefault(row.month, 0);
                 dto.months.add(row);
+                coveredMonths.add(row.month);
                 cur = cur.plusMonths(1);
             }
         }
+        // Monate außerhalb des Semester-Zeitraums (z.B. Einträge mit Datum nach semester.end,
+        // da Einträge dem neuesten Semester zugeordnet werden, unabhängig vom Datum) ebenfalls
+        // als Zeile ausgeben, damit istMinutes == Summe aller months[].istMinutes gilt.
+        for (Map.Entry<String, Integer> e : istByMonth.entrySet()) {
+            String month = e.getKey();
+            if (month.isEmpty() || coveredMonths.contains(month)) continue;
+            OurHoursDto.MonthRow row = new OurHoursDto.MonthRow();
+            row.month = month;
+            row.sollMinutes = 0;
+            row.istMinutes = e.getValue();
+            dto.months.add(row);
+        }
+        dto.months.sort(java.util.Comparator.comparing(m -> m.month));
         return dto;
     }
 

@@ -125,4 +125,42 @@ class HourEntryOurTest {
             .body("istMinutes", is(60))
             .body("entries.size()", is(1));
     }
+
+    @Test
+    void ourIncludesOutOfWindowMonthsInTotal() {
+        ObjectId famId = persistFamily();
+        Person me = persistPerson(famId);
+        String semesterId = persistSemester(); // 2026-09-01 .. 2027-02-28
+        persistConfig(semesterId, 480);
+
+        persistEntry(me.id, semesterId, "2026-10-05", 120);   // innerhalb Semesterfenster
+        persistEntry(me.id, semesterId, "2027-05-10", 75);    // außerhalb Semesterfenster, aber neuestes Semester
+
+        given().when().get("/api/v1/hour-entries/our?semesterId=" + semesterId)
+            .then().statusCode(200)
+            .body("months.find { it.month == '2027-05' }.istMinutes", is(75))
+            .body("istMinutes", is(195));
+
+        // Invariante: istMinutes == Summe aller months[].istMinutes
+        java.util.List<Integer> monthIst = given().when().get("/api/v1/hour-entries/our?semesterId=" + semesterId)
+            .then().statusCode(200)
+            .extract().path("months.istMinutes");
+        int sum = monthIst.stream().mapToInt(Integer::intValue).sum();
+        org.junit.jupiter.api.Assertions.assertEquals(195, sum);
+    }
+
+    @Test
+    void ourDefaultsToNewestSemesterWhenSemesterIdBlank() {
+        ObjectId famId = persistFamily();
+        Person me = persistPerson(famId);
+        String semesterId = persistSemester(); // neuestes (einziges) Semester
+        persistConfig(semesterId, 480);
+
+        persistEntry(me.id, semesterId, "2026-10-05", 45);
+
+        given().when().get("/api/v1/hour-entries/our")
+            .then().statusCode(200)
+            .body("istMinutes", is(45))
+            .body("entries.size()", is(1));
+    }
 }
