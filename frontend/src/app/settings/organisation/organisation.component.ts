@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatTableModule, MatTableDataSource } from '@angular/material/table';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -19,18 +19,21 @@ import { FieldInstanceService } from '../../shared/services/field-instance.servi
 import { SemesterService } from '../../shared/services/semester.service';
 import { CurrencyService } from '../../shared/services/currency.service';
 import { KostenDefinitionService } from '../../shared/services/kosten-definition.service';
+import { RequiredHoursService } from '../../shared/services/required-hours.service';
 import { OrganisationDTO, DutyEntryDTO } from '../../shared/models/organisation.model';
 import { FieldDefinition } from '../../shared/models/field-definition.model';
 import { FieldInstanceDTO } from '../../shared/models/field-instance.model';
 import { Semester, CreateSemesterRequest } from '../../shared/models/semester.model';
 import { Currency } from '../../shared/models/currency.model';
 import { KostenDefinition } from '../../shared/models/kosten-definition.model';
+import { parseHhmm, formatMinutes } from '../../shared/util/time-format.util';
+import { familyMonthlyMinutes } from './required-hours-preview.util';
 
 @Component({
   selector: 'app-organisation',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule,
+    CommonModule, ReactiveFormsModule, FormsModule,
     MatTabsModule, MatTableModule, MatFormFieldModule,
     MatInputModule, MatButtonModule, MatIconModule,
     MatExpansionModule, MatDialogModule, MatDatepickerModule, MatSelectModule, IconPickerDialogComponent,
@@ -100,6 +103,14 @@ export class OrganisationComponent implements OnInit {
     symbol: new FormControl('', Validators.required),
   });
 
+  // --- Zu leistende Stunden tab ---
+  rhSemesters: Semester[] = [];
+  rhSelectedSemesterId: string | null = null;
+  rhDefaultHhmm = '';                                   // "HH:mm"
+  rhTiers: { fromChild: number; hhmm: string }[] = [];
+  rhPreview: { children: number; hhmm: string }[] = [];
+  rhError: string | null = null;
+
   constructor(
     private orgService: OrganisationService,
     private fieldDefService: FieldDefinitionService,
@@ -107,6 +118,7 @@ export class OrganisationComponent implements OnInit {
     private semesterService: SemesterService,
     private currencyService: CurrencyService,
     private kostenDefinitionService: KostenDefinitionService,
+    private requiredHoursService: RequiredHoursService,
     private dialog: MatDialog,
   ) {}
 
@@ -117,6 +129,7 @@ export class OrganisationComponent implements OnInit {
     this.loadSemesters();
     this.loadCurrencies();
     this.loadKostenDefinitions();
+    this.loadRhSemesters();
   }
 
   // --- Groups ---
@@ -466,6 +479,76 @@ export class OrganisationComponent implements OnInit {
   toggleKostenDefinitionActive(definition: KostenDefinition): void {
     this.kostenDefinitionService.setActive(definition.id, !definition.active).subscribe(() => {
       this.loadKostenDefinitions();
+    });
+  }
+
+  // --- Zu leistende Stunden ---
+
+  loadRhSemesters(): void {
+    this.semesterService.getAll().subscribe((semesters) => {
+      this.rhSemesters = semesters;
+      if (semesters.length > 0 && !this.rhSelectedSemesterId) {
+        this.rhSelectedSemesterId = semesters[0].id;
+        this.loadRequiredHours();
+      }
+    });
+  }
+
+  private loadRequiredHours(): void {
+    if (!this.rhSelectedSemesterId) return;
+    this.requiredHoursService.get(this.rhSelectedSemesterId).subscribe((cfg) => {
+      this.rhDefaultHhmm = cfg.defaultMinutesPerMonth ? formatMinutes(cfg.defaultMinutesPerMonth) : '';
+      this.rhTiers = (cfg.tiers ?? []).map((t) => ({ fromChild: t.fromChild, hhmm: formatMinutes(t.minutesPerMonth) }));
+      this.recomputeRhPreview();
+    });
+  }
+
+  onRhSemesterChange(semesterId: string): void {
+    this.rhSelectedSemesterId = semesterId;
+    this.loadRequiredHours();
+  }
+
+  addRhTier(): void {
+    const nextFrom = this.rhTiers.length === 0 ? 2 : Math.max(...this.rhTiers.map((t) => t.fromChild)) + 1;
+    this.rhTiers.push({ fromChild: nextFrom, hhmm: '' });
+    this.recomputeRhPreview();
+  }
+
+  removeRhTier(index: number): void {
+    this.rhTiers.splice(index, 1);
+    this.recomputeRhPreview();
+  }
+
+  recomputeRhPreview(): void {
+    const def = parseHhmm(this.rhDefaultHhmm) ?? 0;
+    const tiers = this.rhTiers
+      .map((t) => ({ fromChild: t.fromChild, minutesPerMonth: parseHhmm(t.hhmm) ?? 0 }))
+      .sort((a, b) => a.fromChild - b.fromChild);
+    this.rhPreview = [1, 2, 3, 4].map((n) => ({
+      children: n,
+      hhmm: formatMinutes(familyMonthlyMinutes({ defaultMinutesPerMonth: def, tiers }, n)),
+    }));
+  }
+
+  saveRequiredHours(): void {
+    this.rhError = null;
+    const def = parseHhmm(this.rhDefaultHhmm);
+    if (def === null || def <= 0) { this.rhError = 'Default-Stunden ungültig'; return; }
+    const tiers = this.rhTiers.map((t) => ({ fromChild: t.fromChild, minutesPerMonth: parseHhmm(t.hhmm) ?? -1 }));
+    const froms = tiers.map((t) => t.fromChild);
+    const ascendingUnique = froms.every((f, i) => f >= 2 && (i === 0 || f > froms[i - 1]));
+    if (!ascendingUnique || tiers.some((t) => t.minutesPerMonth < 0)) {
+      this.rhError = 'Staffeln müssen ab dem 2. Kind, eindeutig, aufsteigend und gültig sein';
+      return;
+    }
+    if (!this.rhSelectedSemesterId) return;
+    this.requiredHoursService.save(this.rhSelectedSemesterId, {
+      semesterId: this.rhSelectedSemesterId,
+      defaultMinutesPerMonth: def,
+      tiers,
+    }).subscribe({
+      next: () => { this.rhError = null; },
+      error: () => { this.rhError = 'Speichern fehlgeschlagen'; },
     });
   }
 }

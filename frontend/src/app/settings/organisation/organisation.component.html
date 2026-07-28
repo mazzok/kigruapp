@@ -297,5 +297,52 @@
         </table>
       </div>
     </mat-tab>
+
+    <!-- Zu leistende Stunden Tab -->
+    <mat-tab label="Zu leistende Stunden">
+      <div class="tab-body">
+        <mat-form-field appearance="outline">
+          <mat-label>Semester</mat-label>
+          <mat-select [value]="rhSelectedSemesterId" (selectionChange)="onRhSemesterChange($event.value)">
+            @for (s of rhSemesters; track s.id) {
+              <mat-option [value]="s.id">{{ s.start | date:'yyyy' }}/{{ s.end | date:'yyyy' }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Stunden pro Monat pro Kind (HH:mm)</mat-label>
+          <input matInput [(ngModel)]="rhDefaultHhmm" (ngModelChange)="recomputeRhPreview()" placeholder="08:00">
+        </mat-form-field>
+
+        <h4>Staffelung (Rabatte)</h4>
+        @for (tier of rhTiers; track $index; let i = $index) {
+          <div class="tier-row">
+            <span>Ab dem</span>
+            <mat-form-field appearance="outline" class="narrow">
+              <input matInput type="number" min="2" [(ngModel)]="tier.fromChild" (ngModelChange)="recomputeRhPreview()">
+            </mat-form-field>
+            <span>. Kind:</span>
+            <mat-form-field appearance="outline" class="narrow">
+              <input matInput [(ngModel)]="tier.hhmm" (ngModelChange)="recomputeRhPreview()" placeholder="06:00">
+            </mat-form-field>
+            <span>pro Monat</span>
+            <button mat-icon-button color="warn" (click)="removeRhTier(i)"><mat-icon>delete</mat-icon></button>
+          </div>
+        }
+        <button mat-stroked-button (click)="addRhTier()"><mat-icon>add</mat-icon> Staffel hinzufügen</button>
+
+        <h4>Vorschau</h4>
+        <table class="preview">
+          <tr><th>Kinder</th><th>Stunden/Monat</th></tr>
+          @for (row of rhPreview; track row.children) {
+            <tr><td>{{ row.children }}</td><td>{{ row.hhmm }}</td></tr>
+          }
+        </table>
+
+        @if (rhError) { <p class="error">{{ rhError }}</p> }
+        <button mat-raised-button color="primary" (click)="saveRequiredHours()">Speichern</button>
+      </div>
+    </mat-tab>
   </mat-tab-group>
 </div>

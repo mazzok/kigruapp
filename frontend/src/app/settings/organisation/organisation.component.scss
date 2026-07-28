@@ -28,3 +28,39 @@
 table {
   width: 100%;
 }
+
+.tab-body {
+  padding: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 480px;
+
+  mat-form-field {
+    width: 100%;
+  }
+}
+
+.tier-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+
+  .narrow {
+    width: 80px;
+  }
+}
+
+table.preview {
+  width: auto;
+  margin-bottom: 16px;
+
+  th, td {
+    padding: 4px 16px 4px 0;
+    text-align: left;
+  }
+}
+
+.error {
+  color: #c62828;
+}

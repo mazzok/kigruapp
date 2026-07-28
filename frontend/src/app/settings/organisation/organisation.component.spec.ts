@@ -13,6 +13,8 @@ import { Currency, CreateCurrencyRequest } from '../../shared/models/currency.mo
 import { KostenDefinition, CreateKostenDefinitionRequest } from '../../shared/models/kosten-definition.model';
 import { CurrencyService } from '../../shared/services/currency.service';
 import { KostenDefinitionService } from '../../shared/services/kosten-definition.service';
+import { RequiredHoursService } from '../../shared/services/required-hours.service';
+import { RequiredHours } from '../../shared/models/required-hours.model';
 
 class FakeOrganisationService {
   updateCalls: { id: string; body: unknown }[] = [];
@@ -65,6 +67,20 @@ class FakeSemesterService {
   }
 }
 
+class FakeRequiredHoursService {
+  getCalls: string[] = [];
+  saveCalls: RequiredHours[] = [];
+  config: RequiredHours = { semesterId: '', defaultMinutesPerMonth: 0, tiers: [] };
+  get(semesterId: string) {
+    this.getCalls.push(semesterId);
+    return of(this.config);
+  }
+  save(_semesterId: string, dto: RequiredHours) {
+    this.saveCalls.push(dto);
+    return of(dto);
+  }
+}
+
 describe('OrganisationComponent - Team-Farbe', () => {
   let component: OrganisationComponent;
   let orgService: FakeOrganisationService;
@@ -79,6 +95,7 @@ describe('OrganisationComponent - Team-Farbe', () => {
     semesterService = new FakeSemesterService();
     const currencyService = new FakeCurrencyService();
     const kostenDefinitionService = new FakeKostenDefinitionService();
+    const requiredHoursService = new FakeRequiredHoursService();
     const fakeDialog = { open: () => ({ afterClosed: () => of(null) }) } as unknown as MatDialog;
 
     component = new OrganisationComponent(
@@ -88,6 +105,7 @@ describe('OrganisationComponent - Team-Farbe', () => {
       semesterService as unknown as SemesterService,
       currencyService as unknown as CurrencyService,
       kostenDefinitionService as unknown as KostenDefinitionService,
+      requiredHoursService as unknown as RequiredHoursService,
       fakeDialog,
     );
   });
@@ -137,6 +155,7 @@ describe('OrganisationComponent - Semester', () => {
     semesterService = new FakeSemesterService();
     const currencyService = new FakeCurrencyService();
     const kostenDefinitionService = new FakeKostenDefinitionService();
+    const requiredHoursService = new FakeRequiredHoursService();
     const fakeDialog = { open: () => ({ afterClosed: () => of(null) }) } as unknown as MatDialog;
 
     component = new OrganisationComponent(
@@ -146,6 +165,7 @@ describe('OrganisationComponent - Semester', () => {
       semesterService as unknown as SemesterService,
       currencyService as unknown as CurrencyService,
       kostenDefinitionService as unknown as KostenDefinitionService,
+      requiredHoursService as unknown as RequiredHoursService,
       fakeDialog,
     );
   });
@@ -228,6 +248,7 @@ describe('OrganisationComponent - Kosten-Definitionen', () => {
     const semesterService = new FakeSemesterService();
     currencyService = new FakeCurrencyService();
     kostenDefinitionService = new FakeKostenDefinitionService();
+    const requiredHoursService = new FakeRequiredHoursService();
     const fakeDialog = { open: () => ({ afterClosed: () => of(null) }) } as unknown as MatDialog;
 
     component = new OrganisationComponent(
@@ -237,6 +258,7 @@ describe('OrganisationComponent - Kosten-Definitionen', () => {
       semesterService as unknown as SemesterService,
       currencyService as unknown as CurrencyService,
       kostenDefinitionService as unknown as KostenDefinitionService,
+      requiredHoursService as unknown as RequiredHoursService,
       fakeDialog,
     );
   });
