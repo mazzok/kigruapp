@@ -54,10 +54,13 @@ export class StundenuebersichtComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.semesterService.getAll().subscribe((semesters) => {
-      this.semesters = semesters as any;
-      this.selectedSemesterId = this.semesters[0]?.id ?? null;
-      this.loadSummary();
+    this.semesterService.getAll().subscribe({
+      next: (semesters) => {
+        this.semesters = semesters as any;
+        this.selectedSemesterId = this.semesters[0]?.id ?? null;
+        this.loadSummary();
+      },
+      error: (err) => this.notify.error(this.notify.extractError(err)),
     });
   }
 
@@ -70,7 +73,10 @@ export class StundenuebersichtComponent implements OnInit {
       this.summaries = [];
       return;
     }
-    this.hourService.summary(this.selectedSemesterId).subscribe((s) => (this.summaries = s));
+    this.hourService.summary(this.selectedSemesterId).subscribe({
+      next: (s) => (this.summaries = s),
+      error: (err) => this.notify.error(this.notify.extractError(err)),
+    });
   }
 
   onSemesterChange(): void {
