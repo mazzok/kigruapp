@@ -235,6 +235,23 @@ class HourEntryResourceTest {
     }
 
     @Test
+    void summaryAggregatesMinutesPerPerson() {
+        String semesterId = persistSemester();
+        ObjectId personA = new ObjectId();
+        ObjectId personB = new ObjectId();
+        persistEntry(personA, semesterId, "2026-10-01", 60);
+        persistEntry(personA, semesterId, "2026-10-02", 30);
+        persistEntry(personB, semesterId, "2026-10-03", 45);
+
+        given()
+            .when().get("/api/v1/hour-entries/summary?semesterId=" + semesterId)
+            .then().statusCode(200)
+            .body("size()", is(2))
+            .body("find { it.personId == '" + personA.toHexString() + "' }.totalMinutes", is(90))
+            .body("find { it.personId == '" + personB.toHexString() + "' }.totalMinutes", is(45));
+    }
+
+    @Test
     void roleChangedResolvesAgainstOwnerContextNotCurrentUser() {
         // Aktueller User = Admin (Nicht-Eigentümer), ohne die Rolle "Gartenteam".
         ObjectId adminInst = new ObjectId();

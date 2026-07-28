@@ -2,7 +2,10 @@ package at.kigruapp.resource;
 
 import at.kigruapp.dto.HourEntryDto;
 import at.kigruapp.dto.HourEntrySaveDto;
+import at.kigruapp.dto.HourSummaryDto;
 import at.kigruapp.dto.RoleOptionDto;
+import at.kigruapp.entity.FieldDefinition;
+import at.kigruapp.entity.FieldRef;
 import at.kigruapp.entity.HourEntry;
 import at.kigruapp.entity.Person;
 import at.kigruapp.entity.Semester;
@@ -22,6 +25,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -90,6 +94,55 @@ public class HourEntryResource {
             return List.of(cookingOption());
         }
         return resolveRoleOptions(me.id, semesterId);
+    }
+
+    @GET
+    @Path("/summary")
+    public List<HourSummaryDto> summary(@QueryParam("semesterId") String semesterIdParam) {
+        ObjectId semesterId = requireSemesterId(semesterIdParam);
+        List<HourEntry> entries = HourEntry.<HourEntry>find(
+                "semesterId", Sort.descending("date", "createdAt"), semesterId).list();
+
+        Map<ObjectId, HourSummaryDto> byPerson = new LinkedHashMap<>();
+        for (HourEntry e : entries) {
+            HourSummaryDto summary = byPerson.computeIfAbsent(e.personId, pid -> {
+                HourSummaryDto dto = new HourSummaryDto();
+                dto.personId = pid == null ? null : pid.toHexString();
+                dto.name = resolvePersonName(pid);
+                dto.totalMinutes = 0;
+                dto.entries = new ArrayList<>();
+                return dto;
+            });
+            summary.totalMinutes += e.minutes;
+            summary.entries.add(toDto(e));
+        }
+        return new ArrayList<>(byPerson.values());
+    }
+
+    private String resolvePersonName(ObjectId personId) {
+        if (personId == null) return "";
+        Person p = Person.findById(personId);
+        if (p == null) return personId.toHexString();
+        String first = resolveBasicProperty(p, "firstName");
+        String last = resolveBasicProperty(p, "lastName");
+        String name = ((first == null ? "" : first) + " " + (last == null ? "" : last)).trim();
+        return name.isEmpty() ? personId.toHexString() : name;
+    }
+
+    private String resolveBasicProperty(Person p, String fieldName) {
+        if (p.basicProperties == null) return null;
+        FieldDefinition def = FieldDefinition.find("fieldName", fieldName).firstResult();
+        if (def == null) return null;
+        for (FieldRef ref : p.basicProperties) {
+            if (def.id.equals(ref.definitionId)) {
+                Document inst = fieldInstances().find(Filters.eq("_id", ref.fieldInstanceId)).first();
+                if (inst != null) {
+                    Object v = inst.get("value");
+                    return v == null ? null : v.toString();
+                }
+            }
+        }
+        return null;
     }
 
     @GET
