@@ -222,13 +222,41 @@ class HourEntryResourceTest {
         admin.persist(); // einzige Person mit ADMIN-Rolle -> current user = admin
 
         String semesterId = persistSemester();
-        HourEntry foreign = persistEntry(new ObjectId(), semesterId, "2026-10-05", 60);
+        ObjectId ownerId = new ObjectId();
+        HourEntry foreign = persistEntry(ownerId, semesterId, "2026-10-05", 60);
 
         given().contentType(ContentType.JSON)
             .body("{\"roleFieldInstanceId\":null,\"date\":\"2026-10-07\",\"minutes\":45,\"comment\":\"admin-fix\"}")
             .when().put("/api/v1/hour-entries/" + foreign.id)
             .then().statusCode(200)
             .body("minutes", is(45))
-            .body("comment", is("admin-fix"));
+            .body("comment", is("admin-fix"))
+            .body("personId", is(ownerId.toHexString())); // personId bleibt beim Eigentümer
+    }
+
+    @Test
+    void roleChangedResolvesAgainstOwnerContextNotCurrentUser() {
+        // Aktueller User = Admin (Nicht-Eigentümer), ohne die Rolle "Gartenteam".
+        ObjectId adminInst = new ObjectId();
+        fieldInstancesForTest().insertOne(new Document("_id", adminInst).append("value", "ADMIN"));
+        Person admin = new Person();
+        admin.roles = new java.util.ArrayList<>();
+        admin.roles.add(new at.kigruapp.entity.FieldRef(new ObjectId(), adminInst));
+        admin.createdAt = Instant.now();
+        admin.updatedAt = admin.createdAt;
+        admin.persist(); // einzige Person mit ADMIN-Rolle -> current user = admin
+
+        Person owner = persistCurrentPerson(); // fremder Eigentümer (andere personId)
+        String semesterId = persistSemester();
+        String instId = assignRole(owner.id, semesterId, "Gartenteam"); // Rolle NUR dem Owner zugewiesen
+        HourEntry foreign = persistEntry(owner.id, semesterId, "2026-10-05", 60); // Kochen
+
+        // Admin ändert die Rolle auf eine Rolle, die nur dem OWNER zugewiesen ist.
+        given().contentType(ContentType.JSON)
+            .body("{\"roleFieldInstanceId\":\"" + instId + "\",\"date\":\"2026-10-08\",\"minutes\":30,\"comment\":\"rolle geaendert\"}")
+            .when().put("/api/v1/hour-entries/" + foreign.id)
+            .then().statusCode(200)
+            .body("roleFieldInstanceId", is(instId))
+            .body("roleLabel", is("Gartenteam")); // gelingt nur, wenn resolveRole(entry.personId, ...) genutzt wird
     }
 }
