@@ -2,13 +2,50 @@ package at.kigruapp.service;
 
 import at.kigruapp.entity.RequiredHours;
 import at.kigruapp.entity.Semester;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.model.Filters;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import org.bson.Document;
+import org.bson.types.ObjectId;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.ZoneOffset;
 import java.time.YearMonth;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 @ApplicationScoped
 public class HoursBalanceService {
+
+    @Inject
+    MongoClient mongoClient;
+
+    @ConfigProperty(name = "quarkus.mongodb.database")
+    String databaseName;
+
+    /** Distinct children (persons in the family) with a group placement in the semester. */
+    public int countPlacedChildren(ObjectId familyId, ObjectId semesterId) {
+        List<at.kigruapp.entity.Person> familyPersons =
+                at.kigruapp.entity.Person.findByFamilyId(familyId);
+        if (familyPersons.isEmpty()) {
+            return 0;
+        }
+        Set<ObjectId> personIds = new HashSet<>();
+        for (at.kigruapp.entity.Person p : familyPersons) {
+            personIds.add(p.id);
+        }
+        Document filter = new Document("semesterId", semesterId)
+                .append("section", "group")
+                .append("personId", new Document("$in", new java.util.ArrayList<>(personIds)));
+        Set<ObjectId> placed = new HashSet<>();
+        for (Document d : mongoClient.getDatabase(databaseName)
+                .getCollection("semester_assignments").find(filter)) {
+            placed.add(d.getObjectId("personId"));
+        }
+        return placed.size();
+    }
 
     /** Minutes/month owed for the n-th child (1-based). Highest matching tier wins, else default. */
     public int rateForChild(RequiredHours cfg, int childOrdinal) {

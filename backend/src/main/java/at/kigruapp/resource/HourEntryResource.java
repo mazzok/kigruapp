@@ -1,13 +1,17 @@
 package at.kigruapp.resource;
 
+import at.kigruapp.dto.FamilyHoursSummaryDto;
 import at.kigruapp.dto.HourEntryDto;
 import at.kigruapp.dto.HourEntrySaveDto;
 import at.kigruapp.dto.HourSummaryDto;
 import at.kigruapp.dto.RoleOptionDto;
+import at.kigruapp.entity.Family;
 import at.kigruapp.entity.HourEntry;
 import at.kigruapp.entity.Person;
+import at.kigruapp.entity.RequiredHours;
 import at.kigruapp.entity.Semester;
 import at.kigruapp.security.CurrentUserService;
+import at.kigruapp.service.HoursBalanceService;
 import at.kigruapp.service.PersonPropertyResolver;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
@@ -54,6 +58,9 @@ public class HourEntryResource {
 
     @Inject
     PersonPropertyResolver personPropertyResolver;
+
+    @Inject
+    HoursBalanceService hoursBalanceService;
 
     private MongoCollection<Document> semesterAssignments() {
         return mongoClient.getDatabase(databaseName).getCollection("semester_assignments");
@@ -137,6 +144,74 @@ public class HourEntryResource {
             summary.name = name.isEmpty() ? pid.toHexString() : name;
         }
         return new ArrayList<>(byPerson.values());
+    }
+
+    @GET
+    @Path("/family-summary")
+    public List<FamilyHoursSummaryDto> familySummary(@QueryParam("semesterId") String semesterIdParam) {
+        ObjectId semesterId = requireSemesterId(semesterIdParam);
+        Semester semester = Semester.findById(semesterId);
+        int months = hoursBalanceService.monthsInSemester(semester);
+        RequiredHours cfg = RequiredHours.findBySemesterId(semesterId);
+
+        List<FamilyHoursSummaryDto> result = new ArrayList<>();
+        for (Family family : Family.<Family>listAll()) {
+            List<Person> members = Person.findByFamilyId(family.id);
+
+            int childCount = hoursBalanceService.countPlacedChildren(family.id, semesterId);
+            int familyMonthly = hoursBalanceService.familyMonthlyMinutes(cfg, childCount);
+            int soll = familyMonthly * months;
+
+            // Ist + Personen-Einträge über alle Familienmitglieder sammeln.
+            Map<ObjectId, HourSummaryDto> byPerson = new LinkedHashMap<>();
+            int ist = 0;
+            for (Person member : members) {
+                List<HourEntry> entries = HourEntry.<HourEntry>find(
+                        "personId = ?1 and semesterId = ?2",
+                        Sort.descending("date", "createdAt"), member.id, semesterId).list();
+                if (entries.isEmpty()) continue;
+                HourSummaryDto dto = new HourSummaryDto();
+                dto.personId = member.id.toHexString();
+                dto.name = "";
+                dto.totalMinutes = 0;
+                dto.entries = new ArrayList<>();
+                for (HourEntry e : entries) {
+                    dto.totalMinutes += e.minutes;
+                    dto.entries.add(toDto(e));
+                    ist += e.minutes;
+                }
+                byPerson.put(member.id, dto);
+            }
+
+            if (childCount == 0 && ist == 0) {
+                continue; // Familie ohne Soll und ohne Ist ausblenden.
+            }
+
+            // Namen der beteiligten Mitglieder auflösen.
+            List<Person> named = new ArrayList<>();
+            for (ObjectId pid : byPerson.keySet()) {
+                Person p = Person.findById(pid);
+                if (p != null) named.add(p);
+            }
+            Map<ObjectId, Map<String, String>> props = personPropertyResolver.resolve(named);
+            for (HourSummaryDto dto : byPerson.values()) {
+                Map<String, String> pr = props.getOrDefault(new ObjectId(dto.personId), Map.of());
+                String name = (pr.getOrDefault("firstName", "") + " " + pr.getOrDefault("lastName", "")).trim();
+                dto.name = name.isEmpty() ? dto.personId : name;
+            }
+
+            FamilyHoursSummaryDto fam = new FamilyHoursSummaryDto();
+            fam.familyId = family.id.toHexString();
+            fam.familyName = family.name == null ? "" : family.name;
+            fam.childCount = childCount;
+            fam.familyMonthlyMinutes = familyMonthly;
+            fam.monthsInSemester = months;
+            fam.sollMinutes = soll;
+            fam.istMinutes = ist;
+            fam.members = new ArrayList<>(byPerson.values());
+            result.add(fam);
+        }
+        return result;
     }
 
     @GET
