@@ -1,5 +1,7 @@
 package at.kigruapp.resource;
 
+import at.kigruapp.entity.FieldDefinition;
+import at.kigruapp.entity.FieldRef;
 import at.kigruapp.entity.HourEntry;
 import at.kigruapp.entity.Person;
 import at.kigruapp.entity.Semester;
@@ -32,6 +34,7 @@ class HourEntryResourceTest {
         HourEntry.deleteAll();
         Person.deleteAll();
         Semester.deleteAll();
+        FieldDefinition.deleteAll();
         mongoClient.getDatabase(databaseName).getCollection("semester_assignments").drop();
         mongoClient.getDatabase(databaseName).getCollection("field_instances").drop();
     }
@@ -248,7 +251,57 @@ class HourEntryResourceTest {
             .then().statusCode(200)
             .body("size()", is(2))
             .body("find { it.personId == '" + personA.toHexString() + "' }.totalMinutes", is(90))
-            .body("find { it.personId == '" + personB.toHexString() + "' }.totalMinutes", is(45));
+            .body("find { it.personId == '" + personB.toHexString() + "' }.totalMinutes", is(45))
+            // entries-Vertrag: 2 Einträge für personA, Felder round-trippen
+            .body("find { it.personId == '" + personA.toHexString() + "' }.entries.size()", is(2))
+            .body("find { it.personId == '" + personA.toHexString() + "' }.entries.date", hasItems("2026-10-01", "2026-10-02"))
+            .body("find { it.personId == '" + personA.toHexString() + "' }.entries.minutes", hasItems(60, 30))
+            .body("find { it.personId == '" + personB.toHexString() + "' }.entries.size()", is(1));
+    }
+
+    /** Aktive FieldDefinition anlegen (outdatedAt=null -> findActive() erfasst sie). */
+    private FieldDefinition persistDefinition(String fieldName) {
+        FieldDefinition def = new FieldDefinition();
+        def.fieldName = fieldName;
+        def.createdAt = Instant.now();
+        def.persist();
+        return def;
+    }
+
+    private ObjectId persistScalarInstance(ObjectId definitionId, String value) {
+        ObjectId id = new ObjectId();
+        fieldInstancesForTest().insertOne(new Document("_id", id)
+                .append("definitionId", definitionId)
+                .append("value", value));
+        return id;
+    }
+
+    @Test
+    void summaryResolvesNameFromPropertiesAndFallsBackToHexId() {
+        String semesterId = persistSemester();
+
+        FieldDefinition firstName = persistDefinition("firstName");
+        FieldDefinition lastName = persistDefinition("lastName");
+        ObjectId firstInst = persistScalarInstance(firstName.id, "Anna");
+        ObjectId lastInst = persistScalarInstance(lastName.id, "Muster");
+
+        Person named = new Person();
+        named.basicProperties = new java.util.ArrayList<>();
+        named.basicProperties.add(new FieldRef(firstName.id, firstInst));
+        named.basicProperties.add(new FieldRef(lastName.id, lastInst));
+        named.createdAt = Instant.now();
+        named.updatedAt = named.createdAt;
+        named.persist();
+
+        ObjectId anonymousId = new ObjectId(); // keine Person / keine basicProperties -> Hex-Fallback
+        persistEntry(named.id, semesterId, "2026-10-01", 60);
+        persistEntry(anonymousId, semesterId, "2026-10-02", 30);
+
+        given()
+            .when().get("/api/v1/hour-entries/summary?semesterId=" + semesterId)
+            .then().statusCode(200)
+            .body("find { it.personId == '" + named.id.toHexString() + "' }.name", is("Anna Muster"))
+            .body("find { it.personId == '" + anonymousId.toHexString() + "' }.name", is(anonymousId.toHexString()));
     }
 
     @Test

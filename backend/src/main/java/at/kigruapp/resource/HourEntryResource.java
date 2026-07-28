@@ -4,12 +4,11 @@ import at.kigruapp.dto.HourEntryDto;
 import at.kigruapp.dto.HourEntrySaveDto;
 import at.kigruapp.dto.HourSummaryDto;
 import at.kigruapp.dto.RoleOptionDto;
-import at.kigruapp.entity.FieldDefinition;
-import at.kigruapp.entity.FieldRef;
 import at.kigruapp.entity.HourEntry;
 import at.kigruapp.entity.Person;
 import at.kigruapp.entity.Semester;
 import at.kigruapp.security.CurrentUserService;
+import at.kigruapp.service.PersonPropertyResolver;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
@@ -52,6 +51,9 @@ public class HourEntryResource {
 
     @Inject
     CurrentUserService currentUserService;
+
+    @Inject
+    PersonPropertyResolver personPropertyResolver;
 
     private MongoCollection<Document> semesterAssignments() {
         return mongoClient.getDatabase(databaseName).getCollection("semester_assignments");
@@ -108,7 +110,7 @@ public class HourEntryResource {
             HourSummaryDto summary = byPerson.computeIfAbsent(e.personId, pid -> {
                 HourSummaryDto dto = new HourSummaryDto();
                 dto.personId = pid == null ? null : pid.toHexString();
-                dto.name = resolvePersonName(pid);
+                dto.name = "";
                 dto.totalMinutes = 0;
                 dto.entries = new ArrayList<>();
                 return dto;
@@ -116,33 +118,25 @@ public class HourEntryResource {
             summary.totalMinutes += e.minutes;
             summary.entries.add(toDto(e));
         }
-        return new ArrayList<>(byPerson.values());
-    }
 
-    private String resolvePersonName(ObjectId personId) {
-        if (personId == null) return "";
-        Person p = Person.findById(personId);
-        if (p == null) return personId.toHexString();
-        String first = resolveBasicProperty(p, "firstName");
-        String last = resolveBasicProperty(p, "lastName");
-        String name = ((first == null ? "" : first) + " " + (last == null ? "" : last)).trim();
-        return name.isEmpty() ? personId.toHexString() : name;
-    }
-
-    private String resolveBasicProperty(Person p, String fieldName) {
-        if (p.basicProperties == null) return null;
-        FieldDefinition def = FieldDefinition.find("fieldName", fieldName).firstResult();
-        if (def == null) return null;
-        for (FieldRef ref : p.basicProperties) {
-            if (def.id.equals(ref.definitionId)) {
-                Document inst = fieldInstances().find(Filters.eq("_id", ref.fieldInstanceId)).first();
-                if (inst != null) {
-                    Object v = inst.get("value");
-                    return v == null ? null : v.toString();
-                }
-            }
+        // Namen für alle beteiligten Personen in beschränkter Query-Anzahl auflösen (G-008).
+        List<Person> persons = new ArrayList<>();
+        for (ObjectId pid : byPerson.keySet()) {
+            if (pid == null) continue;
+            Person p = Person.findById(pid);
+            if (p != null) persons.add(p);
         }
-        return null;
+        Map<ObjectId, Map<String, String>> propsByPerson = personPropertyResolver.resolve(persons);
+        for (HourSummaryDto summary : byPerson.values()) {
+            if (summary.personId == null) continue;
+            ObjectId pid = new ObjectId(summary.personId);
+            Map<String, String> props = propsByPerson.getOrDefault(pid, Map.of());
+            String first = props.getOrDefault("firstName", "");
+            String last = props.getOrDefault("lastName", "");
+            String name = (first + " " + last).trim();
+            summary.name = name.isEmpty() ? pid.toHexString() : name;
+        }
+        return new ArrayList<>(byPerson.values());
     }
 
     @GET
