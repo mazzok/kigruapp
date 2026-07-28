@@ -123,6 +123,54 @@ public class HourEntryResource {
         return Response.status(201).entity(toDto(entry)).build();
     }
 
+    @PUT
+    @Path("/{id}")
+    public HourEntryDto update(@PathParam("id") String id, HourEntrySaveDto in) {
+        Person me = requireCurrentPerson();
+        HourEntry entry = HourEntry.findById(new ObjectId(id));
+        if (entry == null) {
+            throw new NotFoundException();
+        }
+        requireOwnerOrAdmin(entry, me);
+        validatePayload(in);
+
+        boolean roleUnchanged = java.util.Objects.equals(
+                entry.roleFieldInstanceId == null ? null : entry.roleFieldInstanceId.toHexString(),
+                in.roleFieldInstanceId == null || in.roleFieldInstanceId.isBlank() ? null : in.roleFieldInstanceId);
+        if (!roleUnchanged) {
+            RoleOptionDto role = resolveRole(entry.personId, entry.semesterId, in.roleFieldInstanceId);
+            entry.roleFieldInstanceId = role.fieldInstanceId == null ? null : new ObjectId(role.fieldInstanceId);
+            entry.roleDefinitionId = role.definitionId == null ? null : new ObjectId(role.definitionId);
+            entry.roleLabel = role.label;
+        }
+        entry.date = in.date;
+        entry.minutes = in.minutes;
+        entry.comment = in.comment == null ? "" : in.comment;
+        entry.updatedAt = Instant.now();
+        entry.update();
+        return toDto(entry);
+    }
+
+    @DELETE
+    @Path("/{id}")
+    public Response delete(@PathParam("id") String id) {
+        Person me = requireCurrentPerson();
+        HourEntry entry = HourEntry.findById(new ObjectId(id));
+        if (entry == null) {
+            throw new NotFoundException();
+        }
+        requireOwnerOrAdmin(entry, me);
+        entry.delete();
+        return Response.noContent().build();
+    }
+
+    private void requireOwnerOrAdmin(HourEntry entry, Person me) {
+        boolean owner = entry.personId != null && entry.personId.equals(me.id);
+        if (!owner && !currentUserService.isAdmin()) {
+            throw new ForbiddenException();
+        }
+    }
+
     private void validatePayload(HourEntrySaveDto in) {
         if (in.date == null || !ISO_DATE.matcher(in.date).matches()) {
             throw new BadRequestException("date muss im Format YYYY-MM-DD vorliegen");

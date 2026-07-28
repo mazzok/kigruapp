@@ -147,4 +147,88 @@ class HourEntryResourceTest {
             .body("label", hasItem("Gartenteam"))
             .body("label", hasItem("Kochen"));
     }
+
+    private HourEntry persistEntry(ObjectId personId, String semesterId, String date, int minutes) {
+        HourEntry e = new HourEntry();
+        e.personId = personId;
+        e.semesterId = new ObjectId(semesterId);
+        e.roleFieldInstanceId = null;
+        e.roleLabel = "Kochen";
+        e.date = date;
+        e.minutes = minutes;
+        e.comment = "";
+        e.createdAt = Instant.now();
+        e.updatedAt = e.createdAt;
+        e.persist();
+        return e;
+    }
+
+    @Test
+    void ownerCanUpdateOwnEntry() {
+        Person me = persistCurrentPerson();
+        String semesterId = persistSemester();
+        HourEntry e = persistEntry(me.id, semesterId, "2026-10-05", 60);
+
+        given().contentType(ContentType.JSON)
+            .body("{\"roleFieldInstanceId\":null,\"date\":\"2026-10-06\",\"minutes\":120,\"comment\":\"korrigiert\"}")
+            .when().put("/api/v1/hour-entries/" + e.id)
+            .then().statusCode(200)
+            .body("minutes", is(120))
+            .body("date", is("2026-10-06"))
+            .body("comment", is("korrigiert"));
+    }
+
+    @Test
+    void ownerCanDeleteOwnEntry() {
+        Person me = persistCurrentPerson();
+        String semesterId = persistSemester();
+        HourEntry e = persistEntry(me.id, semesterId, "2026-10-05", 60);
+
+        given().when().delete("/api/v1/hour-entries/" + e.id).then().statusCode(204);
+        given().when().get("/api/v1/hour-entries/me").then().statusCode(200).body("size()", is(0));
+    }
+
+    @Test
+    void nonOwnerNonAdminCannotUpdateForeignEntry() {
+        persistCurrentPerson();              // aktuelle (nicht-Admin) Person
+        String semesterId = persistSemester();
+        HourEntry foreign = persistEntry(new ObjectId(), semesterId, "2026-10-05", 60); // anderer personId
+
+        given().contentType(ContentType.JSON)
+            .body("{\"roleFieldInstanceId\":null,\"date\":\"2026-10-06\",\"minutes\":120,\"comment\":\"x\"}")
+            .when().put("/api/v1/hour-entries/" + foreign.id)
+            .then().statusCode(403);
+    }
+
+    @Test
+    void nonOwnerNonAdminCannotDeleteForeignEntry() {
+        persistCurrentPerson();
+        String semesterId = persistSemester();
+        HourEntry foreign = persistEntry(new ObjectId(), semesterId, "2026-10-05", 60);
+
+        given().when().delete("/api/v1/hour-entries/" + foreign.id).then().statusCode(403);
+    }
+
+    @Test
+    void adminCanUpdateForeignEntry() {
+        // Admin-Person: roles verweist auf field_instance mit value "ADMIN".
+        ObjectId adminInst = new ObjectId();
+        fieldInstancesForTest().insertOne(new Document("_id", adminInst).append("value", "ADMIN"));
+        Person admin = new Person();
+        admin.roles = new java.util.ArrayList<>();
+        admin.roles.add(new at.kigruapp.entity.FieldRef(new ObjectId(), adminInst));
+        admin.createdAt = Instant.now();
+        admin.updatedAt = admin.createdAt;
+        admin.persist(); // einzige Person mit ADMIN-Rolle -> current user = admin
+
+        String semesterId = persistSemester();
+        HourEntry foreign = persistEntry(new ObjectId(), semesterId, "2026-10-05", 60);
+
+        given().contentType(ContentType.JSON)
+            .body("{\"roleFieldInstanceId\":null,\"date\":\"2026-10-07\",\"minutes\":45,\"comment\":\"admin-fix\"}")
+            .when().put("/api/v1/hour-entries/" + foreign.id)
+            .then().statusCode(200)
+            .body("minutes", is(45))
+            .body("comment", is("admin-fix"));
+    }
 }
