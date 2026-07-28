@@ -1,0 +1,55 @@
+<div class="stunden-grid">
+  <aside class="entry-list">
+    <button mat-stroked-button type="button" (click)="newEntry()">
+      <mat-icon>add</mat-icon> Neuer Eintrag
+    </button>
+    <div class="entry-item" *ngFor="let e of entries" [class.selected]="e.id === selectedId">
+      <button class="entry-main" type="button" (click)="selectForEdit(e)">
+        {{ shorthand(e) }}
+      </button>
+      <button mat-icon-button type="button"
+              (click)="$event.stopPropagation(); delete(e)" aria-label="Löschen">
+        <mat-icon>delete_outline</mat-icon>
+      </button>
+    </div>
+    <p class="empty-hint" *ngIf="entries.length === 0">Noch keine Einträge.</p>
+  </aside>
+
+  <div class="entry-placeholder" *ngIf="!editing">
+    <mat-icon>schedule</mat-icon>
+    <p>Wähle links einen Eintrag oder lege einen neuen an.</p>
+  </div>
+
+  <form class="entry-form" *ngIf="editing" [formGroup]="form" (ngSubmit)="save()">
+    <mat-form-field appearance="outline">
+      <mat-label>Tätigkeit / Rolle</mat-label>
+      <mat-select formControlName="roleKey">
+        <mat-option *ngIf="extraOption" [value]="extraOption.key">{{ extraOption.label }}</mat-option>
+        <mat-option *ngFor="let o of options" [value]="roleKey(o)">{{ o.label }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Datum</mat-label>
+      <input matInput [matDatepicker]="picker" formControlName="date" />
+      <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+      <mat-datepicker #picker></mat-datepicker>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Dauer (HH:MM)</mat-label>
+      <input matInput formControlName="time" placeholder="01:30" />
+      <mat-error *ngIf="form.controls.time.hasError('time')">Format HH:MM, größer als 00:00</mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Kommentar</mat-label>
+      <textarea matInput formControlName="comment" rows="3"></textarea>
+    </mat-form-field>
+
+    <div class="form-actions">
+      <button mat-flat-button color="primary" type="submit">Speichern</button>
+      <button mat-button type="button" (click)="closeEditor()">Abbrechen</button>
+    </div>
+  </form>
+</div>

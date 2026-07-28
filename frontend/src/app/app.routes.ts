@@ -15,6 +15,12 @@ export const routes: Routes = [
       import('./cooking/cooking.component').then(m => m.CookingComponent),
   },
   {
+    path: 'stunden',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./stunden/stunden.component').then(m => m.StundenComponent),
+  },
+  {
     path: 'administration',
     canActivate: [authGuard, adminGuard],
     children: [
