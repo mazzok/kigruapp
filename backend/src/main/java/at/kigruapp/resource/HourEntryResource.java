@@ -21,7 +21,9 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
@@ -153,29 +155,46 @@ public class HourEntryResource {
 
     /** Zugewiesene Rollen (section="role") des Semesters + fixe "Kochen"-Option. */
     List<RoleOptionDto> resolveRoleOptions(ObjectId personId, ObjectId semesterId) {
-        List<RoleOptionDto> options = new ArrayList<>();
         Document filter = new Document("personId", personId)
                 .append("semesterId", semesterId)
                 .append("section", "role");
+
+        // 1. Zuweisungen einsammeln (Reihenfolge des Cursors beibehalten) + fieldInstanceIds sammeln.
+        List<Document> assignments = new ArrayList<>();
+        List<ObjectId> instanceIds = new ArrayList<>();
         for (Document assignment : semesterAssignments().find(filter)) {
+            assignments.add(assignment);
+            ObjectId instId = assignment.getObjectId("fieldInstanceId");
+            if (instId != null) {
+                instanceIds.add(instId);
+            }
+        }
+
+        // 2. Eine Batch-Query für alle field_instances -> Map id -> label.
+        Map<ObjectId, String> labelById = new HashMap<>();
+        if (!instanceIds.isEmpty()) {
+            for (Document inst : fieldInstances().find(Filters.in("_id", instanceIds))) {
+                labelById.put(inst.getObjectId("_id"), labelFromValue(inst.get("value")));
+            }
+        }
+
+        // 3. DTOs aus der Map bauen, "Kochen" zuletzt.
+        List<RoleOptionDto> options = new ArrayList<>();
+        for (Document assignment : assignments) {
             ObjectId instId = assignment.getObjectId("fieldInstanceId");
             ObjectId defId = assignment.getObjectId("definitionId");
             RoleOptionDto opt = new RoleOptionDto();
             opt.fieldInstanceId = instId == null ? null : instId.toHexString();
             opt.definitionId = defId == null ? null : defId.toHexString();
-            opt.label = resolveInstanceLabel(instId);
+            opt.label = instId == null ? "" : labelById.getOrDefault(instId, "");
             options.add(opt);
         }
         options.add(cookingOption());
         return options;
     }
 
-    /** Liest field_instances.value.label; Fallback auf value.toString() bzw. leeren String. */
-    private String resolveInstanceLabel(ObjectId instanceId) {
-        if (instanceId == null) return "";
-        Document inst = fieldInstances().find(Filters.eq("_id", instanceId)).first();
-        if (inst == null) return "";
-        Object value = inst.get("value");
+    /** Leitet ein Label aus field_instances.value ab: value.label bzw. value.toString(), sonst leer. */
+    private String labelFromValue(Object value) {
         if (value instanceof Document valueDoc) {
             String label = valueDoc.getString("label");
             return label != null ? label : "";
