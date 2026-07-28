@@ -5,7 +5,7 @@ import { StundenuebersichtComponent } from './stundenuebersicht.component';
 import { HourEntryService } from '../../shared/services/hour-entry.service';
 import { SemesterService } from '../../shared/services/semester.service';
 import { NotificationService } from '../../shared/services/notification.service';
-import { HourEntry, HourSummary } from '../../shared/models/hour-entry.model';
+import { FamilyHoursSummary, HourEntry } from '../../shared/models/hour-entry.model';
 
 describe('StundenuebersichtComponent', () => {
   let fixture: ComponentFixture<StundenuebersichtComponent>;
@@ -17,14 +17,18 @@ describe('StundenuebersichtComponent', () => {
     roleFieldInstanceId: null, roleLabel: 'Kochen',
     date: '2026-10-05', minutes: 90, comment: '',
   };
-  const summary: HourSummary[] = [
-    { personId: 'p1', name: 'Anna Muster', totalMinutes: 90, entries: [entry] },
+  const families: FamilyHoursSummary[] = [
+    {
+      familyId: 'f1', familyName: 'Muster', childCount: 2, familyMonthlyMinutes: 840,
+      monthsInSemester: 6, sollMinutes: 5040, istMinutes: 90,
+      members: [{ personId: 'p1', name: 'Anna Muster', totalMinutes: 90, entries: [entry] }],
+    },
   ];
 
   beforeEach(async () => {
     hourService = jasmine.createSpyObj<HourEntryService>('HourEntryService',
-      ['summary', 'update', 'delete']);
-    hourService.summary.and.returnValue(of(summary));
+      ['familySummary', 'update', 'delete']);
+    hourService.familySummary.and.returnValue(of(families));
     hourService.update.and.returnValue(of(entry));
     hourService.delete.and.returnValue(of(void 0));
 
@@ -51,23 +55,53 @@ describe('StundenuebersichtComponent', () => {
     fixture.detectChanges();
   });
 
-  it('loads the summary for the default (newest) semester', () => {
+  it('loads family summaries for the default (newest) semester', () => {
     expect(component.selectedSemesterId).toBe('s1');
-    expect(hourService.summary).toHaveBeenCalledWith('s1');
-    expect(component.summaries.length).toBe(1);
+    expect(hourService.familySummary).toHaveBeenCalledWith('s1');
+    expect(component.families.length).toBe(1);
   });
 
-  it('formats the person total as HH:MM', () => {
-    expect(component.formatMinutes(component.summaries[0].totalMinutes)).toBe('01:30');
+  it('marks a family with istMinutes below sollMinutes as negative', () => {
+    expect(component.isNegative(component.families[0])).toBeTrue(); // 90 < 5040
   });
 
-  it('updates an entry keeping its role and reloads', () => {
+  it('does not mark a family with istMinutes at or above sollMinutes as negative', () => {
+    const positive: FamilyHoursSummary = { ...families[0], istMinutes: 6000 };
+    expect(component.isNegative(positive)).toBeFalse();
+  });
+
+  it('toggles family expansion', () => {
+    expect(component.expandedFamilyId).toBeNull();
+    component.toggleFamily('f1');
+    expect(component.expandedFamilyId).toBe('f1');
+    component.toggleFamily('f1');
+    expect(component.expandedFamilyId).toBeNull();
+  });
+
+  it('builds a balance tooltip with the family breakdown', () => {
+    const tooltip = component.balanceTooltip(component.families[0]);
+    expect(tooltip).toContain('2 Kinder');
+    expect(tooltip).toContain('14:00/Monat');
+    expect(tooltip).toContain('6 Monate');
+  });
+
+  it('formats a member total as HH:MM', () => {
+    expect(component.formatMinutes(component.families[0].members[0].totalMinutes)).toBe('01:30');
+  });
+
+  it('updates an entry keeping its role and reloads families', () => {
     component.startEdit(entry);
     component.editForm.setValue({ date: new Date(2026, 9, 6), time: '00:30', comment: 'fix' });
     component.saveEdit(entry);
     expect(hourService.update).toHaveBeenCalledWith('e1', {
       roleFieldInstanceId: null, date: '2026-10-06', minutes: 30, comment: 'fix',
     });
-    expect(hourService.summary).toHaveBeenCalledTimes(2); // init + nach Update
+    expect(hourService.familySummary).toHaveBeenCalledTimes(2); // init + nach Update
+  });
+
+  it('deletes an entry and reloads families', () => {
+    component.delete(entry);
+    expect(hourService.delete).toHaveBeenCalledWith('e1');
+    expect(hourService.familySummary).toHaveBeenCalledTimes(2); // init + nach Delete
   });
 });

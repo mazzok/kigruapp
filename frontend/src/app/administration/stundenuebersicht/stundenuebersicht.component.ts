@@ -6,13 +6,12 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatExpansionModule } from '@angular/material/expansion';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { provideNativeDateAdapter, MAT_DATE_LOCALE } from '@angular/material/core';
 import { HourEntryService } from '../../shared/services/hour-entry.service';
 import { SemesterService } from '../../shared/services/semester.service';
 import { NotificationService } from '../../shared/services/notification.service';
-import { HourEntry, HourSummary } from '../../shared/models/hour-entry.model';
+import { FamilyHoursSummary, HourEntry } from '../../shared/models/hour-entry.model';
 import {
   parseHhmm, formatMinutes, formatIsoDateDe, parseIsoDate, toIsoDate,
 } from '../../shared/util/time-format.util';
@@ -23,7 +22,7 @@ import {
   imports: [
     CommonModule, ReactiveFormsModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule,
-    MatIconModule, MatExpansionModule, MatDatepickerModule,
+    MatIconModule, MatDatepickerModule,
   ],
   providers: [
     provideNativeDateAdapter(),
@@ -35,7 +34,8 @@ import {
 export class StundenuebersichtComponent implements OnInit {
   semesters: { id: string; start: string; end: string }[] = [];
   selectedSemesterId: string | null = null;
-  summaries: HourSummary[] = [];
+  families: FamilyHoursSummary[] = [];
+  expandedFamilyId: string | null = null;
   editingEntryId: string | null = null;
 
   editForm = new FormGroup({
@@ -58,7 +58,7 @@ export class StundenuebersichtComponent implements OnInit {
       next: (semesters) => {
         this.semesters = semesters as any;
         this.selectedSemesterId = this.semesters[0]?.id ?? null;
-        this.loadSummary();
+        this.loadFamilies();
       },
       error: (err) => this.notify.error(this.notify.extractError(err)),
     });
@@ -68,20 +68,33 @@ export class StundenuebersichtComponent implements OnInit {
     return parseHhmm(control.value ?? '') === null ? { time: true } : null;
   }
 
-  loadSummary(): void {
+  loadFamilies(): void {
     if (!this.selectedSemesterId) {
-      this.summaries = [];
+      this.families = [];
       return;
     }
-    this.hourService.summary(this.selectedSemesterId).subscribe({
-      next: (s) => (this.summaries = s),
+    this.hourService.familySummary(this.selectedSemesterId).subscribe({
+      next: (f) => (this.families = f),
       error: (err) => this.notify.error(this.notify.extractError(err)),
     });
   }
 
   onSemesterChange(): void {
     this.editingEntryId = null;
-    this.loadSummary();
+    this.loadFamilies();
+  }
+
+  toggleFamily(familyId: string): void {
+    this.expandedFamilyId = this.expandedFamilyId === familyId ? null : familyId;
+  }
+
+  isNegative(f: FamilyHoursSummary): boolean {
+    return f.istMinutes < f.sollMinutes;
+  }
+
+  balanceTooltip(f: FamilyHoursSummary): string {
+    return `${f.childCount} Kinder · ${formatMinutes(f.familyMonthlyMinutes)}/Monat × ${f.monthsInSemester} Monate ` +
+      `= ${formatMinutes(f.sollMinutes)} Soll; Ist ${formatMinutes(f.istMinutes)}`;
   }
 
   startEdit(entry: HourEntry): void {
@@ -117,7 +130,7 @@ export class StundenuebersichtComponent implements OnInit {
       next: () => {
         this.notify.success('Eintrag aktualisiert');
         this.editingEntryId = null;
-        this.loadSummary();
+        this.loadFamilies();
       },
       error: (err) => this.notify.error(this.notify.extractError(err)),
     });
@@ -127,7 +140,7 @@ export class StundenuebersichtComponent implements OnInit {
     this.hourService.delete(entry.id).subscribe({
       next: () => {
         this.notify.success('Eintrag gelöscht');
-        this.loadSummary();
+        this.loadFamilies();
       },
       error: (err) => this.notify.error(this.notify.extractError(err)),
     });

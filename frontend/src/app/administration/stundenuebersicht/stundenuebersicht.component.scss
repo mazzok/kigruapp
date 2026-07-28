@@ -29,3 +29,26 @@
   gap: 8px;
   flex-wrap: wrap;
 }
+
+.family-row {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.family-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 8px;
+  cursor: pointer;
+
+  .fam-name { font-weight: 500; }
+}
+
+.positive { color: green; }
+.negative { color: red; }
+
+.member-block {
+  padding: 0 8px 12px 16px;
+
+  h4 { margin: 8px 0 4px; }
+}
