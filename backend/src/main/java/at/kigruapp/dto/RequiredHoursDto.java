@@ -1,0 +1,15 @@
+package at.kigruapp.dto;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class RequiredHoursDto {
+    public String semesterId;
+    public int defaultMinutesPerMonth;
+    public List<TierDto> tiers = new ArrayList<>();
+
+    public static class TierDto {
+        public int fromChild;
+        public int minutesPerMonth;
+    }
+}
