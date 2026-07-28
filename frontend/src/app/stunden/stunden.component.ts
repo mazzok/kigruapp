@@ -55,11 +55,17 @@ export class StundenComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
-    this.hourService.roleOptions().subscribe((opts) => (this.options = opts));
+    this.hourService.roleOptions().subscribe({
+      next: (opts) => (this.options = opts),
+      error: (err) => this.notify.error(this.notify.extractError(err)),
+    });
   }
 
   load(): void {
-    this.hourService.listMine().subscribe((entries) => (this.entries = entries));
+    this.hourService.listMine().subscribe({
+      next: (entries) => (this.entries = entries),
+      error: (err) => this.notify.error(this.notify.extractError(err)),
+    });
   }
 
   private timeValidator(control: FormControl): { [k: string]: boolean } | null {
