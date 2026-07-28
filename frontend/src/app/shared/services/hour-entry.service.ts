@@ -1,7 +1,14 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
-import { HourEntry, HourSummary, RoleOption, SaveHourEntryRequest } from '../models/hour-entry.model';
+import {
+  FamilyHoursSummary,
+  HourEntry,
+  HourSummary,
+  OurHours,
+  RoleOption,
+  SaveHourEntryRequest,
+} from '../models/hour-entry.model';
 
 @Injectable({ providedIn: 'root' })
 export class HourEntryService {
@@ -30,5 +37,13 @@ export class HourEntryService {
 
   summary(semesterId: string): Observable<HourSummary[]> {
     return this.api.get<HourSummary[]>(`/hour-entries/summary?semesterId=${semesterId}`);
+  }
+
+  familySummary(semesterId: string): Observable<FamilyHoursSummary[]> {
+    return this.api.get<FamilyHoursSummary[]>(`/hour-entries/family-summary?semesterId=${semesterId}`);
+  }
+
+  our(semesterId: string): Observable<OurHours> {
+    return this.api.get<OurHours>(`/hour-entries/our?semesterId=${semesterId}`);
   }
 }
