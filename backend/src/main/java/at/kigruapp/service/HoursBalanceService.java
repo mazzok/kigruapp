@@ -3,7 +3,6 @@ package at.kigruapp.service;
 import at.kigruapp.entity.RequiredHours;
 import at.kigruapp.entity.Semester;
 import com.mongodb.client.MongoClient;
-import com.mongodb.client.model.Filters;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.bson.Document;

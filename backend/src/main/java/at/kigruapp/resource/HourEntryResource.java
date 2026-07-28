@@ -187,11 +187,10 @@ public class HourEntryResource {
                 continue; // Familie ohne Soll und ohne Ist ausblenden.
             }
 
-            // Namen der beteiligten Mitglieder auflösen.
+            // Namen der beteiligten Mitglieder auflösen (Person-Objekte bereits geladen).
             List<Person> named = new ArrayList<>();
-            for (ObjectId pid : byPerson.keySet()) {
-                Person p = Person.findById(pid);
-                if (p != null) named.add(p);
+            for (Person member : members) {
+                if (byPerson.containsKey(member.id)) named.add(member);
             }
             Map<ObjectId, Map<String, String>> props = personPropertyResolver.resolve(named);
             for (HourSummaryDto dto : byPerson.values()) {
