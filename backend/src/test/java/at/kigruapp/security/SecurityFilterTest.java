@@ -255,4 +255,88 @@ class SecurityFilterTest {
 
         assertPassThrough();
     }
+
+    // Stundenerfassung: role-options für Nicht-Admin erlaubt.
+    @Test
+    void hourEntriesRoleOptions_nonAdmin_allowed() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/hour-entries/role-options", "GET");
+        Person person = new Person();
+        when(currentUserService.getCurrentPerson()).thenReturn(person);
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        filter.filter(ctx);
+
+        assertPassThrough();
+    }
+
+    // Stundenerfassung: eigene Liste für Nicht-Admin erlaubt.
+    @Test
+    void hourEntriesMe_nonAdmin_allowed() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/hour-entries/me", "GET");
+        Person person = new Person();
+        when(currentUserService.getCurrentPerson()).thenReturn(person);
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        filter.filter(ctx);
+
+        assertPassThrough();
+    }
+
+    // Stundenerfassung: Anlegen für Nicht-Admin erlaubt.
+    @Test
+    void hourEntriesCreate_nonAdmin_allowed() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/hour-entries", "POST");
+        Person person = new Person();
+        when(currentUserService.getCurrentPerson()).thenReturn(person);
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        filter.filter(ctx);
+
+        assertPassThrough();
+    }
+
+    // Stundenerfassung: PUT eines Eintrags für Nicht-Admin erlaubt (Resource prüft Eigentümer).
+    @Test
+    void hourEntriesUpdate_nonAdmin_allowedByFilter() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/hour-entries/000000000000000000000000", "PUT");
+        Person person = new Person();
+        when(currentUserService.getCurrentPerson()).thenReturn(person);
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        filter.filter(ctx);
+
+        assertPassThrough();
+    }
+
+    // Stundenerfassung: Sammel-GET bleibt admin-only.
+    @Test
+    void hourEntriesList_nonAdmin_returns403() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/hour-entries", "GET");
+        Person person = new Person();
+        when(currentUserService.getCurrentPerson()).thenReturn(person);
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        filter.filter(ctx);
+
+        assertForbidden();
+    }
+
+    // Stundenerfassung: /summary bleibt admin-only.
+    @Test
+    void hourEntriesSummary_nonAdmin_returns403() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/hour-entries/summary", "GET");
+        Person person = new Person();
+        when(currentUserService.getCurrentPerson()).thenReturn(person);
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        filter.filter(ctx);
+
+        assertForbidden();
+    }
 }
