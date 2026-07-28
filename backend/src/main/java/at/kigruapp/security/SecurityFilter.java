@@ -95,6 +95,7 @@ public class SecurityFilter implements ContainerRequestFilter {
         // Stundenerfassung: eigene Einträge und Rollen-Optionen für alle Eltern.
         if (path.equals("/api/v1/hour-entries/me") && "GET".equals(method)) return true;
         if (path.equals("/api/v1/hour-entries/role-options") && "GET".equals(method)) return true;
+        if (path.equals("/api/v1/hour-entries/our") && "GET".equals(method)) return true;
         if (path.equals("/api/v1/hour-entries") && "POST".equals(method)) return true;
         // PUT/DELETE eines konkreten Eintrags: Filter lässt angemeldete Eltern durch,
         // die Eigentümer-/Admin-Prüfung erfolgt in HourEntryResource.

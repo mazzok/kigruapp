@@ -284,6 +284,20 @@ class SecurityFilterTest {
         assertPassThrough();
     }
 
+    // Stundenerfassung: familienweite Übersicht für Nicht-Admin erlaubt.
+    @Test
+    void hourEntriesOur_nonAdmin_allowed() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/hour-entries/our", "GET");
+        Person person = new Person();
+        when(currentUserService.getCurrentPerson()).thenReturn(person);
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        filter.filter(ctx);
+
+        assertPassThrough();
+    }
+
     // Stundenerfassung: Anlegen für Nicht-Admin erlaubt.
     @Test
     void hourEntriesCreate_nonAdmin_allowed() {

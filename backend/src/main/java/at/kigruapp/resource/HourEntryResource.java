@@ -4,6 +4,7 @@ import at.kigruapp.dto.FamilyHoursSummaryDto;
 import at.kigruapp.dto.HourEntryDto;
 import at.kigruapp.dto.HourEntrySaveDto;
 import at.kigruapp.dto.HourSummaryDto;
+import at.kigruapp.dto.OurHoursDto;
 import at.kigruapp.dto.RoleOptionDto;
 import at.kigruapp.entity.Family;
 import at.kigruapp.entity.HourEntry;
@@ -26,6 +27,8 @@ import org.bson.types.ObjectId;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Instant;
+import java.time.YearMonth;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -211,6 +214,77 @@ public class HourEntryResource {
             result.add(fam);
         }
         return result;
+    }
+
+    @GET
+    @Path("/our")
+    public OurHoursDto our(@QueryParam("semesterId") String semesterIdParam) {
+        Person me = requireCurrentPerson();
+        ObjectId semesterId = requireSemesterId(semesterIdParam);
+        Semester semester = Semester.findById(semesterId);
+
+        OurHoursDto dto = new OurHoursDto();
+        dto.familyId = me.familyId == null ? null : me.familyId.toHexString();
+
+        int months = hoursBalanceService.monthsInSemester(semester);
+        RequiredHours cfg = RequiredHours.findBySemesterId(semesterId);
+
+        List<Person> members = me.familyId == null
+                ? List.of(me)
+                : Person.findByFamilyId(me.familyId);
+
+        int childCount = me.familyId == null ? 0
+                : hoursBalanceService.countPlacedChildren(me.familyId, semesterId);
+        int familyMonthly = hoursBalanceService.familyMonthlyMinutes(cfg, childCount);
+
+        dto.familyMonthlyMinutes = familyMonthly;
+        dto.monthsInSemester = months;
+        dto.sollMinutes = familyMonthly * months;
+
+        // Namen der Mitglieder auflösen.
+        Map<ObjectId, Map<String, String>> props = personPropertyResolver.resolve(members);
+
+        // Einträge aller Mitglieder sammeln + Ist je Monat.
+        Map<String, Integer> istByMonth = new HashMap<>();
+        int ist = 0;
+        for (Person member : members) {
+            Map<String, String> pr = props.getOrDefault(member.id, Map.of());
+            String name = (pr.getOrDefault("firstName", "") + " " + pr.getOrDefault("lastName", "")).trim();
+            String personName = name.isEmpty() ? member.id.toHexString() : name;
+            List<HourEntry> entries = HourEntry.<HourEntry>find(
+                    "personId = ?1 and semesterId = ?2",
+                    Sort.descending("date", "createdAt"), member.id, semesterId).list();
+            for (HourEntry e : entries) {
+                OurHoursDto.Entry en = new OurHoursDto.Entry();
+                en.id = e.id.toHexString();
+                en.personId = member.id.toHexString();
+                en.personName = personName;
+                en.roleLabel = e.roleLabel;
+                en.date = e.date;
+                en.minutes = e.minutes;
+                en.comment = e.comment;
+                dto.entries.add(en);
+                ist += e.minutes;
+                String month = e.date == null || e.date.length() < 7 ? "" : e.date.substring(0, 7);
+                istByMonth.merge(month, e.minutes, Integer::sum);
+            }
+        }
+        dto.istMinutes = ist;
+
+        // Alle Kalendermonate des Semesters als Zeile ausgeben.
+        if (semester != null && semester.start != null && semester.end != null) {
+            YearMonth cur = YearMonth.from(semester.start.atZone(ZoneOffset.UTC));
+            YearMonth end = YearMonth.from(semester.end.atZone(ZoneOffset.UTC));
+            while (!cur.isAfter(end)) {
+                OurHoursDto.MonthRow row = new OurHoursDto.MonthRow();
+                row.month = String.format("%04d-%02d", cur.getYear(), cur.getMonthValue());
+                row.sollMinutes = familyMonthly;
+                row.istMinutes = istByMonth.getOrDefault(row.month, 0);
+                dto.months.add(row);
+                cur = cur.plusMonths(1);
+            }
+        }
+        return dto;
     }
 
     @GET
