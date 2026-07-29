@@ -24,7 +24,9 @@ public class AliquotConfigResource {
     @PUT
     public AliquotConfigDto put(@QueryParam("semesterId") String semesterIdParam, AliquotConfigDto in) {
         ObjectId semesterId = requireSemesterId(semesterIdParam);
-        if (in == null || !ALLOWED.contains(in.stundenMode) || !ALLOWED.contains(in.kostenMode)) {
+        if (in == null
+                || in.stundenMode == null || !ALLOWED.contains(in.stundenMode)
+                || in.kostenMode == null || !ALLOWED.contains(in.kostenMode)) {
             throw new BadRequestException("stundenMode/kostenMode müssen NONE, WHOLE_MONTH oder PER_DAY sein");
         }
         AliquotConfig cfg = AliquotConfig.findBySemesterId(semesterId);

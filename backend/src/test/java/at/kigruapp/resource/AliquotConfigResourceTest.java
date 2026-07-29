@@ -57,6 +57,13 @@ class AliquotConfigResourceTest {
     }
 
     @Test
+    void putRejectsMissingModeField() {
+        String id = persistSemester();
+        given().contentType(io.restassured.http.ContentType.JSON).body("{\"kostenMode\":\"NONE\"}")
+            .when().put("/api/v1/aliquot-config?semesterId=" + id).then().statusCode(400);
+    }
+
+    @Test
     void putRejectsMissingSemesterId() {
         given().contentType(ContentType.JSON).body("{\"stundenMode\":\"NONE\",\"kostenMode\":\"NONE\"}")
             .when().put("/api/v1/aliquot-config").then().statusCode(400);
