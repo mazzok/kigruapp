@@ -7,6 +7,7 @@ import at.kigruapp.entity.Family;
 import at.kigruapp.entity.FieldDefinition;
 import at.kigruapp.entity.FieldRef;
 import at.kigruapp.entity.KostenDefinition;
+import at.kigruapp.entity.KostenDiscount;
 import at.kigruapp.entity.KostenValue;
 import at.kigruapp.entity.Person;
 import at.kigruapp.entity.Semester;
@@ -20,6 +21,7 @@ import org.bson.types.ObjectId;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -304,5 +306,46 @@ public class BilanzCalculationService {
             }
         }
         return null;
+    }
+
+    // ---------- sibling discount (pure) ----------
+
+    public static class ChildBase {
+        public String childId;
+        public BigDecimal base;
+    }
+
+    /** Discount factor (0..1) for targetChild given the family's present children this month. */
+    public BigDecimal discountFactor(KostenDiscount cfg, String targetChildId, List<ChildBase> present) {
+        if (cfg == null || cfg.tiers == null || cfg.tiers.isEmpty()) {
+            return BigDecimal.ONE;
+        }
+        List<ChildBase> ranked = new ArrayList<>(present);
+        Comparator<ChildBase> byBase = Comparator.comparing((ChildBase b) -> b.base);
+        boolean leastFirst = "LEAST_EXPENSIVE_FIRST".equals(cfg.order);
+        Comparator<ChildBase> cmp = (leastFirst ? byBase : byBase.reversed())
+                .thenComparing(b -> b.childId);
+        ranked.sort(cmp);
+
+        int ordinal = -1;
+        for (int i = 0; i < ranked.size(); i++) {
+            if (ranked.get(i).childId.equals(targetChildId)) {
+                ordinal = i + 1;
+                break;
+            }
+        }
+        if (ordinal < 1) {
+            return BigDecimal.ONE;
+        }
+        int percent = 0;
+        int bestFrom = 0;
+        for (KostenDiscount.Tier t : cfg.tiers) {
+            if (t.fromChild <= ordinal && t.fromChild >= bestFrom) {
+                bestFrom = t.fromChild;
+                percent = t.percent;
+            }
+        }
+        return BigDecimal.valueOf(100 - percent)
+                .divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
     }
 }
