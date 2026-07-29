@@ -18,7 +18,6 @@ public class KostenDefinitionResource {
 
     public record CreateKostenDefinitionRequest(String label, String currencyId) {}
     public record SetActiveRequest(boolean active) {}
-    public record SetSiblingDiscountRequest(boolean siblingDiscount) {}
 
     @GET
     public List<KostenDefinitionDTO> list() {
@@ -64,29 +63,13 @@ public class KostenDefinitionResource {
         return Response.ok(toDTO(definition)).build();
     }
 
-    @PATCH
-    @Path("/{id}/sibling-discount")
-    public Response setSiblingDiscount(@PathParam("id") String id, SetSiblingDiscountRequest request) {
-        if (!ObjectId.isValid(id)) {
-            throw new BadRequestException("Invalid id: " + id);
-        }
-        KostenDefinition definition = KostenDefinition.findById(new ObjectId(id));
-        if (definition == null) {
-            throw new NotFoundException();
-        }
-        definition.siblingDiscount = request.siblingDiscount();
-        definition.update();
-        return Response.ok(toDTO(definition)).build();
-    }
-
     private KostenDefinitionDTO toDTO(KostenDefinition definition) {
         Currency currency = Currency.findById(definition.currencyId);
         return new KostenDefinitionDTO(
                 definition.id.toString(),
                 definition.label,
                 definition.active,
-                currency,
-                definition.siblingDiscount
+                currency
         );
     }
 }

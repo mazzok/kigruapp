@@ -11,7 +11,6 @@ public class KostenDefinition extends PanacheMongoEntity {
     public String label;
     public ObjectId currencyId;
     public boolean active;
-    public boolean siblingDiscount;
 
     public static List<KostenDefinition> findActive() {
         return list("{'active': true}");

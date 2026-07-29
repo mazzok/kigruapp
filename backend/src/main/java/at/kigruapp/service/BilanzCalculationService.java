@@ -347,7 +347,11 @@ public class BilanzCalculationService {
         if (discountCfg == null) {
             return false;
         }
-        return discountCfg.applyToAll || def.siblingDiscount;
+        if (discountCfg.applyToAll) {
+            return true;
+        }
+        return discountCfg.eligibleDefinitionIds != null
+                && discountCfg.eligibleDefinitionIds.contains(def.id);
     }
 
     /** Sum of default amounts over discount-eligible defs for a child's group (ranking base). */

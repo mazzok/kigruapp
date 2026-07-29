@@ -75,10 +75,9 @@ public class BilanzDiscountTest {
         return c.id;
     }
 
-    private ObjectId createDefinition(ObjectId currencyId, String label, boolean siblingDiscount) {
+    private ObjectId createDefinition(ObjectId currencyId, String label) {
         KostenDefinition d = new KostenDefinition();
         d.label = label; d.currencyId = currencyId; d.active = true;
-        d.siblingDiscount = siblingDiscount;
         d.persist();
         return d.id;
     }
@@ -128,7 +127,7 @@ public class BilanzDiscountTest {
     }
 
     private void createDiscount(ObjectId semesterId, boolean applyToAll, String order,
-                                int fromChild, int percent) {
+                                int fromChild, int percent, List<ObjectId> eligibleDefinitionIds) {
         KostenDiscount d = new KostenDiscount();
         d.semesterId = semesterId;
         d.applyToAll = applyToAll;
@@ -137,6 +136,9 @@ public class BilanzDiscountTest {
         t.fromChild = fromChild;
         t.percent = percent;
         d.tiers.add(t);
+        if (eligibleDefinitionIds != null) {
+            d.eligibleDefinitionIds = new java.util.ArrayList<>(eligibleDefinitionIds);
+        }
         d.persist();
     }
 
@@ -148,25 +150,25 @@ public class BilanzDiscountTest {
     }
 
     /**
-     * Zwei Geschwister in derselben Familie, ein rabattfähiger (siblingDiscount=true) Posten mit
+     * Zwei Geschwister in derselben Familie, ein rabattfähiger (eligibleDefinitionIds) Posten mit
      * unterschiedlicher Basis pro Kind + ein nicht-rabattfähiger Posten (Essen). Rang 1 (teuerstes
      * Kind) bleibt voll, Rang 2 erhält 50 %. Der Essen-Posten bleibt für beide voll.
      */
     @Test
-    void siblingDiscountAppliesToSecondRankedChildOnly() {
+    void eligibleDiscountAppliesToSecondRankedChildOnly() {
         fullCleanup();
         ObjectId semesterId = createSemester(2020);
         ObjectId eur = createCurrency("EUR", "€");
-        ObjectId beitrag = createDefinition(eur, "Elternbeitrag", true);   // rabattfähig
-        ObjectId essen = createDefinition(eur, "Essen", false);            // nicht rabattfähig
+        ObjectId beitrag = createDefinition(eur, "Elternbeitrag");   // rabattfähig
+        ObjectId essen = createDefinition(eur, "Essen");            // nicht rabattfähig
         ObjectId groupA = new ObjectId();
         ObjectId groupB = new ObjectId();
         setDefault(semesterId, groupA, beitrag, "300.00");
         setDefault(semesterId, groupA, essen, "100.00");
         setDefault(semesterId, groupB, beitrag, "200.00");
         setDefault(semesterId, groupB, essen, "100.00");
-        // applyToAll=false => nur siblingDiscount-Posten rabattiert; Tier ab 2. Kind 50 %.
-        createDiscount(semesterId, false, "MOST_EXPENSIVE_FIRST", 2, 50);
+        // applyToAll=false => nur eligibleDefinitionIds-Posten rabattiert; Tier ab 2. Kind 50 %.
+        createDiscount(semesterId, false, "MOST_EXPENSIVE_FIRST", 2, 50, List.of(beitrag));
 
         ObjectId familyId = createFamily("Meier");
         ObjectId anna = createChild(familyId, "Anna", semesterId, groupA, null, null); // Basis 300 -> Rang 1
@@ -204,7 +206,7 @@ public class BilanzDiscountTest {
         fullCleanup();
         ObjectId semesterId = createSemester(2020);
         ObjectId eur = createCurrency("EUR", "€");
-        ObjectId beitrag = createDefinition(eur, "Elternbeitrag", false);
+        ObjectId beitrag = createDefinition(eur, "Elternbeitrag");
         ObjectId groupId = new ObjectId();
         setDefault(semesterId, groupId, beitrag, "100.00");
         createAliquot(semesterId, "PER_DAY");
