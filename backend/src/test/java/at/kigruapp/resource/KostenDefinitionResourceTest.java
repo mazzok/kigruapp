@@ -119,4 +119,27 @@ public class KostenDefinitionResourceTest {
             .then()
             .statusCode(400);
     }
+
+    @Test
+    void setSiblingDiscountPersists() {
+        String currencyId = createCurrency("EUR", "€");
+        String defId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"label\": \"Elternbeitrag\", \"currencyId\": \"" + currencyId + "\"}")
+            .when().post("/api/v1/kosten-definitions")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"siblingDiscount\": true}")
+            .when().patch("/api/v1/kosten-definitions/" + defId + "/sibling-discount")
+            .then().statusCode(200)
+            .body("siblingDiscount", is(true));
+
+        given()
+            .when().get("/api/v1/kosten-definitions")
+            .then().statusCode(200)
+            .body("find { it.id == '" + defId + "' }.siblingDiscount", is(true));
+    }
 }
