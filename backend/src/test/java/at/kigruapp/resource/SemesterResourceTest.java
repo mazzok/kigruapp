@@ -2,13 +2,22 @@ package at.kigruapp.resource;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
+import org.bson.types.ObjectId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import at.kigruapp.entity.AliquotConfig;
+import at.kigruapp.entity.KostenDiscount;
+import at.kigruapp.entity.KostenValue;
+import at.kigruapp.entity.RequiredHours;
 import at.kigruapp.entity.Semester;
+
+import java.math.BigDecimal;
+import java.time.Instant;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 @QuarkusTest
 public class SemesterResourceTest {
@@ -16,6 +25,10 @@ public class SemesterResourceTest {
     @BeforeEach
     void cleanup() {
         Semester.deleteAll();
+        RequiredHours.deleteAll();
+        KostenDiscount.deleteAll();
+        AliquotConfig.deleteAll();
+        KostenValue.deleteAll();
     }
 
     @Test
@@ -83,5 +96,43 @@ public class SemesterResourceTest {
             .when().post("/api/v1/semesters")
             .then()
             .statusCode(400);
+    }
+
+    private ObjectId seedPrev() {
+        Semester s = new Semester();
+        s.start = Instant.parse("2026-09-01T00:00:00Z");
+        s.end = Instant.parse("2027-02-28T00:00:00Z");
+        s.createdAt = Instant.parse("2026-08-01T00:00:00Z");
+        s.persist();
+        RequiredHours rh = new RequiredHours(); rh.semesterId = s.id; rh.defaultMinutesPerMonth = 480; rh.persist();
+        KostenDiscount kd = new KostenDiscount(); kd.semesterId = s.id; kd.applyToAll = true;
+        kd.order = "MOST_EXPENSIVE_FIRST"; kd.persist();
+        AliquotConfig ac = new AliquotConfig(); ac.semesterId = s.id; ac.stundenMode = "PER_DAY"; ac.kostenMode = "WHOLE_MONTH"; ac.persist();
+        KostenValue kv = new KostenValue(); kv.semesterId = s.id; kv.groupId = new ObjectId();
+        kv.definitionId = new ObjectId(); kv.amount = new BigDecimal("123.45"); kv.persist();
+        return s.id;
+    }
+
+    @Test
+    void createCopiesPreviousSemesterConfig() {
+        seedPrev();
+        String newId = given().contentType(ContentType.JSON)
+                .body("{\"start\":\"2027-09-01T00:00:00Z\",\"end\":\"2028-02-28T00:00:00Z\"}")
+                .when().post("/api/v1/semesters").then().statusCode(201).extract().path("id");
+        ObjectId nid = new ObjectId(newId);
+        assertEquals(480, RequiredHours.findBySemesterId(nid).defaultMinutesPerMonth);
+        assertTrue(KostenDiscount.findBySemesterId(nid).applyToAll);
+        AliquotConfig ac = AliquotConfig.findBySemesterId(nid);
+        assertEquals("PER_DAY", ac.stundenMode);
+        assertEquals("WHOLE_MONTH", ac.kostenMode);
+        assertEquals(1, KostenValue.find("semesterId", nid).count());
+    }
+
+    @Test
+    void createWithoutPreviousDoesNotCopy() {
+        String newId = given().contentType(ContentType.JSON)
+                .body("{\"start\":\"2027-09-01T00:00:00Z\",\"end\":\"2028-02-28T00:00:00Z\"}")
+                .when().post("/api/v1/semesters").then().statusCode(201).extract().path("id");
+        assertNull(RequiredHours.findBySemesterId(new ObjectId(newId)));
     }
 }

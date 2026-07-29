@@ -36,11 +36,50 @@ public class SemesterResource {
             }
         }
 
+        Semester prev = latestSemesterOrNull();
+
         Semester semester = new Semester();
         semester.start = request.start();
         semester.end = request.end();
         semester.createdAt = Instant.now();
         semester.persist();
+        if (prev != null) {
+            copyConfig(prev.id, semester.id);
+        }
         return Response.status(201).entity(semester).build();
+    }
+
+    private Semester latestSemesterOrNull() {
+        List<Semester> all = Semester.listAll(Sort.descending("createdAt"));
+        return all.isEmpty() ? null : all.get(0);
+    }
+
+    private void copyConfig(org.bson.types.ObjectId from, org.bson.types.ObjectId to) {
+        at.kigruapp.entity.RequiredHours rh = at.kigruapp.entity.RequiredHours.findBySemesterId(from);
+        if (rh != null) {
+            at.kigruapp.entity.RequiredHours c = new at.kigruapp.entity.RequiredHours();
+            c.semesterId = to; c.defaultMinutesPerMonth = rh.defaultMinutesPerMonth;
+            c.tiers = new java.util.ArrayList<>(rh.tiers == null ? java.util.List.of() : rh.tiers);
+            c.persist();
+        }
+        at.kigruapp.entity.KostenDiscount kd = at.kigruapp.entity.KostenDiscount.findBySemesterId(from);
+        if (kd != null) {
+            at.kigruapp.entity.KostenDiscount c = new at.kigruapp.entity.KostenDiscount();
+            c.semesterId = to; c.applyToAll = kd.applyToAll; c.order = kd.order;
+            c.tiers = new java.util.ArrayList<>(kd.tiers == null ? java.util.List.of() : kd.tiers);
+            c.eligibleDefinitionIds = new java.util.ArrayList<>(kd.eligibleDefinitionIds == null ? java.util.List.of() : kd.eligibleDefinitionIds);
+            c.persist();
+        }
+        at.kigruapp.entity.AliquotConfig ac = at.kigruapp.entity.AliquotConfig.findBySemesterId(from);
+        if (ac != null) {
+            at.kigruapp.entity.AliquotConfig c = new at.kigruapp.entity.AliquotConfig();
+            c.semesterId = to; c.stundenMode = ac.stundenMode; c.kostenMode = ac.kostenMode;
+            c.persist();
+        }
+        for (at.kigruapp.entity.KostenValue v : at.kigruapp.entity.KostenValue.<at.kigruapp.entity.KostenValue>list("semesterId", from)) {
+            at.kigruapp.entity.KostenValue c = new at.kigruapp.entity.KostenValue();
+            c.semesterId = to; c.groupId = v.groupId; c.definitionId = v.definitionId; c.amount = v.amount;
+            c.persist();
+        }
     }
 }
