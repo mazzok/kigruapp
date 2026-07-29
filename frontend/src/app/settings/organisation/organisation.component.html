@@ -342,6 +342,18 @@
 
         @if (rhError) { <p class="error">{{ rhError }}</p> }
         <button mat-raised-button color="primary" (click)="saveRequiredHours()">Speichern</button>
+
+        <h4>Aliquotierung</h4>
+        <p class="hint">Gilt für Zu leistende Stunden <strong>und</strong> Kosten.</p>
+        <mat-form-field appearance="outline">
+          <mat-label>Modus</mat-label>
+          <mat-select [(ngModel)]="aliquotMode">
+            <mat-option value="NONE">Keine</mat-option>
+            <mat-option value="WHOLE_MONTH">Ganze Monate</mat-option>
+            <mat-option value="PER_DAY">Taggenau</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <button mat-raised-button color="primary" (click)="saveAliquot()">Speichern</button>
       </div>
     </mat-tab>
   </mat-tab-group>

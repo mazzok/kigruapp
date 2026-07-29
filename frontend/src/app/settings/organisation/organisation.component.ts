@@ -20,12 +20,14 @@ import { SemesterService } from '../../shared/services/semester.service';
 import { CurrencyService } from '../../shared/services/currency.service';
 import { KostenDefinitionService } from '../../shared/services/kosten-definition.service';
 import { RequiredHoursService } from '../../shared/services/required-hours.service';
+import { AliquotConfigService } from '../../shared/services/aliquot-config.service';
 import { OrganisationDTO, DutyEntryDTO } from '../../shared/models/organisation.model';
 import { FieldDefinition } from '../../shared/models/field-definition.model';
 import { FieldInstanceDTO } from '../../shared/models/field-instance.model';
 import { Semester, CreateSemesterRequest } from '../../shared/models/semester.model';
 import { Currency } from '../../shared/models/currency.model';
 import { KostenDefinition } from '../../shared/models/kosten-definition.model';
+import { AliquotMode } from '../../shared/models/aliquot-config.model';
 import { parseHhmm, formatMinutes } from '../../shared/util/time-format.util';
 import { familyMonthlyMinutes } from './required-hours-preview.util';
 
@@ -110,6 +112,7 @@ export class OrganisationComponent implements OnInit {
   rhTiers: { fromChild: number; hhmm: string }[] = [];
   rhPreview: { children: number; hhmm: string }[] = [];
   rhError: string | null = null;
+  aliquotMode: AliquotMode = 'NONE';
 
   constructor(
     private orgService: OrganisationService,
@@ -119,6 +122,7 @@ export class OrganisationComponent implements OnInit {
     private currencyService: CurrencyService,
     private kostenDefinitionService: KostenDefinitionService,
     private requiredHoursService: RequiredHoursService,
+    private aliquotConfigService: AliquotConfigService,
     private dialog: MatDialog,
   ) {}
 
@@ -500,12 +504,27 @@ export class OrganisationComponent implements OnInit {
       this.rhDefaultHhmm = cfg.defaultMinutesPerMonth ? formatMinutes(cfg.defaultMinutesPerMonth) : '';
       this.rhTiers = (cfg.tiers ?? []).map((t) => ({ fromChild: t.fromChild, hhmm: formatMinutes(t.minutesPerMonth) }));
       this.recomputeRhPreview();
+      this.loadAliquot();
     });
   }
 
   onRhSemesterChange(semesterId: string): void {
     this.rhSelectedSemesterId = semesterId;
     this.loadRequiredHours();
+  }
+
+  loadAliquot(): void {
+    if (!this.rhSelectedSemesterId) return;
+    this.aliquotConfigService.get(this.rhSelectedSemesterId).subscribe((cfg) => {
+      this.aliquotMode = cfg.mode ?? 'NONE';
+    });
+  }
+
+  saveAliquot(): void {
+    if (!this.rhSelectedSemesterId) return;
+    this.aliquotConfigService
+      .save(this.rhSelectedSemesterId, { semesterId: this.rhSelectedSemesterId, mode: this.aliquotMode })
+      .subscribe();
   }
 
   addRhTier(): void {

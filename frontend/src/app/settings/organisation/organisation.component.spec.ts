@@ -15,6 +15,8 @@ import { CurrencyService } from '../../shared/services/currency.service';
 import { KostenDefinitionService } from '../../shared/services/kosten-definition.service';
 import { RequiredHoursService } from '../../shared/services/required-hours.service';
 import { RequiredHours } from '../../shared/models/required-hours.model';
+import { AliquotConfigService } from '../../shared/services/aliquot-config.service';
+import { AliquotConfig } from '../../shared/models/aliquot-config.model';
 
 class FakeOrganisationService {
   updateCalls: { id: string; body: unknown }[] = [];
@@ -81,6 +83,20 @@ class FakeRequiredHoursService {
   }
 }
 
+class FakeAliquotConfigService {
+  getCalls: string[] = [];
+  saveCalls: AliquotConfig[] = [];
+  config: AliquotConfig = { semesterId: '', mode: 'NONE' };
+  get(semesterId: string) {
+    this.getCalls.push(semesterId);
+    return of(this.config);
+  }
+  save(_semesterId: string, dto: AliquotConfig) {
+    this.saveCalls.push(dto);
+    return of(dto);
+  }
+}
+
 describe('OrganisationComponent - Team-Farbe', () => {
   let component: OrganisationComponent;
   let orgService: FakeOrganisationService;
@@ -96,6 +112,7 @@ describe('OrganisationComponent - Team-Farbe', () => {
     const currencyService = new FakeCurrencyService();
     const kostenDefinitionService = new FakeKostenDefinitionService();
     const requiredHoursService = new FakeRequiredHoursService();
+    const aliquotConfigService = new FakeAliquotConfigService();
     const fakeDialog = { open: () => ({ afterClosed: () => of(null) }) } as unknown as MatDialog;
 
     component = new OrganisationComponent(
@@ -106,6 +123,7 @@ describe('OrganisationComponent - Team-Farbe', () => {
       currencyService as unknown as CurrencyService,
       kostenDefinitionService as unknown as KostenDefinitionService,
       requiredHoursService as unknown as RequiredHoursService,
+      aliquotConfigService as unknown as AliquotConfigService,
       fakeDialog,
     );
   });
@@ -156,6 +174,7 @@ describe('OrganisationComponent - Semester', () => {
     const currencyService = new FakeCurrencyService();
     const kostenDefinitionService = new FakeKostenDefinitionService();
     const requiredHoursService = new FakeRequiredHoursService();
+    const aliquotConfigService = new FakeAliquotConfigService();
     const fakeDialog = { open: () => ({ afterClosed: () => of(null) }) } as unknown as MatDialog;
 
     component = new OrganisationComponent(
@@ -166,6 +185,7 @@ describe('OrganisationComponent - Semester', () => {
       currencyService as unknown as CurrencyService,
       kostenDefinitionService as unknown as KostenDefinitionService,
       requiredHoursService as unknown as RequiredHoursService,
+      aliquotConfigService as unknown as AliquotConfigService,
       fakeDialog,
     );
   });
@@ -249,6 +269,7 @@ describe('OrganisationComponent - Kosten-Definitionen', () => {
     currencyService = new FakeCurrencyService();
     kostenDefinitionService = new FakeKostenDefinitionService();
     const requiredHoursService = new FakeRequiredHoursService();
+    const aliquotConfigService = new FakeAliquotConfigService();
     const fakeDialog = { open: () => ({ afterClosed: () => of(null) }) } as unknown as MatDialog;
 
     component = new OrganisationComponent(
@@ -259,6 +280,7 @@ describe('OrganisationComponent - Kosten-Definitionen', () => {
       currencyService as unknown as CurrencyService,
       kostenDefinitionService as unknown as KostenDefinitionService,
       requiredHoursService as unknown as RequiredHoursService,
+      aliquotConfigService as unknown as AliquotConfigService,
       fakeDialog,
     );
   });
@@ -303,5 +325,50 @@ describe('OrganisationComponent - Kosten-Definitionen', () => {
     component.toggleKostenDefinitionActive({ id: 'd1', label: 'Elternbeitrag', active: true, currency: { id: 'c1', code: 'EUR', symbol: '€' } });
 
     expect(kostenDefinitionService.setActiveCalls).toEqual([{ id: 'd1', active: false }]);
+  });
+});
+
+describe('OrganisationComponent - Zu leistende Stunden / Aliquot', () => {
+  let component: OrganisationComponent;
+  let aliquotConfigService: FakeAliquotConfigService;
+
+  beforeEach(() => {
+    const orgService = new FakeOrganisationService();
+    const fieldDefService = new FakeFieldDefinitionService();
+    const fieldInstanceService = new FakeFieldInstanceService();
+    const semesterService = new FakeSemesterService();
+    const currencyService = new FakeCurrencyService();
+    const kostenDefinitionService = new FakeKostenDefinitionService();
+    const requiredHoursService = new FakeRequiredHoursService();
+    aliquotConfigService = new FakeAliquotConfigService();
+    const fakeDialog = { open: () => ({ afterClosed: () => of(null) }) } as unknown as MatDialog;
+
+    component = new OrganisationComponent(
+      orgService as unknown as OrganisationService,
+      fieldDefService as unknown as FieldDefinitionService,
+      fieldInstanceService as unknown as FieldInstanceService,
+      semesterService as unknown as SemesterService,
+      currencyService as unknown as CurrencyService,
+      kostenDefinitionService as unknown as KostenDefinitionService,
+      requiredHoursService as unknown as RequiredHoursService,
+      aliquotConfigService as unknown as AliquotConfigService,
+      fakeDialog,
+    );
+  });
+
+  it('loads and saves aliquot mode for the selected semester', () => {
+    component.rhSelectedSemesterId = 'sem1';
+    aliquotConfigService.config = { semesterId: 'sem1', mode: 'PER_DAY' };
+
+    component.loadAliquot();
+
+    expect(aliquotConfigService.getCalls).toEqual(['sem1']);
+    expect(component.aliquotMode).toBe('PER_DAY');
+
+    component.aliquotMode = 'WHOLE_MONTH';
+    component.saveAliquot();
+
+    expect(aliquotConfigService.saveCalls.length).toBe(1);
+    expect(aliquotConfigService.saveCalls[0]).toEqual({ semesterId: 'sem1', mode: 'WHOLE_MONTH' });
   });
 });
