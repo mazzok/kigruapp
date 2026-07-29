@@ -1,5 +1,6 @@
 package at.kigruapp.resource;
 
+import at.kigruapp.entity.AliquotConfig;
 import at.kigruapp.entity.Family;
 import at.kigruapp.entity.FieldDefinition;
 import at.kigruapp.entity.FieldRef;
@@ -38,6 +39,7 @@ class HourEntryFamilySummaryTest {
         Family.deleteAll();
         Semester.deleteAll();
         RequiredHours.deleteAll();
+        AliquotConfig.deleteAll();
         FieldDefinition.deleteAll();
         mongoClient.getDatabase(databaseName).getCollection("semester_assignments").drop();
         mongoClient.getDatabase(databaseName).getCollection("field_instances").drop();
@@ -82,13 +84,26 @@ class HourEntryFamilySummaryTest {
     }
 
     private void placeChild(ObjectId childPersonId, String semesterId) {
-        mongoClient.getDatabase(databaseName).getCollection("semester_assignments")
-            .insertOne(new Document("_id", new ObjectId())
+        placeChild(childPersonId, semesterId, null, null);
+    }
+
+    private void placeChild(ObjectId childPersonId, String semesterId, String entryDate, String exitDate) {
+        Document a = new Document("_id", new ObjectId())
                 .append("personId", childPersonId)
                 .append("semesterId", new ObjectId(semesterId))
                 .append("section", "group")
                 .append("definitionId", new ObjectId())
-                .append("fieldInstanceId", new ObjectId()));
+                .append("fieldInstanceId", new ObjectId());
+        if (entryDate != null) a.append("entryDate", entryDate);
+        if (exitDate != null) a.append("exitDate", exitDate);
+        mongoClient.getDatabase(databaseName).getCollection("semester_assignments").insertOne(a);
+    }
+
+    private void persistAliquot(String semesterId, String mode) {
+        AliquotConfig c = new AliquotConfig();
+        c.semesterId = new ObjectId(semesterId);
+        c.mode = mode;
+        c.persist();
     }
 
     private void persistConfig(String semesterId, int def, int tierFrom, int tierMin) {
@@ -138,6 +153,29 @@ class HourEntryFamilySummaryTest {
             .body("find { it.familyId == '" + famId.toHexString() + "' }.sollMinutes", is(5040)) // 840 * 6
             .body("find { it.familyId == '" + famId.toHexString() + "' }.istMinutes", is(300))
             .body("find { it.familyId == '" + famId.toHexString() + "' }.members.size()", is(1));
+    }
+
+    @Test
+    void perDayAliquotReducesMidSemesterEntrantSoll() {
+        adminUser();
+        String semesterId = persistSemester(); // 2026-09 .. 2027-02, 6 Monate
+        persistConfig(semesterId, 480, 2, 360); // 1 Kind -> 480/Monat
+        persistAliquot(semesterId, "PER_DAY");
+
+        ObjectId famId = persistFamily("Muster");
+        persistPerson(famId); // Elternteil
+        Person child = persistPerson(famId);
+        // Eintritt Mitte November: Sep/Okt 0, Nov 15/30=0.5 -> 240, Dez/Jan/Feb je 480.
+        placeChild(child.id, semesterId, "2026-11-16", null);
+
+        // NONE-Wert wäre 480*6 = 2880; PER_DAY: 240 + 480 + 480 + 480 = 1680.
+        given().when().get("/api/v1/hour-entries/family-summary?semesterId=" + semesterId)
+            .then().statusCode(200)
+            .body("find { it.familyId == '" + famId.toHexString() + "' }.childCount", is(1))
+            .body("find { it.familyId == '" + famId.toHexString() + "' }.familyMonthlyMinutes", is(480))
+            .body("find { it.familyId == '" + famId.toHexString() + "' }.monthsInSemester", is(6))
+            .body("find { it.familyId == '" + famId.toHexString() + "' }.sollMinutes", is(1680))
+            .body("find { it.familyId == '" + famId.toHexString() + "' }.sollMinutes", lessThan(2880));
     }
 
     @Test

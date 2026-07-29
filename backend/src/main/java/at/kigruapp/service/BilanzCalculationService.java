@@ -2,6 +2,7 @@ package at.kigruapp.service;
 
 import at.kigruapp.dto.BilanzCellDTO;
 import at.kigruapp.dto.BilanzMatrixDTO;
+import at.kigruapp.entity.AliquotConfig;
 import at.kigruapp.entity.Currency;
 import at.kigruapp.entity.Family;
 import at.kigruapp.entity.FieldDefinition;
@@ -38,6 +39,9 @@ public class BilanzCalculationService {
 
     @Inject
     MongoClient mongoClient;
+
+    @Inject
+    AliquotService aliquotService;
 
     @ConfigProperty(name = "quarkus.mongodb.database")
     String databaseName;
@@ -96,20 +100,41 @@ public class BilanzCalculationService {
 
         if (semester != null && child != null) {
             GroupRef gref = groupAssignment(child.id, semester.id);
-            if (gref != null && activeInMonth(gref, year, month)) {
-                for (KostenDefinition def : activeDefs) {
-                    BigDecimal def0 = defaultAmount(semester.id, gref.groupId, def.id);
-                    BigDecimal eff = effectiveAmount(child.id, year, month, def.id, def0);
-                    if (eff == null) {
-                        continue;
+            if (gref != null) {
+                AliquotMode mode = aliquotMode(semester.id);
+                KostenDiscount discountCfg = KostenDiscount.findBySemesterId(semester.id);
+                BigDecimal frac = aliquotService.monthFraction(
+                        mode, gref.entryDate, gref.exitDate, year, month);
+                if (frac.signum() != 0) {
+                    List<ChildBase> present = presentSiblings(
+                            child.familyId, semester, year, month, mode, activeDefs, discountCfg);
+                    BigDecimal factor = discountFactor(discountCfg, child.id.toHexString(), present);
+                    String weight = frac.stripTrailingZeros().toPlainString();
+                    for (KostenDefinition def : activeDefs) {
+                        BigDecimal def0 = defaultAmount(semester.id, gref.groupId, def.id);
+                        BilanzOverride o = BilanzOverride.findByKeys(child.id, year, month, def.id);
+                        boolean elig = eligible(discountCfg, def);
+                        BigDecimal eff;
+                        if (o != null) {
+                            eff = o.amount; // override bypasses discount and aliquot
+                        } else if (def0 == null) {
+                            continue;
+                        } else {
+                            BigDecimal defFactor = elig ? factor : BigDecimal.ONE;
+                            eff = def0.multiply(defFactor).multiply(frac)
+                                    .setScale(2, RoundingMode.HALF_UP);
+                        }
+                        int discountPercent = elig
+                                ? (int) Math.round((1 - factor.doubleValue()) * 100) : 0;
+                        Currency cur = Currency.findById(def.currencyId);
+                        lines.add(new BilanzCellDTO.Line(
+                                child.id.toHexString(), childName(child), def.id.toHexString(), def.label,
+                                cur != null ? cur.symbol : "",
+                                def0 != null ? def0 : BigDecimal.ZERO, eff,
+                                discountPercent, weight));
+                        sum = sum.add(eff);
+                        currencies.add(def.currencyId);
                     }
-                    Currency cur = Currency.findById(def.currencyId);
-                    lines.add(new BilanzCellDTO.Line(
-                            child.id.toHexString(), childName(child), def.id.toHexString(), def.label,
-                            cur != null ? cur.symbol : "",
-                            def0 != null ? def0 : BigDecimal.ZERO, eff));
-                    sum = sum.add(eff);
-                    currencies.add(def.currencyId);
                 }
             }
         }
@@ -140,6 +165,8 @@ public class BilanzCalculationService {
         String firstSymbol = "";
 
         if (semester != null) {
+            AliquotMode mode = aliquotMode(semester.id);
+            KostenDiscount discountCfg = KostenDiscount.findBySemesterId(semester.id);
             for (Person child : children) {
                 GroupRef gref = groupAssignment(child.id, semester.id);
                 if (gref == null) {
@@ -151,15 +178,28 @@ public class BilanzCalculationService {
                 if (matchesYearMonth(gref.exitDate, year, month)) {
                     cc.exitMarker = true;
                 }
-                if (!activeInMonth(gref, year, month)) {
+                BigDecimal frac = aliquotService.monthFraction(
+                        mode, gref.entryDate, gref.exitDate, year, month);
+                if (frac.signum() == 0) {
                     continue;
                 }
                 cc.active = true;
+                List<ChildBase> present = presentSiblings(
+                        child.familyId, semester, year, month, mode, activeDefs, discountCfg);
+                BigDecimal factor = discountFactor(discountCfg, child.id.toHexString(), present);
                 for (KostenDefinition def : activeDefs) {
                     BigDecimal def0 = defaultAmount(semester.id, gref.groupId, def.id);
-                    BigDecimal eff = effectiveAmount(child.id, year, month, def.id, def0);
-                    if (eff == null) {
+                    BilanzOverride o = BilanzOverride.findByKeys(child.id, year, month, def.id);
+                    BigDecimal eff;
+                    if (o != null) {
+                        eff = o.amount; // override bypasses discount and aliquot
+                    } else if (def0 == null) {
                         continue;
+                    } else {
+                        boolean elig = eligible(discountCfg, def);
+                        BigDecimal defFactor = elig ? factor : BigDecimal.ONE;
+                        eff = def0.multiply(defFactor).multiply(frac)
+                                .setScale(2, RoundingMode.HALF_UP);
                     }
                     cc.amount = cc.amount.add(eff);
                     Currency cur = Currency.findById(def.currencyId);
@@ -306,6 +346,61 @@ public class BilanzCalculationService {
             }
         }
         return null;
+    }
+
+    // ---------- discount + aliquot wiring ----------
+
+    private AliquotMode aliquotMode(ObjectId semesterId) {
+        AliquotConfig cfg = AliquotConfig.findBySemesterId(semesterId);
+        return AliquotMode.fromString(cfg != null ? cfg.mode : null);
+    }
+
+    private boolean eligible(KostenDiscount discountCfg, KostenDefinition def) {
+        if (discountCfg == null) {
+            return false;
+        }
+        return discountCfg.applyToAll || def.siblingDiscount;
+    }
+
+    /** Sum of default amounts over discount-eligible defs for a child's group (ranking base). */
+    private BigDecimal discountableBase(ObjectId semesterId, ObjectId groupId,
+                                        List<KostenDefinition> defs, KostenDiscount discountCfg) {
+        BigDecimal base = BigDecimal.ZERO;
+        for (KostenDefinition def : defs) {
+            if (!eligible(discountCfg, def)) {
+                continue;
+            }
+            BigDecimal d0 = defaultAmount(semesterId, groupId, def.id);
+            if (d0 != null) {
+                base = base.add(d0);
+            }
+        }
+        return base;
+    }
+
+    /** Present family children this month with their discountable base, for ranking. */
+    private List<ChildBase> presentSiblings(ObjectId familyId, Semester semester, int year, int month,
+                                            AliquotMode mode, List<KostenDefinition> defs,
+                                            KostenDiscount discountCfg) {
+        List<ChildBase> out = new ArrayList<>();
+        if (familyId == null) {
+            return out;
+        }
+        for (Person c : childrenOf(familyId)) {
+            GroupRef g = groupAssignment(c.id, semester.id);
+            if (g == null) {
+                continue;
+            }
+            BigDecimal frac = aliquotService.monthFraction(mode, g.entryDate, g.exitDate, year, month);
+            if (frac.signum() == 0) {
+                continue;
+            }
+            ChildBase cb = new ChildBase();
+            cb.childId = c.id.toHexString();
+            cb.base = discountableBase(semester.id, g.groupId, defs, discountCfg);
+            out.add(cb);
+        }
+        return out;
     }
 
     // ---------- sibling discount (pure) ----------

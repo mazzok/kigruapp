@@ -6,12 +6,14 @@ import at.kigruapp.dto.HourEntrySaveDto;
 import at.kigruapp.dto.HourSummaryDto;
 import at.kigruapp.dto.OurHoursDto;
 import at.kigruapp.dto.RoleOptionDto;
+import at.kigruapp.entity.AliquotConfig;
 import at.kigruapp.entity.Family;
 import at.kigruapp.entity.HourEntry;
 import at.kigruapp.entity.Person;
 import at.kigruapp.entity.RequiredHours;
 import at.kigruapp.entity.Semester;
 import at.kigruapp.security.CurrentUserService;
+import at.kigruapp.service.AliquotMode;
 import at.kigruapp.service.HoursBalanceService;
 import at.kigruapp.service.PersonPropertyResolver;
 import com.mongodb.client.MongoClient;
@@ -31,9 +33,11 @@ import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -71,6 +75,34 @@ public class HourEntryResource {
 
     private MongoCollection<Document> fieldInstances() {
         return mongoClient.getDatabase(databaseName).getCollection("field_instances");
+    }
+
+    /** Ein-Placement pro platziertem Kind der Familie (Gruppe) mit Ein-/Austrittsdatum. */
+    private List<HoursBalanceService.ChildPlacement> familyPlacements(List<Person> members, ObjectId semesterId) {
+        List<HoursBalanceService.ChildPlacement> placements = new ArrayList<>();
+        if (members.isEmpty()) {
+            return placements;
+        }
+        List<ObjectId> memberIds = new ArrayList<>();
+        for (Person m : members) {
+            memberIds.add(m.id);
+        }
+        Document filter = new Document("semesterId", semesterId)
+                .append("section", "group")
+                .append("personId", new Document("$in", memberIds));
+        Set<ObjectId> seen = new HashSet<>();
+        for (Document d : semesterAssignments().find(filter)) {
+            ObjectId pid = d.getObjectId("personId");
+            if (pid == null || !seen.add(pid)) {
+                continue; // ein Placement pro Kind
+            }
+            HoursBalanceService.ChildPlacement pl = new HoursBalanceService.ChildPlacement();
+            pl.childId = pid.toHexString();
+            pl.entryDate = d.getString("entryDate");
+            pl.exitDate = d.getString("exitDate");
+            placements.add(pl);
+        }
+        return placements;
     }
 
     private ObjectId resolveSemesterId(String semesterIdParam) {
@@ -156,6 +188,8 @@ public class HourEntryResource {
         Semester semester = Semester.findById(semesterId);
         int months = hoursBalanceService.monthsInSemester(semester);
         RequiredHours cfg = RequiredHours.findBySemesterId(semesterId);
+        AliquotConfig aliquotCfg = AliquotConfig.findBySemesterId(semesterId);
+        AliquotMode mode = AliquotMode.fromString(aliquotCfg != null ? aliquotCfg.mode : null);
 
         List<FamilyHoursSummaryDto> result = new ArrayList<>();
         for (Family family : Family.<Family>listAll()) {
@@ -163,7 +197,12 @@ public class HourEntryResource {
 
             int childCount = hoursBalanceService.countPlacedChildren(family.id, semesterId);
             int familyMonthly = hoursBalanceService.familyMonthlyMinutes(cfg, childCount);
-            int soll = familyMonthly * months;
+
+            // Soll über das Semester unter Anwendung des Aliquot-Modus (pro-rata bei
+            // unterjährigem Ein-/Austritt); NONE reproduziert familyMonthly * months.
+            List<HoursBalanceService.ChildPlacement> placements =
+                    familyPlacements(members, semesterId);
+            int soll = hoursBalanceService.familySollMinutes(cfg, mode, semester, placements);
 
             // Ist + Personen-Einträge über alle Familienmitglieder sammeln.
             Map<ObjectId, HourSummaryDto> byPerson = new LinkedHashMap<>();

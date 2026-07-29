@@ -11,5 +11,7 @@ public record BilanzCellDTO(List<Line> lines, BigDecimal sum, boolean mixedCurre
             String label,
             String currencySymbol,
             BigDecimal defaultAmount,
-            BigDecimal effectiveAmount) {}
+            BigDecimal effectiveAmount,
+            int discountPercent,
+            String weight) {}
 }
