@@ -2,6 +2,7 @@ package at.kigruapp.service;
 
 import at.kigruapp.entity.RequiredHours;
 import at.kigruapp.entity.Semester;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -12,6 +13,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class HoursBalanceServiceTest {
 
     private final HoursBalanceService service = new HoursBalanceService();
+
+    // Plain unit test (not @QuarkusTest) — CDI injection does not run, so wire the
+    // package-private field manually before any test that triggers monthFraction().
+    @BeforeEach
+    void wireAliquotService() {
+        service.aliquotService = new AliquotService();
+    }
 
     private RequiredHours cfg(int def, RequiredHours.Tier... tiers) {
         RequiredHours c = new RequiredHours();
@@ -85,5 +93,50 @@ class HoursBalanceServiceTest {
         s.start = Instant.parse("2026-09-01T00:00:00Z");
         s.end = Instant.parse("2026-09-30T00:00:00Z");
         assertEquals(1, service.monthsInSemester(s));
+    }
+
+    private final AliquotService aliquot = new AliquotService();
+
+    private HoursBalanceService.ChildPlacement placement(String id, String entry, String exit) {
+        HoursBalanceService.ChildPlacement p = new HoursBalanceService.ChildPlacement();
+        p.childId = id;
+        p.entryDate = entry;
+        p.exitDate = exit;
+        return p;
+    }
+
+    private Semester sepToFeb() {
+        Semester s = new Semester();
+        s.start = Instant.parse("2026-09-01T00:00:00Z");
+        s.end = Instant.parse("2027-02-28T00:00:00Z");
+        return s; // 6 months
+    }
+
+    @Test
+    void soll_noneMode_equalsLegacyFormula() {
+        RequiredHours c = cfg(480, tier(2, 360)); // 8h, ab 2. Kind 6h
+        Semester s = sepToFeb();
+        // two children, windows irrelevant under NONE
+        var placements = List.of(placement("a", "2026-11-01", null), placement("b", null, null));
+        // familyMonthlyMinutes(c,2)=840, x6 = 5040
+        assertEquals(5040, service.familySollMinutes(c, AliquotMode.NONE, s, placements));
+    }
+
+    @Test
+    void soll_wholeMonth_dropsOutOfWindowMonths() {
+        RequiredHours c = cfg(480); // 8h flat, no tiers
+        Semester s = sepToFeb();
+        // single child present only Dec..Feb (enters 2026-12-01) -> 3 months x 480 = 1440
+        var placements = List.of(placement("a", "2026-12-01", null));
+        assertEquals(1440, service.familySollMinutes(c, AliquotMode.WHOLE_MONTH, s, placements));
+    }
+
+    @Test
+    void soll_perDay_proratesEntryMonth() {
+        RequiredHours c = cfg(480); // 8h flat
+        Semester s = sepToFeb();
+        // enters Nov 16 -> Nov = 15/30*480 = 240; Dec,Jan,Feb full = 3*480=1440; total 1680
+        var placements = List.of(placement("a", "2026-11-16", null));
+        assertEquals(1680, service.familySollMinutes(c, AliquotMode.PER_DAY, s, placements));
     }
 }

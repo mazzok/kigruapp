@@ -9,8 +9,12 @@ import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.ZoneOffset;
 import java.time.YearMonth;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -23,6 +27,15 @@ public class HoursBalanceService {
 
     @ConfigProperty(name = "quarkus.mongodb.database")
     String databaseName;
+
+    @Inject
+    AliquotService aliquotService;
+
+    public static class ChildPlacement {
+        public String childId;
+        public String entryDate;
+        public String exitDate;
+    }
 
     /** Distinct children (persons in the family) with a group placement in the semester. */
     public int countPlacedChildren(ObjectId familyId, ObjectId semesterId) {
@@ -90,5 +103,47 @@ public class HoursBalanceService {
             cur = cur.plusMonths(1);
         }
         return months;
+    }
+
+    /** Family Soll (minutes) over the semester, applying the aliquot mode. Pure given placements. */
+    public int familySollMinutes(RequiredHours cfg, AliquotMode mode, Semester semester,
+                                 List<ChildPlacement> placements) {
+        if (mode == AliquotMode.NONE) {
+            return familyMonthlyMinutes(cfg, placements.size()) * monthsInSemester(semester);
+        }
+        if (semester == null || semester.start == null || semester.end == null) {
+            return 0;
+        }
+        YearMonth cur = YearMonth.from(semester.start.atZone(ZoneOffset.UTC));
+        YearMonth last = YearMonth.from(semester.end.atZone(ZoneOffset.UTC));
+        int total = 0;
+        while (!cur.isAfter(last)) {
+            final YearMonth ym = cur;
+            List<BigDecimal> presentFractions = new ArrayList<>();
+            List<String> ids = new ArrayList<>();
+            for (ChildPlacement p : placements) {
+                BigDecimal f = aliquotService.monthFraction(
+                        mode, p.entryDate, p.exitDate, ym.getYear(), ym.getMonthValue());
+                if (f.signum() > 0) {
+                    presentFractions.add(f);
+                    ids.add(p.childId);
+                }
+            }
+            // ordinal by fraction desc, tie-break childId
+            List<Integer> idx = new ArrayList<>();
+            for (int i = 0; i < presentFractions.size(); i++) idx.add(i);
+            final List<BigDecimal> fr = presentFractions;
+            final List<String> idList = ids;
+            idx.sort(Comparator.<Integer, BigDecimal>comparing(fr::get).reversed()
+                    .thenComparing(idList::get));
+            for (int ordinalPos = 0; ordinalPos < idx.size(); ordinalPos++) {
+                int childIdx = idx.get(ordinalPos);
+                int rate = rateForChild(cfg, ordinalPos + 1);
+                total += BigDecimal.valueOf(rate).multiply(fr.get(childIdx))
+                        .setScale(0, RoundingMode.HALF_UP).intValue();
+            }
+            cur = cur.plusMonths(1);
+        }
+        return total;
     }
 }
