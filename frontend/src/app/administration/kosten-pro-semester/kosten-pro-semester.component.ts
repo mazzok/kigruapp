@@ -88,7 +88,7 @@ import { discountFactors } from '../../settings/organisation/kosten-discount-pre
             <mat-icon class="info-icon" matTooltip="Geschwisterrabatt: Ab dem 2. (bzw. konfigurierten) Kind wird der ausgewählte Kostenbeitrag prozentual reduziert. Die Reihenfolge legt fest, welches Kind als erstes (voller Beitrag) gilt.">info</mat-icon>
           </div>
 
-          <mat-checkbox [(ngModel)]="kdApplyToAll">Rabatt auf alle Kostenpositionen anwenden</mat-checkbox>
+          <mat-checkbox [(ngModel)]="kdApplyToAll" (ngModelChange)="saveKostenDiscount()">Rabatt auf alle Kostenpositionen anwenden</mat-checkbox>
 
           @if (!kdApplyToAll) {
             <div class="eligible-list">
@@ -100,7 +100,7 @@ import { discountFactors } from '../../settings/organisation/kosten-discount-pre
 
           <mat-form-field appearance="outline" class="order-field">
             <mat-label>Reihenfolge</mat-label>
-            <mat-select [(ngModel)]="kdOrder">
+            <mat-select [(ngModel)]="kdOrder" (selectionChange)="saveKostenDiscount()">
               <mat-option value="MOST_EXPENSIVE_FIRST">Teuerstes Kind zuerst</mat-option>
               <mat-option value="LEAST_EXPENSIVE_FIRST">Günstigstes Kind zuerst</mat-option>
             </mat-select>
@@ -111,14 +111,14 @@ import { discountFactors } from '../../settings/organisation/kosten-discount-pre
               <div class="tier-row">
                 <span>Ab dem</span>
                 <mat-form-field appearance="outline" class="tier-num">
-                  <input matInput type="number" min="2" [(ngModel)]="tier.fromChild" (ngModelChange)="recomputeKdPreview()">
+                  <input matInput type="number" min="2" [(ngModel)]="tier.fromChild" (ngModelChange)="recomputeKdPreview()" (change)="saveKostenDiscount()">
                 </mat-form-field>
                 <span>. Kind:</span>
                 <mat-form-field appearance="outline" class="tier-num">
-                  <input matInput type="number" min="0" max="100" [(ngModel)]="tier.percent" (ngModelChange)="recomputeKdPreview()">
+                  <input matInput type="number" min="0" max="100" [(ngModel)]="tier.percent" (ngModelChange)="recomputeKdPreview()" (change)="saveKostenDiscount()">
                 </mat-form-field>
                 <span>%</span>
-                <button mat-button color="warn" (click)="removeKdTier($index)">Entfernen</button>
+                <button mat-icon-button color="warn" (click)="removeKdTier($index)"><mat-icon>delete</mat-icon></button>
               </div>
             }
             <button mat-button (click)="addKdTier()">+ Staffel hinzufügen</button>
@@ -134,8 +134,6 @@ import { discountFactors } from '../../settings/organisation/kosten-discount-pre
           @if (kdError) {
             <p class="error">{{ kdError }}</p>
           }
-
-          <button mat-raised-button color="primary" (click)="saveKostenDiscount()">Speichern</button>
         </div>
 
         <div class="config-card">
@@ -146,14 +144,12 @@ import { discountFactors } from '../../settings/organisation/kosten-discount-pre
 
           <mat-form-field appearance="outline">
             <mat-label>Modus</mat-label>
-            <mat-select [(ngModel)]="kostenMode">
+            <mat-select [(ngModel)]="kostenMode" (selectionChange)="saveKostenAliquot()">
               <mat-option value="NONE">Keine</mat-option>
               <mat-option value="WHOLE_MONTH">Ganze Monate</mat-option>
               <mat-option value="PER_DAY">Taggenau</mat-option>
             </mat-select>
           </mat-form-field>
-
-          <button mat-raised-button color="primary" (click)="saveKostenAliquot()">Speichern</button>
         </div>
       }
     </div>
@@ -306,6 +302,7 @@ export class KostenProSemesterComponent implements OnInit {
   removeKdTier(index: number): void {
     this.kdTiers.splice(index, 1);
     this.recomputeKdPreview();
+    this.saveKostenDiscount();
   }
 
   toggleEligible(defId: string): void {
@@ -315,6 +312,7 @@ export class KostenProSemesterComponent implements OnInit {
     } else {
       this.kdEligibleIds.push(defId);
     }
+    this.saveKostenDiscount();
   }
 
   recomputeKdPreview(): void {

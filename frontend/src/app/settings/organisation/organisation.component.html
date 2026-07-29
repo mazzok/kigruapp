@@ -312,7 +312,7 @@
 
         <mat-form-field appearance="outline">
           <mat-label>Stunden pro Monat pro Kind (HH:mm)</mat-label>
-          <input matInput [(ngModel)]="rhDefaultHhmm" (ngModelChange)="recomputeRhPreview()" placeholder="08:00">
+          <input matInput [(ngModel)]="rhDefaultHhmm" (ngModelChange)="recomputeRhPreview()" (change)="saveRequiredHours()" placeholder="08:00">
         </mat-form-field>
 
         <h4>Staffelung (Rabatte)</h4>
@@ -320,11 +320,11 @@
           <div class="tier-row">
             <span>Ab dem</span>
             <mat-form-field appearance="outline" class="narrow">
-              <input matInput type="number" min="2" [(ngModel)]="tier.fromChild" (ngModelChange)="recomputeRhPreview()">
+              <input matInput type="number" min="2" [(ngModel)]="tier.fromChild" (ngModelChange)="recomputeRhPreview()" (change)="saveRequiredHours()">
             </mat-form-field>
             <span>. Kind:</span>
             <mat-form-field appearance="outline" class="narrow">
-              <input matInput [(ngModel)]="tier.hhmm" (ngModelChange)="recomputeRhPreview()" placeholder="06:00">
+              <input matInput [(ngModel)]="tier.hhmm" (ngModelChange)="recomputeRhPreview()" (change)="saveRequiredHours()" placeholder="06:00">
             </mat-form-field>
             <span>pro Monat</span>
             <button mat-icon-button color="warn" (click)="removeRhTier(i)"><mat-icon>delete</mat-icon></button>
@@ -341,7 +341,6 @@
         </table>
 
         @if (rhError) { <p class="error">{{ rhError }}</p> }
-        <button mat-raised-button color="primary" (click)="saveRequiredHours()">Speichern</button>
 
         <h4>
           Aliquotierung (Zu leistende Stunden)
@@ -349,13 +348,12 @@
         </h4>
         <mat-form-field appearance="outline">
           <mat-label>Modus</mat-label>
-          <mat-select [(ngModel)]="stundenMode">
+          <mat-select [(ngModel)]="stundenMode" (selectionChange)="saveAliquot()">
             <mat-option value="NONE">Keine</mat-option>
             <mat-option value="WHOLE_MONTH">Ganze Monate</mat-option>
             <mat-option value="PER_DAY">Taggenau</mat-option>
           </mat-select>
         </mat-form-field>
-        <button mat-raised-button color="primary" (click)="saveAliquot()">Speichern</button>
       </div>
     </mat-tab>
   </mat-tab-group>

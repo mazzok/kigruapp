@@ -543,6 +543,7 @@ export class OrganisationComponent implements OnInit {
   removeRhTier(index: number): void {
     this.rhTiers.splice(index, 1);
     this.recomputeRhPreview();
+    this.saveRequiredHours();
   }
 
   recomputeRhPreview(): void {
