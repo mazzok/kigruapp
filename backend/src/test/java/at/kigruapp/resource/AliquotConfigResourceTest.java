@@ -31,34 +31,34 @@ class AliquotConfigResourceTest {
     }
 
     @Test
-    void getDefaultsToNone() {
+    void getDefaultsToNoneNone() {
         String id = persistSemester();
         given().when().get("/api/v1/aliquot-config?semesterId=" + id)
-            .then().statusCode(200).body("mode", is("NONE"));
+            .then().statusCode(200)
+            .body("stundenMode", is("NONE"))
+            .body("kostenMode", is("NONE"));
     }
 
     @Test
-    void putThenGetRoundTripsAndUpserts() {
+    void putThenGetRoundTripsBothModes() {
         String id = persistSemester();
-        given().contentType(ContentType.JSON).body("{\"mode\":\"PER_DAY\"}")
+        given().contentType(ContentType.JSON).body("{\"stundenMode\":\"PER_DAY\",\"kostenMode\":\"WHOLE_MONTH\"}")
             .when().put("/api/v1/aliquot-config?semesterId=" + id)
-            .then().statusCode(200).body("mode", is("PER_DAY"));
-        given().contentType(ContentType.JSON).body("{\"mode\":\"WHOLE_MONTH\"}")
-            .when().put("/api/v1/aliquot-config?semesterId=" + id).then().statusCode(200);
+            .then().statusCode(200).body("stundenMode", is("PER_DAY")).body("kostenMode", is("WHOLE_MONTH"));
         given().when().get("/api/v1/aliquot-config?semesterId=" + id)
-            .then().statusCode(200).body("mode", is("WHOLE_MONTH"));
+            .then().statusCode(200).body("stundenMode", is("PER_DAY")).body("kostenMode", is("WHOLE_MONTH"));
     }
 
     @Test
     void putRejectsUnknownMode() {
         String id = persistSemester();
-        given().contentType(ContentType.JSON).body("{\"mode\":\"DAILY\"}")
+        given().contentType(ContentType.JSON).body("{\"stundenMode\":\"DAILY\",\"kostenMode\":\"NONE\"}")
             .when().put("/api/v1/aliquot-config?semesterId=" + id).then().statusCode(400);
     }
 
     @Test
     void putRejectsMissingSemesterId() {
-        given().contentType(ContentType.JSON).body("{\"mode\":\"NONE\"}")
+        given().contentType(ContentType.JSON).body("{\"stundenMode\":\"NONE\",\"kostenMode\":\"NONE\"}")
             .when().put("/api/v1/aliquot-config").then().statusCode(400);
     }
 }

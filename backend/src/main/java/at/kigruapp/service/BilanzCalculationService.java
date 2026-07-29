@@ -340,7 +340,7 @@ public class BilanzCalculationService {
 
     private AliquotMode aliquotMode(ObjectId semesterId) {
         AliquotConfig cfg = AliquotConfig.findBySemesterId(semesterId);
-        return AliquotMode.fromString(cfg != null ? cfg.mode : null);
+        return AliquotMode.fromString(cfg != null ? cfg.kostenMode : null);
     }
 
     private boolean eligible(KostenDiscount discountCfg, KostenDefinition def) {

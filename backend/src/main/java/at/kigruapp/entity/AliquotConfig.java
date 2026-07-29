@@ -7,7 +7,8 @@ import org.bson.types.ObjectId;
 @MongoEntity(collection = "aliquot_configs")
 public class AliquotConfig extends PanacheMongoEntity {
     public ObjectId semesterId;
-    public String mode = "NONE";
+    public String stundenMode = "NONE";
+    public String kostenMode = "NONE";
 
     public static AliquotConfig findBySemesterId(ObjectId semesterId) {
         return find("semesterId", semesterId).firstResult();

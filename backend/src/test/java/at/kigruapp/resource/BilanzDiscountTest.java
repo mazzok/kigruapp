@@ -143,7 +143,7 @@ public class BilanzDiscountTest {
     private void createAliquot(ObjectId semesterId, String mode) {
         AliquotConfig c = new AliquotConfig();
         c.semesterId = semesterId;
-        c.mode = mode;
+        c.kostenMode = mode;
         c.persist();
     }
 

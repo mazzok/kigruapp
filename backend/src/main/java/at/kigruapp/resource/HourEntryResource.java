@@ -189,7 +189,7 @@ public class HourEntryResource {
         int months = hoursBalanceService.monthsInSemester(semester);
         RequiredHours cfg = RequiredHours.findBySemesterId(semesterId);
         AliquotConfig aliquotCfg = AliquotConfig.findBySemesterId(semesterId);
-        AliquotMode mode = AliquotMode.fromString(aliquotCfg != null ? aliquotCfg.mode : null);
+        AliquotMode mode = AliquotMode.fromString(aliquotCfg != null ? aliquotCfg.stundenMode : null);
 
         List<FamilyHoursSummaryDto> result = new ArrayList<>();
         for (Family family : Family.<Family>listAll()) {
@@ -268,7 +268,7 @@ public class HourEntryResource {
         int months = hoursBalanceService.monthsInSemester(semester);
         RequiredHours cfg = RequiredHours.findBySemesterId(semesterId);
         AliquotConfig aliquotCfg = AliquotConfig.findBySemesterId(semesterId);
-        AliquotMode mode = AliquotMode.fromString(aliquotCfg != null ? aliquotCfg.mode : null);
+        AliquotMode mode = AliquotMode.fromString(aliquotCfg != null ? aliquotCfg.stundenMode : null);
 
         List<Person> members = me.familyId == null
                 ? List.of(me)

@@ -90,7 +90,7 @@ class HourEntryOurTest {
     private void persistAliquot(String semesterId, String mode) {
         AliquotConfig c = new AliquotConfig();
         c.semesterId = new ObjectId(semesterId);
-        c.mode = mode;
+        c.stundenMode = mode;
         c.persist();
     }
 
