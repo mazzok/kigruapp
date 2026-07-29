@@ -139,4 +139,19 @@ class HoursBalanceServiceTest {
         var placements = List.of(placement("a", "2026-11-16", null));
         assertEquals(1680, service.familySollMinutes(c, AliquotMode.PER_DAY, s, placements));
     }
+
+    @Test
+    void soll_perDay_twoConcurrentChildren_higherFractionGetsOrdinalOne() {
+        RequiredHours c = cfg(480, tier(2, 360)); // rate(1)=480, rate(2)=360
+        Semester s = new Semester();
+        s.start = Instant.parse("2026-09-01T00:00:00Z");
+        s.end = Instant.parse("2026-09-30T00:00:00Z"); // single month, 30 days
+        // child a present whole month (fraction 1.0); child b enters Sep 16 (fraction 15/30 = 0.5)
+        var placements = List.of(
+            placement("a", "2026-09-01", null),
+            placement("b", "2026-09-16", null));
+        // ordinal by fraction desc: a=ordinal1 -> 480*1.0=480 ; b=ordinal2 -> 360*0.5=180 ; total=660
+        // (a reversed comparator would give 240+360=600, so 660 pins the direction)
+        assertEquals(660, service.familySollMinutes(c, AliquotMode.PER_DAY, s, placements));
+    }
 }
