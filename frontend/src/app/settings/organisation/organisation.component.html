@@ -284,19 +284,6 @@
             <th mat-header-cell *matHeaderCellDef>Status</th>
             <td mat-cell *matCellDef="let row">{{ row.active ? 'Aktiv' : 'Inaktiv' }}</td>
           </ng-container>
-          <ng-container matColumnDef="siblingDiscount">
-            <th mat-header-cell *matHeaderCellDef
-                matTooltip="Bei 'Rabatt auf alle Positionen' wird dieses Flag ignoriert.">
-              Geschwisterrabatt
-            </th>
-            <td mat-cell *matCellDef="let row">
-              <mat-checkbox
-                [checked]="row.siblingDiscount"
-                (change)="toggleSiblingDiscount(row)"
-                matTooltip="Bei 'Rabatt auf alle Positionen' wird dieses Flag ignoriert.">
-              </mat-checkbox>
-            </td>
-          </ng-container>
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef></th>
             <td mat-cell *matCellDef="let row">
@@ -356,69 +343,19 @@
         @if (rhError) { <p class="error">{{ rhError }}</p> }
         <button mat-raised-button color="primary" (click)="saveRequiredHours()">Speichern</button>
 
-        <h4>Aliquotierung</h4>
-        <p class="hint">Gilt für Zu leistende Stunden <strong>und</strong> Kosten.</p>
+        <h4>
+          Aliquotierung (Zu leistende Stunden)
+          <mat-icon class="info-icon" matTooltip="Aliquotierung: Bei unterjährigem Ein- oder Austritt eines Kindes werden die zu leistenden Stunden bzw. Kosten anteilig zu den Tagen berechnet, an denen das Kind im jeweiligen Monat einen Platz hat. 'Ganze Monate' = angefangener Monat zählt voll; 'Taggenau' = taggenaue Anteilsberechnung; 'Keine' = keine Anteilsberechnung.">info</mat-icon>
+        </h4>
         <mat-form-field appearance="outline">
           <mat-label>Modus</mat-label>
-          <mat-select [(ngModel)]="aliquotMode">
+          <mat-select [(ngModel)]="stundenMode">
             <mat-option value="NONE">Keine</mat-option>
             <mat-option value="WHOLE_MONTH">Ganze Monate</mat-option>
             <mat-option value="PER_DAY">Taggenau</mat-option>
           </mat-select>
         </mat-form-field>
         <button mat-raised-button color="primary" (click)="saveAliquot()">Speichern</button>
-      </div>
-    </mat-tab>
-
-    <!-- Geschwisterrabatt (Kosten) Tab -->
-    <mat-tab label="Geschwisterrabatt (Kosten)">
-      <div class="tab-body">
-        <mat-form-field appearance="outline">
-          <mat-label>Semester</mat-label>
-          <mat-select [value]="kdSelectedSemesterId" (selectionChange)="onKdSemesterChange($event.value)">
-            @for (s of rhSemesters; track s.id) {
-              <mat-option [value]="s.id">{{ s.start | date:'yyyy' }}/{{ s.end | date:'yyyy' }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-
-        <mat-checkbox [(ngModel)]="kdApplyToAll">Rabatt auf alle Kostenpositionen anwenden</mat-checkbox>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Reihenfolge</mat-label>
-          <mat-select [(ngModel)]="kdOrder">
-            <mat-option value="MOST_EXPENSIVE_FIRST">Teuerstes Kind zuerst</mat-option>
-            <mat-option value="LEAST_EXPENSIVE_FIRST">Günstigstes Kind zuerst</mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <h4>Staffelung (Rabatte)</h4>
-        @for (tier of kdTiers; track $index; let i = $index) {
-          <div class="tier-row">
-            <span>Ab dem</span>
-            <mat-form-field appearance="outline" class="narrow">
-              <input matInput type="number" min="2" [(ngModel)]="tier.fromChild" (ngModelChange)="recomputeKdPreview()">
-            </mat-form-field>
-            <span>. Kind:</span>
-            <mat-form-field appearance="outline" class="narrow">
-              <input matInput type="number" min="0" max="100" [(ngModel)]="tier.percent" (ngModelChange)="recomputeKdPreview()">
-            </mat-form-field>
-            <span>%</span>
-            <button mat-icon-button color="warn" (click)="removeKdTier(i)"><mat-icon>delete</mat-icon></button>
-          </div>
-        }
-        <button mat-stroked-button (click)="addKdTier()"><mat-icon>add</mat-icon> Staffel hinzufügen</button>
-
-        <h4>Vorschau</h4>
-        <table class="preview">
-          <tr><th>Kind</th><th>Rabatt</th></tr>
-          @for (row of kdPreview; track row.child) {
-            <tr><td>{{ row.child }}</td><td>{{ row.percent }} %</td></tr>
-          }
-        </table>
-
-        @if (kdError) { <p class="error">{{ kdError }}</p> }
-        <button mat-raised-button color="primary" (click)="saveKostenDiscount()">Speichern</button>
       </div>
     </mat-tab>
   </mat-tab-group>

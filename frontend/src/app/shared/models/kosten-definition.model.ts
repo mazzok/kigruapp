@@ -5,7 +5,6 @@ export interface KostenDefinition {
   label: string;
   active: boolean;
   currency: Currency;
-  siblingDiscount: boolean;
 }
 
 export interface CreateKostenDefinitionRequest {

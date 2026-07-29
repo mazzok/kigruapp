@@ -10,4 +10,5 @@ export interface KostenDiscount {
   applyToAll: boolean;
   order: KostenDiscountOrder;
   tiers: KostenDiscountTier[];
+  eligibleDefinitionIds: string[];
 }

@@ -11,7 +11,6 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatSelectModule } from '@angular/material/select';
-import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { IconPickerDialogComponent } from '../../shared/components/icon-picker/icon-picker-dialog.component';
 import { switchMap } from 'rxjs/operators';
@@ -23,7 +22,6 @@ import { CurrencyService } from '../../shared/services/currency.service';
 import { KostenDefinitionService } from '../../shared/services/kosten-definition.service';
 import { RequiredHoursService } from '../../shared/services/required-hours.service';
 import { AliquotConfigService } from '../../shared/services/aliquot-config.service';
-import { KostenDiscountService } from '../../shared/services/kosten-discount.service';
 import { OrganisationDTO, DutyEntryDTO } from '../../shared/models/organisation.model';
 import { FieldDefinition } from '../../shared/models/field-definition.model';
 import { FieldInstanceDTO } from '../../shared/models/field-instance.model';
@@ -31,10 +29,8 @@ import { Semester, CreateSemesterRequest } from '../../shared/models/semester.mo
 import { Currency } from '../../shared/models/currency.model';
 import { KostenDefinition } from '../../shared/models/kosten-definition.model';
 import { AliquotMode } from '../../shared/models/aliquot-config.model';
-import { KostenDiscountOrder } from '../../shared/models/kosten-discount.model';
 import { parseHhmm, formatMinutes } from '../../shared/util/time-format.util';
 import { familyMonthlyMinutes } from './required-hours-preview.util';
-import { discountFactors } from './kosten-discount-preview.util';
 
 @Component({
   selector: 'app-organisation',
@@ -43,7 +39,7 @@ import { discountFactors } from './kosten-discount-preview.util';
     CommonModule, ReactiveFormsModule, FormsModule,
     MatTabsModule, MatTableModule, MatFormFieldModule,
     MatInputModule, MatButtonModule, MatIconModule,
-    MatExpansionModule, MatDialogModule, MatDatepickerModule, MatSelectModule, MatCheckboxModule, MatTooltipModule, IconPickerDialogComponent,
+    MatExpansionModule, MatDialogModule, MatDatepickerModule, MatSelectModule, MatTooltipModule, IconPickerDialogComponent,
   ],
   templateUrl: './organisation.component.html',
   styleUrl: './organisation.component.scss',
@@ -99,7 +95,7 @@ export class OrganisationComponent implements OnInit {
   // Kosten-Definitionen tab
   currencies: Currency[] = [];
   kostenDefinitions: KostenDefinition[] = [];
-  kostenDefColumns = ['label', 'currency', 'status', 'siblingDiscount', 'actions'];
+  kostenDefColumns = ['label', 'currency', 'status', 'actions'];
   showAddCurrency = false;
   kostenDefForm = new FormGroup({
     label: new FormControl('', Validators.required),
@@ -117,15 +113,8 @@ export class OrganisationComponent implements OnInit {
   rhTiers: { fromChild: number; hhmm: string }[] = [];
   rhPreview: { children: number; hhmm: string }[] = [];
   rhError: string | null = null;
-  aliquotMode: AliquotMode = 'NONE';
-
-  // --- Geschwisterrabatt (Kosten) ---
-  kdSelectedSemesterId: string | null = null;
-  kdApplyToAll = false;
-  kdOrder: KostenDiscountOrder = 'MOST_EXPENSIVE_FIRST';
-  kdTiers: { fromChild: number; percent: number }[] = [];
-  kdPreview: { child: number; percent: number }[] = [];
-  kdError: string | null = null;
+  stundenMode: AliquotMode = 'NONE';
+  kostenMode: AliquotMode = 'NONE';
 
   constructor(
     private orgService: OrganisationService,
@@ -136,7 +125,6 @@ export class OrganisationComponent implements OnInit {
     private kostenDefinitionService: KostenDefinitionService,
     private requiredHoursService: RequiredHoursService,
     private aliquotConfigService: AliquotConfigService,
-    private kostenDiscountService: KostenDiscountService,
     private dialog: MatDialog,
   ) {}
 
@@ -500,12 +488,6 @@ export class OrganisationComponent implements OnInit {
     });
   }
 
-  toggleSiblingDiscount(definition: KostenDefinition): void {
-    this.kostenDefinitionService.setSiblingDiscount(definition.id, !definition.siblingDiscount).subscribe(() => {
-      this.loadKostenDefinitions();
-    });
-  }
-
   // --- Zu leistende Stunden ---
 
   loadRhSemesters(): void {
@@ -514,10 +496,6 @@ export class OrganisationComponent implements OnInit {
       if (semesters.length > 0 && !this.rhSelectedSemesterId) {
         this.rhSelectedSemesterId = semesters[0].id;
         this.loadRequiredHours();
-      }
-      if (semesters.length > 0 && !this.kdSelectedSemesterId) {
-        this.kdSelectedSemesterId = semesters[0].id;
-        this.loadKostenDiscount();
       }
     });
   }
@@ -540,14 +518,19 @@ export class OrganisationComponent implements OnInit {
   loadAliquot(): void {
     if (!this.rhSelectedSemesterId) return;
     this.aliquotConfigService.get(this.rhSelectedSemesterId).subscribe((cfg) => {
-      this.aliquotMode = cfg.mode ?? 'NONE';
+      this.stundenMode = cfg.stundenMode ?? 'NONE';
+      this.kostenMode = cfg.kostenMode ?? 'NONE';
     });
   }
 
   saveAliquot(): void {
     if (!this.rhSelectedSemesterId) return;
     this.aliquotConfigService
-      .save(this.rhSelectedSemesterId, { semesterId: this.rhSelectedSemesterId, mode: this.aliquotMode })
+      .save(this.rhSelectedSemesterId, {
+        semesterId: this.rhSelectedSemesterId,
+        stundenMode: this.stundenMode,
+        kostenMode: this.kostenMode,
+      })
       .subscribe();
   }
 
@@ -567,7 +550,8 @@ export class OrganisationComponent implements OnInit {
     const tiers = this.rhTiers
       .map((t) => ({ fromChild: t.fromChild, minutesPerMonth: parseHhmm(t.hhmm) ?? 0 }))
       .sort((a, b) => a.fromChild - b.fromChild);
-    this.rhPreview = [1, 2, 3, 4].map((n) => ({
+    const childCounts = Array.from(new Set([1, ...this.rhTiers.map((t) => t.fromChild)])).sort((a, b) => a - b);
+    this.rhPreview = childCounts.map((n) => ({
       children: n,
       hhmm: formatMinutes(familyMonthlyMinutes({ defaultMinutesPerMonth: def, tiers }, n)),
     }));
@@ -577,11 +561,11 @@ export class OrganisationComponent implements OnInit {
     this.rhError = null;
     const def = parseHhmm(this.rhDefaultHhmm);
     if (def === null || def <= 0) { this.rhError = 'Default-Stunden ungültig'; return; }
-    const tiers = this.rhTiers.map((t) => ({ fromChild: t.fromChild, minutesPerMonth: parseHhmm(t.hhmm) ?? -1 }));
+    const tiers = this.rhTiers.map((t) => ({ fromChild: t.fromChild, minutesPerMonth: (t.hhmm.trim() === '' ? 0 : (parseHhmm(t.hhmm) ?? -1)) }));
     const froms = tiers.map((t) => t.fromChild);
     const ascendingUnique = froms.every((f, i) => f >= 2 && (i === 0 || f > froms[i - 1]));
     if (!ascendingUnique || tiers.some((t) => t.minutesPerMonth < 0)) {
-      this.rhError = 'Staffeln müssen ab dem 2. Kind, eindeutig, aufsteigend und gültig sein';
+      this.rhError = 'Staffeln müssen ab dem 2. Kind eindeutig und aufsteigend sein; Werte dürfen 0 sein.';
       return;
     }
     if (!this.rhSelectedSemesterId) return;
@@ -592,59 +576,6 @@ export class OrganisationComponent implements OnInit {
     }).subscribe({
       next: () => { this.rhError = null; },
       error: () => { this.rhError = 'Speichern fehlgeschlagen'; },
-    });
-  }
-
-  // --- Geschwisterrabatt (Kosten) ---
-
-  loadKostenDiscount(): void {
-    if (!this.kdSelectedSemesterId) return;
-    this.kostenDiscountService.get(this.kdSelectedSemesterId).subscribe((cfg) => {
-      this.kdApplyToAll = cfg.applyToAll;
-      this.kdOrder = cfg.order ?? 'MOST_EXPENSIVE_FIRST';
-      this.kdTiers = (cfg.tiers ?? []).map((t) => ({ fromChild: t.fromChild, percent: t.percent }));
-      this.recomputeKdPreview();
-    });
-  }
-
-  onKdSemesterChange(semesterId: string): void {
-    this.kdSelectedSemesterId = semesterId;
-    this.loadKostenDiscount();
-  }
-
-  addKdTier(): void {
-    const nextFrom = this.kdTiers.length === 0 ? 2 : Math.max(...this.kdTiers.map((t) => t.fromChild)) + 1;
-    this.kdTiers.push({ fromChild: nextFrom, percent: 0 });
-    this.recomputeKdPreview();
-  }
-
-  removeKdTier(index: number): void {
-    this.kdTiers.splice(index, 1);
-    this.recomputeKdPreview();
-  }
-
-  recomputeKdPreview(): void {
-    this.kdPreview = discountFactors(this.kdTiers, 4);
-  }
-
-  saveKostenDiscount(): void {
-    this.kdError = null;
-    const froms = this.kdTiers.map((t) => t.fromChild);
-    const ascendingUnique = froms.every((f, i) => f >= 2 && (i === 0 || f > froms[i - 1]));
-    const percentsValid = this.kdTiers.every((t) => t.percent >= 0 && t.percent <= 100);
-    if (!ascendingUnique || !percentsValid) {
-      this.kdError = 'Staffeln müssen ab dem 2. Kind, eindeutig, aufsteigend und 0–100 % sein';
-      return;
-    }
-    if (!this.kdSelectedSemesterId) return;
-    this.kostenDiscountService.save(this.kdSelectedSemesterId, {
-      semesterId: this.kdSelectedSemesterId,
-      applyToAll: this.kdApplyToAll,
-      order: this.kdOrder,
-      tiers: this.kdTiers,
-    }).subscribe({
-      next: () => { this.kdError = null; },
-      error: () => { this.kdError = 'Speichern fehlgeschlagen'; },
     });
   }
 }

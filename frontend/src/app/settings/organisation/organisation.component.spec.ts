@@ -17,8 +17,6 @@ import { RequiredHoursService } from '../../shared/services/required-hours.servi
 import { RequiredHours } from '../../shared/models/required-hours.model';
 import { AliquotConfigService } from '../../shared/services/aliquot-config.service';
 import { AliquotConfig } from '../../shared/models/aliquot-config.model';
-import { KostenDiscountService } from '../../shared/services/kosten-discount.service';
-import { KostenDiscount } from '../../shared/models/kosten-discount.model';
 
 class FakeOrganisationService {
   updateCalls: { id: string; body: unknown }[] = [];
@@ -88,7 +86,7 @@ class FakeRequiredHoursService {
 class FakeAliquotConfigService {
   getCalls: string[] = [];
   saveCalls: AliquotConfig[] = [];
-  config: AliquotConfig = { semesterId: '', mode: 'NONE' };
+  config: AliquotConfig = { semesterId: '', stundenMode: 'NONE', kostenMode: 'NONE' };
   get(semesterId: string) {
     this.getCalls.push(semesterId);
     return of(this.config);
@@ -99,18 +97,71 @@ class FakeAliquotConfigService {
   }
 }
 
-class FakeKostenDiscountService {
-  getCalls: string[] = [];
-  saveCalls: KostenDiscount[] = [];
-  config: KostenDiscount = { semesterId: '', applyToAll: false, order: 'MOST_EXPENSIVE_FIRST', tiers: [] };
-  get(semesterId: string) {
-    this.getCalls.push(semesterId);
-    return of(this.config);
+class FakeCurrencyService {
+  createCalls: CreateCurrencyRequest[] = [];
+  currencies: Currency[] = [];
+  getAll() {
+    return of(this.currencies);
   }
-  save(_semesterId: string, dto: KostenDiscount) {
-    this.saveCalls.push(dto);
-    return of(dto);
+  create(request: CreateCurrencyRequest) {
+    this.createCalls.push(request);
+    const created: Currency = { id: 'currency-new', ...request };
+    this.currencies = [...this.currencies, created];
+    return of(created);
   }
+}
+
+class FakeKostenDefinitionService {
+  createCalls: CreateKostenDefinitionRequest[] = [];
+  setActiveCalls: { id: string; active: boolean }[] = [];
+  definitions: KostenDefinition[] = [];
+  getAll() {
+    return of(this.definitions);
+  }
+  create(request: CreateKostenDefinitionRequest) {
+    this.createCalls.push(request);
+    return of({
+      id: 'def-new', label: request.label, active: true,
+      currency: { id: request.currencyId, code: 'EUR', symbol: '€' },
+    } as KostenDefinition);
+  }
+  setActive(id: string, active: boolean) {
+    this.setActiveCalls.push({ id, active });
+    return of({ id, label: 'x', active, currency: { id: 'c1', code: 'EUR', symbol: '€' } } as KostenDefinition);
+  }
+}
+
+function makeComponent(overrides: {
+  orgService?: FakeOrganisationService;
+  fieldDefService?: FakeFieldDefinitionService;
+  fieldInstanceService?: FakeFieldInstanceService;
+  semesterService?: FakeSemesterService;
+  currencyService?: FakeCurrencyService;
+  kostenDefinitionService?: FakeKostenDefinitionService;
+  requiredHoursService?: FakeRequiredHoursService;
+  aliquotConfigService?: FakeAliquotConfigService;
+} = {}): OrganisationComponent {
+  const orgService = overrides.orgService ?? new FakeOrganisationService();
+  const fieldDefService = overrides.fieldDefService ?? new FakeFieldDefinitionService();
+  const fieldInstanceService = overrides.fieldInstanceService ?? new FakeFieldInstanceService();
+  const semesterService = overrides.semesterService ?? new FakeSemesterService();
+  const currencyService = overrides.currencyService ?? new FakeCurrencyService();
+  const kostenDefinitionService = overrides.kostenDefinitionService ?? new FakeKostenDefinitionService();
+  const requiredHoursService = overrides.requiredHoursService ?? new FakeRequiredHoursService();
+  const aliquotConfigService = overrides.aliquotConfigService ?? new FakeAliquotConfigService();
+  const fakeDialog = { open: () => ({ afterClosed: () => of(null) }) } as unknown as MatDialog;
+
+  return new OrganisationComponent(
+    orgService as unknown as OrganisationService,
+    fieldDefService as unknown as FieldDefinitionService,
+    fieldInstanceService as unknown as FieldInstanceService,
+    semesterService as unknown as SemesterService,
+    currencyService as unknown as CurrencyService,
+    kostenDefinitionService as unknown as KostenDefinitionService,
+    requiredHoursService as unknown as RequiredHoursService,
+    aliquotConfigService as unknown as AliquotConfigService,
+    fakeDialog,
+  );
 }
 
 describe('OrganisationComponent - Team-Farbe', () => {
@@ -118,32 +169,12 @@ describe('OrganisationComponent - Team-Farbe', () => {
   let orgService: FakeOrganisationService;
   let fieldDefService: FakeFieldDefinitionService;
   let fieldInstanceService: FakeFieldInstanceService;
-  let semesterService: FakeSemesterService;
 
   beforeEach(() => {
     orgService = new FakeOrganisationService();
     fieldDefService = new FakeFieldDefinitionService();
     fieldInstanceService = new FakeFieldInstanceService();
-    semesterService = new FakeSemesterService();
-    const currencyService = new FakeCurrencyService();
-    const kostenDefinitionService = new FakeKostenDefinitionService();
-    const requiredHoursService = new FakeRequiredHoursService();
-    const aliquotConfigService = new FakeAliquotConfigService();
-    const kostenDiscountService = new FakeKostenDiscountService();
-    const fakeDialog = { open: () => ({ afterClosed: () => of(null) }) } as unknown as MatDialog;
-
-    component = new OrganisationComponent(
-      orgService as unknown as OrganisationService,
-      fieldDefService as unknown as FieldDefinitionService,
-      fieldInstanceService as unknown as FieldInstanceService,
-      semesterService as unknown as SemesterService,
-      currencyService as unknown as CurrencyService,
-      kostenDefinitionService as unknown as KostenDefinitionService,
-      requiredHoursService as unknown as RequiredHoursService,
-      aliquotConfigService as unknown as AliquotConfigService,
-      kostenDiscountService as unknown as KostenDiscountService,
-      fakeDialog,
-    );
+    component = makeComponent({ orgService, fieldDefService, fieldInstanceService });
   });
 
   it('sends label and color when creating the first parent-team FieldDefinition', () => {
@@ -185,29 +216,8 @@ describe('OrganisationComponent - Semester', () => {
   let semesterService: FakeSemesterService;
 
   beforeEach(() => {
-    const orgService = new FakeOrganisationService();
-    const fieldDefService = new FakeFieldDefinitionService();
-    const fieldInstanceService = new FakeFieldInstanceService();
     semesterService = new FakeSemesterService();
-    const currencyService = new FakeCurrencyService();
-    const kostenDefinitionService = new FakeKostenDefinitionService();
-    const requiredHoursService = new FakeRequiredHoursService();
-    const aliquotConfigService = new FakeAliquotConfigService();
-    const kostenDiscountService = new FakeKostenDiscountService();
-    const fakeDialog = { open: () => ({ afterClosed: () => of(null) }) } as unknown as MatDialog;
-
-    component = new OrganisationComponent(
-      orgService as unknown as OrganisationService,
-      fieldDefService as unknown as FieldDefinitionService,
-      fieldInstanceService as unknown as FieldInstanceService,
-      semesterService as unknown as SemesterService,
-      currencyService as unknown as CurrencyService,
-      kostenDefinitionService as unknown as KostenDefinitionService,
-      requiredHoursService as unknown as RequiredHoursService,
-      aliquotConfigService as unknown as AliquotConfigService,
-      kostenDiscountService as unknown as KostenDiscountService,
-      fakeDialog,
-    );
+    component = makeComponent({ semesterService });
   });
 
   it('loads semesters on init', () => {
@@ -242,81 +252,21 @@ describe('OrganisationComponent - Semester', () => {
   });
 });
 
-class FakeCurrencyService {
-  createCalls: CreateCurrencyRequest[] = [];
-  currencies: Currency[] = [];
-  getAll() {
-    return of(this.currencies);
-  }
-  create(request: CreateCurrencyRequest) {
-    this.createCalls.push(request);
-    const created: Currency = { id: 'currency-new', ...request };
-    this.currencies = [...this.currencies, created];
-    return of(created);
-  }
-}
-
-class FakeKostenDefinitionService {
-  createCalls: CreateKostenDefinitionRequest[] = [];
-  setActiveCalls: { id: string; active: boolean }[] = [];
-  setSiblingDiscountCalls: { id: string; siblingDiscount: boolean }[] = [];
-  definitions: KostenDefinition[] = [];
-  getAll() {
-    return of(this.definitions);
-  }
-  create(request: CreateKostenDefinitionRequest) {
-    this.createCalls.push(request);
-    return of({
-      id: 'def-new', label: request.label, active: true,
-      currency: { id: request.currencyId, code: 'EUR', symbol: '€' },
-      siblingDiscount: false,
-    } as KostenDefinition);
-  }
-  setActive(id: string, active: boolean) {
-    this.setActiveCalls.push({ id, active });
-    return of({ id, label: 'x', active, currency: { id: 'c1', code: 'EUR', symbol: '€' }, siblingDiscount: false } as KostenDefinition);
-  }
-  setSiblingDiscount(id: string, siblingDiscount: boolean) {
-    this.setSiblingDiscountCalls.push({ id, siblingDiscount });
-    return of({ id, label: 'x', active: true, currency: { id: 'c1', code: 'EUR', symbol: '€' }, siblingDiscount } as KostenDefinition);
-  }
-}
-
 describe('OrganisationComponent - Kosten-Definitionen', () => {
   let component: OrganisationComponent;
   let currencyService: FakeCurrencyService;
   let kostenDefinitionService: FakeKostenDefinitionService;
 
   beforeEach(() => {
-    const orgService = new FakeOrganisationService();
-    const fieldDefService = new FakeFieldDefinitionService();
-    const fieldInstanceService = new FakeFieldInstanceService();
-    const semesterService = new FakeSemesterService();
     currencyService = new FakeCurrencyService();
     kostenDefinitionService = new FakeKostenDefinitionService();
-    const requiredHoursService = new FakeRequiredHoursService();
-    const aliquotConfigService = new FakeAliquotConfigService();
-    const kostenDiscountService = new FakeKostenDiscountService();
-    const fakeDialog = { open: () => ({ afterClosed: () => of(null) }) } as unknown as MatDialog;
-
-    component = new OrganisationComponent(
-      orgService as unknown as OrganisationService,
-      fieldDefService as unknown as FieldDefinitionService,
-      fieldInstanceService as unknown as FieldInstanceService,
-      semesterService as unknown as SemesterService,
-      currencyService as unknown as CurrencyService,
-      kostenDefinitionService as unknown as KostenDefinitionService,
-      requiredHoursService as unknown as RequiredHoursService,
-      aliquotConfigService as unknown as AliquotConfigService,
-      kostenDiscountService as unknown as KostenDiscountService,
-      fakeDialog,
-    );
+    component = makeComponent({ currencyService, kostenDefinitionService });
   });
 
   it('loads currencies and kosten-definitions on init', () => {
     currencyService.currencies = [{ id: 'c1', code: 'EUR', symbol: '€' }];
     kostenDefinitionService.definitions = [
-      { id: 'd1', label: 'Elternbeitrag', active: true, currency: { id: 'c1', code: 'EUR', symbol: '€' }, siblingDiscount: false },
+      { id: 'd1', label: 'Elternbeitrag', active: true, currency: { id: 'c1', code: 'EUR', symbol: '€' } },
     ];
 
     component.ngOnInit();
@@ -346,138 +296,64 @@ describe('OrganisationComponent - Kosten-Definitionen', () => {
 
   it('toggles a definition active flag', () => {
     kostenDefinitionService.definitions = [
-      { id: 'd1', label: 'Elternbeitrag', active: true, currency: { id: 'c1', code: 'EUR', symbol: '€' }, siblingDiscount: false },
+      { id: 'd1', label: 'Elternbeitrag', active: true, currency: { id: 'c1', code: 'EUR', symbol: '€' } },
     ];
     component.ngOnInit();
 
-    component.toggleKostenDefinitionActive({ id: 'd1', label: 'Elternbeitrag', active: true, currency: { id: 'c1', code: 'EUR', symbol: '€' }, siblingDiscount: false });
+    component.toggleKostenDefinitionActive({ id: 'd1', label: 'Elternbeitrag', active: true, currency: { id: 'c1', code: 'EUR', symbol: '€' } });
 
     expect(kostenDefinitionService.setActiveCalls).toEqual([{ id: 'd1', active: false }]);
-  });
-
-  it('toggles a definition sibling-discount flag', () => {
-    kostenDefinitionService.definitions = [
-      { id: 'd1', label: 'Elternbeitrag', active: true, currency: { id: 'c1', code: 'EUR', symbol: '€' }, siblingDiscount: false },
-    ];
-    component.ngOnInit();
-
-    component.toggleSiblingDiscount({ id: 'd1', label: 'Elternbeitrag', active: true, currency: { id: 'c1', code: 'EUR', symbol: '€' }, siblingDiscount: false });
-
-    expect(kostenDefinitionService.setSiblingDiscountCalls).toEqual([{ id: 'd1', siblingDiscount: true }]);
-    expect(component.kostenDefinitions.length).toBe(1);
   });
 });
 
 describe('OrganisationComponent - Zu leistende Stunden / Aliquot', () => {
   let component: OrganisationComponent;
   let aliquotConfigService: FakeAliquotConfigService;
+  let requiredHoursService: FakeRequiredHoursService;
 
   beforeEach(() => {
-    const orgService = new FakeOrganisationService();
-    const fieldDefService = new FakeFieldDefinitionService();
-    const fieldInstanceService = new FakeFieldInstanceService();
-    const semesterService = new FakeSemesterService();
-    const currencyService = new FakeCurrencyService();
-    const kostenDefinitionService = new FakeKostenDefinitionService();
-    const requiredHoursService = new FakeRequiredHoursService();
     aliquotConfigService = new FakeAliquotConfigService();
-    const kostenDiscountService = new FakeKostenDiscountService();
-    const fakeDialog = { open: () => ({ afterClosed: () => of(null) }) } as unknown as MatDialog;
-
-    component = new OrganisationComponent(
-      orgService as unknown as OrganisationService,
-      fieldDefService as unknown as FieldDefinitionService,
-      fieldInstanceService as unknown as FieldInstanceService,
-      semesterService as unknown as SemesterService,
-      currencyService as unknown as CurrencyService,
-      kostenDefinitionService as unknown as KostenDefinitionService,
-      requiredHoursService as unknown as RequiredHoursService,
-      aliquotConfigService as unknown as AliquotConfigService,
-      kostenDiscountService as unknown as KostenDiscountService,
-      fakeDialog,
-    );
+    requiredHoursService = new FakeRequiredHoursService();
+    component = makeComponent({ aliquotConfigService, requiredHoursService });
   });
 
-  it('loads and saves aliquot mode for the selected semester', () => {
+  it('loads stunden mode and echoes back kosten mode when saving aliquot', () => {
     component.rhSelectedSemesterId = 'sem1';
-    aliquotConfigService.config = { semesterId: 'sem1', mode: 'PER_DAY' };
+    aliquotConfigService.config = { semesterId: 'sem1', stundenMode: 'PER_DAY', kostenMode: 'WHOLE_MONTH' };
 
     component.loadAliquot();
 
     expect(aliquotConfigService.getCalls).toEqual(['sem1']);
-    expect(component.aliquotMode).toBe('PER_DAY');
+    expect(component.stundenMode).toBe('PER_DAY');
+    expect(component.kostenMode).toBe('WHOLE_MONTH');
 
-    component.aliquotMode = 'WHOLE_MONTH';
+    component.stundenMode = 'NONE';
     component.saveAliquot();
 
     expect(aliquotConfigService.saveCalls.length).toBe(1);
-    expect(aliquotConfigService.saveCalls[0]).toEqual({ semesterId: 'sem1', mode: 'WHOLE_MONTH' });
-  });
-});
-
-describe('OrganisationComponent - Geschwisterrabatt (Kosten)', () => {
-  let component: OrganisationComponent;
-  let kostenDiscountService: FakeKostenDiscountService;
-
-  beforeEach(() => {
-    const orgService = new FakeOrganisationService();
-    const fieldDefService = new FakeFieldDefinitionService();
-    const fieldInstanceService = new FakeFieldInstanceService();
-    const semesterService = new FakeSemesterService();
-    const currencyService = new FakeCurrencyService();
-    const kostenDefinitionService = new FakeKostenDefinitionService();
-    const requiredHoursService = new FakeRequiredHoursService();
-    const aliquotConfigService = new FakeAliquotConfigService();
-    kostenDiscountService = new FakeKostenDiscountService();
-    const fakeDialog = { open: () => ({ afterClosed: () => of(null) }) } as unknown as MatDialog;
-
-    component = new OrganisationComponent(
-      orgService as unknown as OrganisationService,
-      fieldDefService as unknown as FieldDefinitionService,
-      fieldInstanceService as unknown as FieldInstanceService,
-      semesterService as unknown as SemesterService,
-      currencyService as unknown as CurrencyService,
-      kostenDefinitionService as unknown as KostenDefinitionService,
-      requiredHoursService as unknown as RequiredHoursService,
-      aliquotConfigService as unknown as AliquotConfigService,
-      kostenDiscountService as unknown as KostenDiscountService,
-      fakeDialog,
-    );
+    expect(aliquotConfigService.saveCalls[0]).toEqual({ semesterId: 'sem1', stundenMode: 'NONE', kostenMode: 'WHOLE_MONTH' });
   });
 
-  it('saves kosten discount tiers for the selected semester', () => {
-    component.kdSelectedSemesterId = 'sem1';
-    component.kdApplyToAll = false;
-    component.kdOrder = 'MOST_EXPENSIVE_FIRST';
-    component.kdTiers = [{ fromChild: 2, percent: 50 }];
+  it('builds one preview row per default plus one per tier', () => {
+    component.rhDefaultHhmm = '08:00';
+    component.rhTiers = [{ fromChild: 2, hhmm: '06:00' }];
+    component.recomputeRhPreview();
+    expect(component.rhPreview.length).toBe(2);
 
-    component.saveKostenDiscount();
-
-    expect(kostenDiscountService.saveCalls.length).toBe(1);
-    expect(kostenDiscountService.saveCalls[0]).toEqual({
-      semesterId: 'sem1',
-      applyToAll: false,
-      order: 'MOST_EXPENSIVE_FIRST',
-      tiers: [{ fromChild: 2, percent: 50 }],
-    });
+    component.rhTiers = [{ fromChild: 2, hhmm: '06:00' }, { fromChild: 3, hhmm: '04:00' }];
+    component.recomputeRhPreview();
+    expect(component.rhPreview.length).toBe(3);
   });
 
-  it('loads kosten discount config for the selected semester and computes preview', () => {
-    kostenDiscountService.config = {
-      semesterId: 'sem1', applyToAll: true, order: 'LEAST_EXPENSIVE_FIRST',
-      tiers: [{ fromChild: 2, percent: 25 }],
-    };
+  it('treats a blank tier value as 0 and saves without error', () => {
+    component.rhSelectedSemesterId = 'sem1';
+    component.rhDefaultHhmm = '08:00';
+    component.rhTiers = [{ fromChild: 2, hhmm: '' }];
 
-    component.onKdSemesterChange('sem1');
+    component.saveRequiredHours();
 
-    expect(kostenDiscountService.getCalls).toEqual(['sem1']);
-    expect(component.kdApplyToAll).toBe(true);
-    expect(component.kdOrder).toBe('LEAST_EXPENSIVE_FIRST');
-    expect(component.kdPreview).toEqual([
-      { child: 1, percent: 0 },
-      { child: 2, percent: 25 },
-      { child: 3, percent: 25 },
-      { child: 4, percent: 25 },
-    ]);
+    expect(component.rhError).toBeNull();
+    expect(requiredHoursService.saveCalls.length).toBe(1);
+    expect(requiredHoursService.saveCalls[0].tiers).toEqual([{ fromChild: 2, minutesPerMonth: 0 }]);
   });
 });
