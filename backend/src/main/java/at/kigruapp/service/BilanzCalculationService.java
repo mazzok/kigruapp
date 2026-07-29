@@ -27,7 +27,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneOffset;
-import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -109,23 +108,29 @@ public class BilanzCalculationService {
                     List<ChildBase> present = presentSiblings(
                             child.familyId, semester, year, month, mode, activeDefs, discountCfg);
                     BigDecimal factor = discountFactor(discountCfg, child.id.toHexString(), present);
-                    String weight = frac.stripTrailingZeros().toPlainString();
+                    String fracWeight = frac.stripTrailingZeros().toPlainString();
                     for (KostenDefinition def : activeDefs) {
                         BigDecimal def0 = defaultAmount(semester.id, gref.groupId, def.id);
                         BilanzOverride o = BilanzOverride.findByKeys(child.id, year, month, def.id);
                         boolean elig = eligible(discountCfg, def);
                         BigDecimal eff;
+                        int discountPercent;
+                        String weight;
                         if (o != null) {
                             eff = o.amount; // override bypasses discount and aliquot
+                            // Neither discount factor nor aliquot fraction was applied — report honestly.
+                            discountPercent = 0;
+                            weight = "1";
                         } else if (def0 == null) {
                             continue;
                         } else {
                             BigDecimal defFactor = elig ? factor : BigDecimal.ONE;
                             eff = def0.multiply(defFactor).multiply(frac)
                                     .setScale(2, RoundingMode.HALF_UP);
+                            discountPercent = elig
+                                    ? (int) Math.round((1 - factor.doubleValue()) * 100) : 0;
+                            weight = fracWeight;
                         }
-                        int discountPercent = elig
-                                ? (int) Math.round((1 - factor.doubleValue()) * 100) : 0;
                         Currency cur = Currency.findById(def.currencyId);
                         lines.add(new BilanzCellDTO.Line(
                                 child.id.toHexString(), childName(child), def.id.toHexString(), def.label,
@@ -247,14 +252,6 @@ public class BilanzCalculationService {
         return v != null ? v.amount : null;
     }
 
-    private BigDecimal effectiveAmount(ObjectId personId, int year, int month, ObjectId defId, BigDecimal def0) {
-        BilanzOverride o = BilanzOverride.findByKeys(personId, year, month, defId);
-        if (o != null) {
-            return o.amount;
-        }
-        return def0; // may be null -> caller skips
-    }
-
     private static class GroupRef {
         ObjectId groupId;
         String entryDate;
@@ -273,15 +270,6 @@ public class BilanzCalculationService {
         g.entryDate = d.getString("entryDate");
         g.exitDate = d.getString("exitDate");
         return g;
-    }
-
-    private boolean activeInMonth(GroupRef g, int year, int month) {
-        String firstDay = String.format("%04d-%02d-01", year, month);
-        String lastDay = LocalDate.of(year, month, 1)
-                .with(TemporalAdjusters.lastDayOfMonth()).toString();
-        boolean entryOk = g.entryDate == null || g.entryDate.isBlank() || g.entryDate.compareTo(lastDay) <= 0;
-        boolean exitOk = g.exitDate == null || g.exitDate.isBlank() || g.exitDate.compareTo(firstDay) >= 0;
-        return entryOk && exitOk;
     }
 
     private boolean matchesYearMonth(String date, int year, int month) {

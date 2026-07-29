@@ -267,6 +267,8 @@ public class HourEntryResource {
 
         int months = hoursBalanceService.monthsInSemester(semester);
         RequiredHours cfg = RequiredHours.findBySemesterId(semesterId);
+        AliquotConfig aliquotCfg = AliquotConfig.findBySemesterId(semesterId);
+        AliquotMode mode = AliquotMode.fromString(aliquotCfg != null ? aliquotCfg.mode : null);
 
         List<Person> members = me.familyId == null
                 ? List.of(me)
@@ -276,9 +278,15 @@ public class HourEntryResource {
                 : hoursBalanceService.countPlacedChildren(me.familyId, semesterId);
         int familyMonthly = hoursBalanceService.familyMonthlyMinutes(cfg, childCount);
 
+        // Soll je Monat unter Anwendung des Aliquot-Modus (pro-rata bei unterjährigem
+        // Ein-/Austritt); NONE reproduziert familyMonthly * months.
+        List<HoursBalanceService.ChildPlacement> placements = familyPlacements(members, semesterId);
+        Map<String, Integer> sollByMonth =
+                hoursBalanceService.familySollByMonth(cfg, mode, semester, placements);
+
         dto.familyMonthlyMinutes = familyMonthly;
         dto.monthsInSemester = months;
-        dto.sollMinutes = familyMonthly * months;
+        dto.sollMinutes = sollByMonth.values().stream().mapToInt(Integer::intValue).sum();
 
         // Namen der Mitglieder auflösen.
         Map<ObjectId, Map<String, String>> props = personPropertyResolver.resolve(members);
@@ -318,7 +326,7 @@ public class HourEntryResource {
             while (!cur.isAfter(end)) {
                 OurHoursDto.MonthRow row = new OurHoursDto.MonthRow();
                 row.month = String.format("%04d-%02d", cur.getYear(), cur.getMonthValue());
-                row.sollMinutes = familyMonthly;
+                row.sollMinutes = sollByMonth.getOrDefault(row.month, 0);
                 row.istMinutes = istByMonth.getOrDefault(row.month, 0);
                 dto.months.add(row);
                 coveredMonths.add(row.month);

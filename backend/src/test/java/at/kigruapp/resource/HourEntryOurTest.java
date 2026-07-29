@@ -1,5 +1,6 @@
 package at.kigruapp.resource;
 
+import at.kigruapp.entity.AliquotConfig;
 import at.kigruapp.entity.Family;
 import at.kigruapp.entity.HourEntry;
 import at.kigruapp.entity.Person;
@@ -8,6 +9,7 @@ import at.kigruapp.entity.Semester;
 import com.mongodb.client.MongoClient;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
+import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,6 +36,7 @@ class HourEntryOurTest {
         Family.deleteAll();
         Semester.deleteAll();
         RequiredHours.deleteAll();
+        AliquotConfig.deleteAll();
         mongoClient.getDatabase(databaseName).getCollection("semester_assignments").drop();
         mongoClient.getDatabase(databaseName).getCollection("field_instances").drop();
     }
@@ -82,6 +85,25 @@ class HourEntryOurTest {
         c.semesterId = new ObjectId(semesterId);
         c.defaultMinutesPerMonth = def;
         c.persist();
+    }
+
+    private void persistAliquot(String semesterId, String mode) {
+        AliquotConfig c = new AliquotConfig();
+        c.semesterId = new ObjectId(semesterId);
+        c.mode = mode;
+        c.persist();
+    }
+
+    private void placeChild(ObjectId childPersonId, String semesterId, String entryDate, String exitDate) {
+        Document a = new Document("_id", new ObjectId())
+                .append("personId", childPersonId)
+                .append("semesterId", new ObjectId(semesterId))
+                .append("section", "group")
+                .append("definitionId", new ObjectId())
+                .append("fieldInstanceId", new ObjectId());
+        if (entryDate != null) a.append("entryDate", entryDate);
+        if (exitDate != null) a.append("exitDate", exitDate);
+        mongoClient.getDatabase(databaseName).getCollection("semester_assignments").insertOne(a);
     }
 
     @Test
@@ -147,6 +169,27 @@ class HourEntryOurTest {
             .extract().path("months.istMinutes");
         int sum = monthIst.stream().mapToInt(Integer::intValue).sum();
         org.junit.jupiter.api.Assertions.assertEquals(195, sum);
+    }
+
+    @Test
+    void ourPerDayAliquotProratesTotalAndEntryMonthSoll() {
+        ObjectId famId = persistFamily();
+        Person me = persistPerson(famId);      // erste Person -> aktueller Benutzer
+        Person child = persistPerson(famId);
+        String semesterId = persistSemester(); // 2026-09 .. 2027-02, 6 Monate
+        persistConfig(semesterId, 480);        // 1 Kind -> 480/Monat
+        persistAliquot(semesterId, "PER_DAY");
+        // Eintritt Mitte November: Sep/Okt 0, Nov 15/30=0.5 -> 240, Dez/Jan/Feb je 480 -> total 1680
+        placeChild(child.id, semesterId, "2026-11-16", null);
+
+        given().when().get("/api/v1/hour-entries/our?semesterId=" + semesterId)
+            .then().statusCode(200)
+            .body("familyMonthlyMinutes", is(480))
+            .body("sollMinutes", is(1680))                                  // < NONE-Wert 480*6=2880
+            .body("sollMinutes", lessThan(2880))
+            .body("months.find { it.month == '2026-11' }.sollMinutes", is(240)) // Eintrittsmonat pro-rata
+            .body("months.find { it.month == '2026-09' }.sollMinutes", is(0))   // vor Eintritt
+            .body("months.find { it.month == '2026-12' }.sollMinutes", is(480));// voller Monat
     }
 
     @Test

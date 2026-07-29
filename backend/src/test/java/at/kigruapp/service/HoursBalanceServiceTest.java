@@ -141,6 +141,24 @@ class HoursBalanceServiceTest {
     }
 
     @Test
+    void sollByMonth_perDay_proratesEntryMonth_andSumMatchesTotal() {
+        RequiredHours c = cfg(480); // 8h flat
+        Semester s = sepToFeb();
+        var placements = List.of(placement("a", "2026-11-16", null));
+        var byMonth = service.familySollByMonth(c, AliquotMode.PER_DAY, s, placements);
+        // pre-entry months 0, entry month prorated (15/30*480=240), later months full
+        assertEquals(0, byMonth.get("2026-09"));
+        assertEquals(0, byMonth.get("2026-10"));
+        assertEquals(240, byMonth.get("2026-11"));
+        assertEquals(480, byMonth.get("2026-12"));
+        assertEquals(480, byMonth.get("2027-01"));
+        assertEquals(480, byMonth.get("2027-02"));
+        int sum = byMonth.values().stream().mapToInt(Integer::intValue).sum();
+        assertEquals(1680, sum);
+        assertEquals(service.familySollMinutes(c, AliquotMode.PER_DAY, s, placements), sum);
+    }
+
+    @Test
     void soll_perDay_twoConcurrentChildren_higherFractionGetsOrdinalOne() {
         RequiredHours c = cfg(480, tier(2, 360)); // rate(1)=480, rate(2)=360
         Semester s = new Semester();

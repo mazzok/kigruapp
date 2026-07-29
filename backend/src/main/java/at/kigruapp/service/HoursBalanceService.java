@@ -108,41 +108,57 @@ public class HoursBalanceService {
     /** Family Soll (minutes) over the semester, applying the aliquot mode. Pure given placements. */
     public int familySollMinutes(RequiredHours cfg, AliquotMode mode, Semester semester,
                                  List<ChildPlacement> placements) {
-        if (mode == AliquotMode.NONE) {
-            return familyMonthlyMinutes(cfg, placements.size()) * monthsInSemester(semester);
-        }
+        return familySollByMonth(cfg, mode, semester, placements).values().stream()
+                .mapToInt(Integer::intValue).sum();
+    }
+
+    /** Per-month Soll ("YYYY-MM" -> minutes) over the semester under the aliquot mode.
+     *  NONE => each month = familyMonthlyMinutes(cfg, placements.size()). Sum == familySollMinutes. */
+    public java.util.Map<String, Integer> familySollByMonth(RequiredHours cfg, AliquotMode mode,
+            Semester semester, List<ChildPlacement> placements) {
+        java.util.Map<String, Integer> out = new java.util.LinkedHashMap<>();
         if (semester == null || semester.start == null || semester.end == null) {
-            return 0;
+            return out;
         }
         YearMonth cur = YearMonth.from(semester.start.atZone(ZoneOffset.UTC));
         YearMonth last = YearMonth.from(semester.end.atZone(ZoneOffset.UTC));
-        int total = 0;
         while (!cur.isAfter(last)) {
-            final YearMonth ym = cur;
-            List<BigDecimal> presentFractions = new ArrayList<>();
-            List<String> ids = new ArrayList<>();
-            for (ChildPlacement p : placements) {
-                BigDecimal f = aliquotService.monthFraction(
-                        mode, p.entryDate, p.exitDate, ym.getYear(), ym.getMonthValue());
-                if (f.signum() > 0) {
-                    presentFractions.add(f);
-                    ids.add(p.childId);
-                }
-            }
-            // ordinal by fraction desc, tie-break childId
-            List<Integer> idx = new ArrayList<>();
-            for (int i = 0; i < presentFractions.size(); i++) idx.add(i);
-            final List<BigDecimal> fr = presentFractions;
-            final List<String> idList = ids;
-            idx.sort(Comparator.<Integer, BigDecimal>comparing(fr::get).reversed()
-                    .thenComparing(idList::get));
-            for (int ordinalPos = 0; ordinalPos < idx.size(); ordinalPos++) {
-                int childIdx = idx.get(ordinalPos);
-                int rate = rateForChild(cfg, ordinalPos + 1);
-                total += BigDecimal.valueOf(rate).multiply(fr.get(childIdx))
-                        .setScale(0, RoundingMode.HALF_UP).intValue();
-            }
+            String key = String.format("%04d-%02d", cur.getYear(), cur.getMonthValue());
+            out.put(key, monthSoll(cfg, mode, cur, placements));
             cur = cur.plusMonths(1);
+        }
+        return out;
+    }
+
+    /** Soll (minutes) for a single month under the aliquot mode. NONE => flat family monthly rate. */
+    private int monthSoll(RequiredHours cfg, AliquotMode mode, YearMonth ym,
+                          List<ChildPlacement> placements) {
+        if (mode == AliquotMode.NONE) {
+            return familyMonthlyMinutes(cfg, placements.size());
+        }
+        List<BigDecimal> presentFractions = new ArrayList<>();
+        List<String> ids = new ArrayList<>();
+        for (ChildPlacement p : placements) {
+            BigDecimal f = aliquotService.monthFraction(
+                    mode, p.entryDate, p.exitDate, ym.getYear(), ym.getMonthValue());
+            if (f.signum() > 0) {
+                presentFractions.add(f);
+                ids.add(p.childId);
+            }
+        }
+        // ordinal by fraction desc, tie-break childId
+        List<Integer> idx = new ArrayList<>();
+        for (int i = 0; i < presentFractions.size(); i++) idx.add(i);
+        final List<BigDecimal> fr = presentFractions;
+        final List<String> idList = ids;
+        idx.sort(Comparator.<Integer, BigDecimal>comparing(fr::get).reversed()
+                .thenComparing(idList::get));
+        int total = 0;
+        for (int ordinalPos = 0; ordinalPos < idx.size(); ordinalPos++) {
+            int childIdx = idx.get(ordinalPos);
+            int rate = rateForChild(cfg, ordinalPos + 1);
+            total += BigDecimal.valueOf(rate).multiply(fr.get(childIdx))
+                    .setScale(0, RoundingMode.HALF_UP).intValue();
         }
         return total;
     }
