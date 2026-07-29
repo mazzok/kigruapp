@@ -13,6 +13,7 @@ public class KostenDiscount extends PanacheMongoEntity {
     public boolean applyToAll;
     public String order = "MOST_EXPENSIVE_FIRST";
     public List<Tier> tiers = new ArrayList<>();
+    public java.util.List<org.bson.types.ObjectId> eligibleDefinitionIds = new java.util.ArrayList<>();
 
     public static class Tier {
         public int fromChild;

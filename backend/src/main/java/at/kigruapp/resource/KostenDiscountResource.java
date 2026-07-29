@@ -42,6 +42,15 @@ public class KostenDiscountResource {
             tier.percent = t.percent;
             cfg.tiers.add(tier);
         }
+        cfg.eligibleDefinitionIds = new java.util.ArrayList<>();
+        if (in.eligibleDefinitionIds != null) {
+            for (String id : in.eligibleDefinitionIds) {
+                if (!org.bson.types.ObjectId.isValid(id)) {
+                    throw new BadRequestException("ungültige definitionId: " + id);
+                }
+                cfg.eligibleDefinitionIds.add(new org.bson.types.ObjectId(id));
+            }
+        }
         cfg.persistOrUpdate();
         return toDto(semesterId, cfg);
     }
@@ -91,6 +100,10 @@ public class KostenDiscountResource {
                 td.percent = t.percent;
                 dto.tiers.add(td);
             }
+        }
+        dto.eligibleDefinitionIds = new java.util.ArrayList<>();
+        if (cfg != null && cfg.eligibleDefinitionIds != null) {
+            for (org.bson.types.ObjectId id : cfg.eligibleDefinitionIds) dto.eligibleDefinitionIds.add(id.toHexString());
         }
         return dto;
     }

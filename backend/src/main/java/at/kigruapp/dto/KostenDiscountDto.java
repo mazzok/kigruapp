@@ -8,6 +8,7 @@ public class KostenDiscountDto {
     public boolean applyToAll;
     public String order;
     public List<TierDto> tiers = new ArrayList<>();
+    public java.util.List<String> eligibleDefinitionIds = new java.util.ArrayList<>();
 
     public static class TierDto {
         public int fromChild;

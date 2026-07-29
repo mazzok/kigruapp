@@ -44,14 +44,24 @@ class KostenDiscountResourceTest {
     void putThenGetRoundTrips() {
         String id = persistSemester();
         given().contentType(ContentType.JSON)
-            .body("{\"applyToAll\":true,\"order\":\"LEAST_EXPENSIVE_FIRST\",\"tiers\":[{\"fromChild\":2,\"percent\":50},{\"fromChild\":3,\"percent\":100}]}")
+            .body("{\"applyToAll\":true,\"order\":\"LEAST_EXPENSIVE_FIRST\",\"tiers\":[{\"fromChild\":2,\"percent\":50},{\"fromChild\":3,\"percent\":100}],\"eligibleDefinitionIds\":[\"507f1f77bcf86cd799439011\",\"507f1f77bcf86cd799439012\"]}")
             .when().put("/api/v1/kosten-discount?semesterId=" + id)
             .then().statusCode(200).body("applyToAll", is(true)).body("tiers.size()", is(2));
         given().when().get("/api/v1/kosten-discount?semesterId=" + id)
             .then().statusCode(200)
             .body("order", is("LEAST_EXPENSIVE_FIRST"))
             .body("tiers[0].percent", is(50))
-            .body("tiers[1].fromChild", is(3));
+            .body("tiers[1].fromChild", is(3))
+            .body("eligibleDefinitionIds.size()", is(2));
+    }
+
+    @Test
+    void putAcceptsZeroPercentTier() {
+        String id = persistSemester();
+        given().contentType(ContentType.JSON)
+            .body("{\"applyToAll\":false,\"order\":\"MOST_EXPENSIVE_FIRST\",\"tiers\":[{\"fromChild\":2,\"percent\":0}]}")
+            .when().put("/api/v1/kosten-discount?semesterId=" + id)
+            .then().statusCode(200).body("tiers[0].percent", is(0));
     }
 
     @Test
