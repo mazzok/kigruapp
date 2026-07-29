@@ -259,6 +259,7 @@ class FakeCurrencyService {
 class FakeKostenDefinitionService {
   createCalls: CreateKostenDefinitionRequest[] = [];
   setActiveCalls: { id: string; active: boolean }[] = [];
+  setSiblingDiscountCalls: { id: string; siblingDiscount: boolean }[] = [];
   definitions: KostenDefinition[] = [];
   getAll() {
     return of(this.definitions);
@@ -268,11 +269,16 @@ class FakeKostenDefinitionService {
     return of({
       id: 'def-new', label: request.label, active: true,
       currency: { id: request.currencyId, code: 'EUR', symbol: '€' },
+      siblingDiscount: false,
     } as KostenDefinition);
   }
   setActive(id: string, active: boolean) {
     this.setActiveCalls.push({ id, active });
-    return of({ id, label: 'x', active, currency: { id: 'c1', code: 'EUR', symbol: '€' } } as KostenDefinition);
+    return of({ id, label: 'x', active, currency: { id: 'c1', code: 'EUR', symbol: '€' }, siblingDiscount: false } as KostenDefinition);
+  }
+  setSiblingDiscount(id: string, siblingDiscount: boolean) {
+    this.setSiblingDiscountCalls.push({ id, siblingDiscount });
+    return of({ id, label: 'x', active: true, currency: { id: 'c1', code: 'EUR', symbol: '€' }, siblingDiscount } as KostenDefinition);
   }
 }
 
@@ -310,7 +316,7 @@ describe('OrganisationComponent - Kosten-Definitionen', () => {
   it('loads currencies and kosten-definitions on init', () => {
     currencyService.currencies = [{ id: 'c1', code: 'EUR', symbol: '€' }];
     kostenDefinitionService.definitions = [
-      { id: 'd1', label: 'Elternbeitrag', active: true, currency: { id: 'c1', code: 'EUR', symbol: '€' } },
+      { id: 'd1', label: 'Elternbeitrag', active: true, currency: { id: 'c1', code: 'EUR', symbol: '€' }, siblingDiscount: false },
     ];
 
     component.ngOnInit();
@@ -340,13 +346,25 @@ describe('OrganisationComponent - Kosten-Definitionen', () => {
 
   it('toggles a definition active flag', () => {
     kostenDefinitionService.definitions = [
-      { id: 'd1', label: 'Elternbeitrag', active: true, currency: { id: 'c1', code: 'EUR', symbol: '€' } },
+      { id: 'd1', label: 'Elternbeitrag', active: true, currency: { id: 'c1', code: 'EUR', symbol: '€' }, siblingDiscount: false },
     ];
     component.ngOnInit();
 
-    component.toggleKostenDefinitionActive({ id: 'd1', label: 'Elternbeitrag', active: true, currency: { id: 'c1', code: 'EUR', symbol: '€' } });
+    component.toggleKostenDefinitionActive({ id: 'd1', label: 'Elternbeitrag', active: true, currency: { id: 'c1', code: 'EUR', symbol: '€' }, siblingDiscount: false });
 
     expect(kostenDefinitionService.setActiveCalls).toEqual([{ id: 'd1', active: false }]);
+  });
+
+  it('toggles a definition sibling-discount flag', () => {
+    kostenDefinitionService.definitions = [
+      { id: 'd1', label: 'Elternbeitrag', active: true, currency: { id: 'c1', code: 'EUR', symbol: '€' }, siblingDiscount: false },
+    ];
+    component.ngOnInit();
+
+    component.toggleSiblingDiscount({ id: 'd1', label: 'Elternbeitrag', active: true, currency: { id: 'c1', code: 'EUR', symbol: '€' }, siblingDiscount: false });
+
+    expect(kostenDefinitionService.setSiblingDiscountCalls).toEqual([{ id: 'd1', siblingDiscount: true }]);
+    expect(component.kostenDefinitions.length).toBe(1);
   });
 });
 

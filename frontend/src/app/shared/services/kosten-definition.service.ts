@@ -18,4 +18,8 @@ export class KostenDefinitionService {
   setActive(id: string, active: boolean): Observable<KostenDefinition> {
     return this.api.patch<KostenDefinition>(`/kosten-definitions/${id}/active`, { active });
   }
+
+  setSiblingDiscount(id: string, siblingDiscount: boolean): Observable<KostenDefinition> {
+    return this.api.patch<KostenDefinition>(`/kosten-definitions/${id}/sibling-discount`, { siblingDiscount });
+  }
 }

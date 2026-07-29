@@ -12,6 +12,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatSelectModule } from '@angular/material/select';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { IconPickerDialogComponent } from '../../shared/components/icon-picker/icon-picker-dialog.component';
 import { switchMap } from 'rxjs/operators';
 import { OrganisationService } from '../../shared/services/organisation.service';
@@ -42,7 +43,7 @@ import { discountFactors } from './kosten-discount-preview.util';
     CommonModule, ReactiveFormsModule, FormsModule,
     MatTabsModule, MatTableModule, MatFormFieldModule,
     MatInputModule, MatButtonModule, MatIconModule,
-    MatExpansionModule, MatDialogModule, MatDatepickerModule, MatSelectModule, MatCheckboxModule, IconPickerDialogComponent,
+    MatExpansionModule, MatDialogModule, MatDatepickerModule, MatSelectModule, MatCheckboxModule, MatTooltipModule, IconPickerDialogComponent,
   ],
   templateUrl: './organisation.component.html',
   styleUrl: './organisation.component.scss',
@@ -98,7 +99,7 @@ export class OrganisationComponent implements OnInit {
   // Kosten-Definitionen tab
   currencies: Currency[] = [];
   kostenDefinitions: KostenDefinition[] = [];
-  kostenDefColumns = ['label', 'currency', 'status', 'actions'];
+  kostenDefColumns = ['label', 'currency', 'status', 'siblingDiscount', 'actions'];
   showAddCurrency = false;
   kostenDefForm = new FormGroup({
     label: new FormControl('', Validators.required),
@@ -495,6 +496,12 @@ export class OrganisationComponent implements OnInit {
 
   toggleKostenDefinitionActive(definition: KostenDefinition): void {
     this.kostenDefinitionService.setActive(definition.id, !definition.active).subscribe(() => {
+      this.loadKostenDefinitions();
+    });
+  }
+
+  toggleSiblingDiscount(definition: KostenDefinition): void {
+    this.kostenDefinitionService.setSiblingDiscount(definition.id, !definition.siblingDiscount).subscribe(() => {
       this.loadKostenDefinitions();
     });
   }
