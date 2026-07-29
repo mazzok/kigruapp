@@ -17,6 +17,8 @@ import { RequiredHoursService } from '../../shared/services/required-hours.servi
 import { RequiredHours } from '../../shared/models/required-hours.model';
 import { AliquotConfigService } from '../../shared/services/aliquot-config.service';
 import { AliquotConfig } from '../../shared/models/aliquot-config.model';
+import { KostenDiscountService } from '../../shared/services/kosten-discount.service';
+import { KostenDiscount } from '../../shared/models/kosten-discount.model';
 
 class FakeOrganisationService {
   updateCalls: { id: string; body: unknown }[] = [];
@@ -97,6 +99,20 @@ class FakeAliquotConfigService {
   }
 }
 
+class FakeKostenDiscountService {
+  getCalls: string[] = [];
+  saveCalls: KostenDiscount[] = [];
+  config: KostenDiscount = { semesterId: '', applyToAll: false, order: 'MOST_EXPENSIVE_FIRST', tiers: [] };
+  get(semesterId: string) {
+    this.getCalls.push(semesterId);
+    return of(this.config);
+  }
+  save(_semesterId: string, dto: KostenDiscount) {
+    this.saveCalls.push(dto);
+    return of(dto);
+  }
+}
+
 describe('OrganisationComponent - Team-Farbe', () => {
   let component: OrganisationComponent;
   let orgService: FakeOrganisationService;
@@ -113,6 +129,7 @@ describe('OrganisationComponent - Team-Farbe', () => {
     const kostenDefinitionService = new FakeKostenDefinitionService();
     const requiredHoursService = new FakeRequiredHoursService();
     const aliquotConfigService = new FakeAliquotConfigService();
+    const kostenDiscountService = new FakeKostenDiscountService();
     const fakeDialog = { open: () => ({ afterClosed: () => of(null) }) } as unknown as MatDialog;
 
     component = new OrganisationComponent(
@@ -124,6 +141,7 @@ describe('OrganisationComponent - Team-Farbe', () => {
       kostenDefinitionService as unknown as KostenDefinitionService,
       requiredHoursService as unknown as RequiredHoursService,
       aliquotConfigService as unknown as AliquotConfigService,
+      kostenDiscountService as unknown as KostenDiscountService,
       fakeDialog,
     );
   });
@@ -175,6 +193,7 @@ describe('OrganisationComponent - Semester', () => {
     const kostenDefinitionService = new FakeKostenDefinitionService();
     const requiredHoursService = new FakeRequiredHoursService();
     const aliquotConfigService = new FakeAliquotConfigService();
+    const kostenDiscountService = new FakeKostenDiscountService();
     const fakeDialog = { open: () => ({ afterClosed: () => of(null) }) } as unknown as MatDialog;
 
     component = new OrganisationComponent(
@@ -186,6 +205,7 @@ describe('OrganisationComponent - Semester', () => {
       kostenDefinitionService as unknown as KostenDefinitionService,
       requiredHoursService as unknown as RequiredHoursService,
       aliquotConfigService as unknown as AliquotConfigService,
+      kostenDiscountService as unknown as KostenDiscountService,
       fakeDialog,
     );
   });
@@ -270,6 +290,7 @@ describe('OrganisationComponent - Kosten-Definitionen', () => {
     kostenDefinitionService = new FakeKostenDefinitionService();
     const requiredHoursService = new FakeRequiredHoursService();
     const aliquotConfigService = new FakeAliquotConfigService();
+    const kostenDiscountService = new FakeKostenDiscountService();
     const fakeDialog = { open: () => ({ afterClosed: () => of(null) }) } as unknown as MatDialog;
 
     component = new OrganisationComponent(
@@ -281,6 +302,7 @@ describe('OrganisationComponent - Kosten-Definitionen', () => {
       kostenDefinitionService as unknown as KostenDefinitionService,
       requiredHoursService as unknown as RequiredHoursService,
       aliquotConfigService as unknown as AliquotConfigService,
+      kostenDiscountService as unknown as KostenDiscountService,
       fakeDialog,
     );
   });
@@ -341,6 +363,7 @@ describe('OrganisationComponent - Zu leistende Stunden / Aliquot', () => {
     const kostenDefinitionService = new FakeKostenDefinitionService();
     const requiredHoursService = new FakeRequiredHoursService();
     aliquotConfigService = new FakeAliquotConfigService();
+    const kostenDiscountService = new FakeKostenDiscountService();
     const fakeDialog = { open: () => ({ afterClosed: () => of(null) }) } as unknown as MatDialog;
 
     component = new OrganisationComponent(
@@ -352,6 +375,7 @@ describe('OrganisationComponent - Zu leistende Stunden / Aliquot', () => {
       kostenDefinitionService as unknown as KostenDefinitionService,
       requiredHoursService as unknown as RequiredHoursService,
       aliquotConfigService as unknown as AliquotConfigService,
+      kostenDiscountService as unknown as KostenDiscountService,
       fakeDialog,
     );
   });
@@ -370,5 +394,72 @@ describe('OrganisationComponent - Zu leistende Stunden / Aliquot', () => {
 
     expect(aliquotConfigService.saveCalls.length).toBe(1);
     expect(aliquotConfigService.saveCalls[0]).toEqual({ semesterId: 'sem1', mode: 'WHOLE_MONTH' });
+  });
+});
+
+describe('OrganisationComponent - Geschwisterrabatt (Kosten)', () => {
+  let component: OrganisationComponent;
+  let kostenDiscountService: FakeKostenDiscountService;
+
+  beforeEach(() => {
+    const orgService = new FakeOrganisationService();
+    const fieldDefService = new FakeFieldDefinitionService();
+    const fieldInstanceService = new FakeFieldInstanceService();
+    const semesterService = new FakeSemesterService();
+    const currencyService = new FakeCurrencyService();
+    const kostenDefinitionService = new FakeKostenDefinitionService();
+    const requiredHoursService = new FakeRequiredHoursService();
+    const aliquotConfigService = new FakeAliquotConfigService();
+    kostenDiscountService = new FakeKostenDiscountService();
+    const fakeDialog = { open: () => ({ afterClosed: () => of(null) }) } as unknown as MatDialog;
+
+    component = new OrganisationComponent(
+      orgService as unknown as OrganisationService,
+      fieldDefService as unknown as FieldDefinitionService,
+      fieldInstanceService as unknown as FieldInstanceService,
+      semesterService as unknown as SemesterService,
+      currencyService as unknown as CurrencyService,
+      kostenDefinitionService as unknown as KostenDefinitionService,
+      requiredHoursService as unknown as RequiredHoursService,
+      aliquotConfigService as unknown as AliquotConfigService,
+      kostenDiscountService as unknown as KostenDiscountService,
+      fakeDialog,
+    );
+  });
+
+  it('saves kosten discount tiers for the selected semester', () => {
+    component.kdSelectedSemesterId = 'sem1';
+    component.kdApplyToAll = false;
+    component.kdOrder = 'MOST_EXPENSIVE_FIRST';
+    component.kdTiers = [{ fromChild: 2, percent: 50 }];
+
+    component.saveKostenDiscount();
+
+    expect(kostenDiscountService.saveCalls.length).toBe(1);
+    expect(kostenDiscountService.saveCalls[0]).toEqual({
+      semesterId: 'sem1',
+      applyToAll: false,
+      order: 'MOST_EXPENSIVE_FIRST',
+      tiers: [{ fromChild: 2, percent: 50 }],
+    });
+  });
+
+  it('loads kosten discount config for the selected semester and computes preview', () => {
+    kostenDiscountService.config = {
+      semesterId: 'sem1', applyToAll: true, order: 'LEAST_EXPENSIVE_FIRST',
+      tiers: [{ fromChild: 2, percent: 25 }],
+    };
+
+    component.onKdSemesterChange('sem1');
+
+    expect(kostenDiscountService.getCalls).toEqual(['sem1']);
+    expect(component.kdApplyToAll).toBe(true);
+    expect(component.kdOrder).toBe('LEAST_EXPENSIVE_FIRST');
+    expect(component.kdPreview).toEqual([
+      { child: 1, percent: 0 },
+      { child: 2, percent: 25 },
+      { child: 3, percent: 25 },
+      { child: 4, percent: 25 },
+    ]);
   });
 });

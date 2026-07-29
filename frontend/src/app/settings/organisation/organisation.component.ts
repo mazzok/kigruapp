@@ -11,6 +11,7 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatSelectModule } from '@angular/material/select';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { IconPickerDialogComponent } from '../../shared/components/icon-picker/icon-picker-dialog.component';
 import { switchMap } from 'rxjs/operators';
 import { OrganisationService } from '../../shared/services/organisation.service';
@@ -21,6 +22,7 @@ import { CurrencyService } from '../../shared/services/currency.service';
 import { KostenDefinitionService } from '../../shared/services/kosten-definition.service';
 import { RequiredHoursService } from '../../shared/services/required-hours.service';
 import { AliquotConfigService } from '../../shared/services/aliquot-config.service';
+import { KostenDiscountService } from '../../shared/services/kosten-discount.service';
 import { OrganisationDTO, DutyEntryDTO } from '../../shared/models/organisation.model';
 import { FieldDefinition } from '../../shared/models/field-definition.model';
 import { FieldInstanceDTO } from '../../shared/models/field-instance.model';
@@ -28,8 +30,10 @@ import { Semester, CreateSemesterRequest } from '../../shared/models/semester.mo
 import { Currency } from '../../shared/models/currency.model';
 import { KostenDefinition } from '../../shared/models/kosten-definition.model';
 import { AliquotMode } from '../../shared/models/aliquot-config.model';
+import { KostenDiscountOrder } from '../../shared/models/kosten-discount.model';
 import { parseHhmm, formatMinutes } from '../../shared/util/time-format.util';
 import { familyMonthlyMinutes } from './required-hours-preview.util';
+import { discountFactors } from './kosten-discount-preview.util';
 
 @Component({
   selector: 'app-organisation',
@@ -38,7 +42,7 @@ import { familyMonthlyMinutes } from './required-hours-preview.util';
     CommonModule, ReactiveFormsModule, FormsModule,
     MatTabsModule, MatTableModule, MatFormFieldModule,
     MatInputModule, MatButtonModule, MatIconModule,
-    MatExpansionModule, MatDialogModule, MatDatepickerModule, MatSelectModule, IconPickerDialogComponent,
+    MatExpansionModule, MatDialogModule, MatDatepickerModule, MatSelectModule, MatCheckboxModule, IconPickerDialogComponent,
   ],
   templateUrl: './organisation.component.html',
   styleUrl: './organisation.component.scss',
@@ -114,6 +118,14 @@ export class OrganisationComponent implements OnInit {
   rhError: string | null = null;
   aliquotMode: AliquotMode = 'NONE';
 
+  // --- Geschwisterrabatt (Kosten) ---
+  kdSelectedSemesterId: string | null = null;
+  kdApplyToAll = false;
+  kdOrder: KostenDiscountOrder = 'MOST_EXPENSIVE_FIRST';
+  kdTiers: { fromChild: number; percent: number }[] = [];
+  kdPreview: { child: number; percent: number }[] = [];
+  kdError: string | null = null;
+
   constructor(
     private orgService: OrganisationService,
     private fieldDefService: FieldDefinitionService,
@@ -123,6 +135,7 @@ export class OrganisationComponent implements OnInit {
     private kostenDefinitionService: KostenDefinitionService,
     private requiredHoursService: RequiredHoursService,
     private aliquotConfigService: AliquotConfigService,
+    private kostenDiscountService: KostenDiscountService,
     private dialog: MatDialog,
   ) {}
 
@@ -495,6 +508,10 @@ export class OrganisationComponent implements OnInit {
         this.rhSelectedSemesterId = semesters[0].id;
         this.loadRequiredHours();
       }
+      if (semesters.length > 0 && !this.kdSelectedSemesterId) {
+        this.kdSelectedSemesterId = semesters[0].id;
+        this.loadKostenDiscount();
+      }
     });
   }
 
@@ -568,6 +585,59 @@ export class OrganisationComponent implements OnInit {
     }).subscribe({
       next: () => { this.rhError = null; },
       error: () => { this.rhError = 'Speichern fehlgeschlagen'; },
+    });
+  }
+
+  // --- Geschwisterrabatt (Kosten) ---
+
+  loadKostenDiscount(): void {
+    if (!this.kdSelectedSemesterId) return;
+    this.kostenDiscountService.get(this.kdSelectedSemesterId).subscribe((cfg) => {
+      this.kdApplyToAll = cfg.applyToAll;
+      this.kdOrder = cfg.order ?? 'MOST_EXPENSIVE_FIRST';
+      this.kdTiers = (cfg.tiers ?? []).map((t) => ({ fromChild: t.fromChild, percent: t.percent }));
+      this.recomputeKdPreview();
+    });
+  }
+
+  onKdSemesterChange(semesterId: string): void {
+    this.kdSelectedSemesterId = semesterId;
+    this.loadKostenDiscount();
+  }
+
+  addKdTier(): void {
+    const nextFrom = this.kdTiers.length === 0 ? 2 : Math.max(...this.kdTiers.map((t) => t.fromChild)) + 1;
+    this.kdTiers.push({ fromChild: nextFrom, percent: 0 });
+    this.recomputeKdPreview();
+  }
+
+  removeKdTier(index: number): void {
+    this.kdTiers.splice(index, 1);
+    this.recomputeKdPreview();
+  }
+
+  recomputeKdPreview(): void {
+    this.kdPreview = discountFactors(this.kdTiers, 4);
+  }
+
+  saveKostenDiscount(): void {
+    this.kdError = null;
+    const froms = this.kdTiers.map((t) => t.fromChild);
+    const ascendingUnique = froms.every((f, i) => f >= 2 && (i === 0 || f > froms[i - 1]));
+    const percentsValid = this.kdTiers.every((t) => t.percent >= 0 && t.percent <= 100);
+    if (!ascendingUnique || !percentsValid) {
+      this.kdError = 'Staffeln müssen ab dem 2. Kind, eindeutig, aufsteigend und 0–100 % sein';
+      return;
+    }
+    if (!this.kdSelectedSemesterId) return;
+    this.kostenDiscountService.save(this.kdSelectedSemesterId, {
+      semesterId: this.kdSelectedSemesterId,
+      applyToAll: this.kdApplyToAll,
+      order: this.kdOrder,
+      tiers: this.kdTiers,
+    }).subscribe({
+      next: () => { this.kdError = null; },
+      error: () => { this.kdError = 'Speichern fehlgeschlagen'; },
     });
   }
 }
