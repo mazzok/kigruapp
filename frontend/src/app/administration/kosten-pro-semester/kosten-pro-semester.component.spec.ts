@@ -4,9 +4,15 @@ import { SemesterService } from '../../shared/services/semester.service';
 import { OrganisationService } from '../../shared/services/organisation.service';
 import { FieldInstanceService } from '../../shared/services/field-instance.service';
 import { KostenValueService } from '../../shared/services/kosten-value.service';
+import { KostenDiscountService } from '../../shared/services/kosten-discount.service';
+import { AliquotConfigService } from '../../shared/services/aliquot-config.service';
+import { KostenDefinitionService } from '../../shared/services/kosten-definition.service';
 import { Semester } from '../../shared/models/semester.model';
 import { FieldInstanceDTO } from '../../shared/models/field-instance.model';
 import { KostenValue, UpsertKostenValueRequest } from '../../shared/models/kosten-value.model';
+import { KostenDiscount } from '../../shared/models/kosten-discount.model';
+import { AliquotConfig } from '../../shared/models/aliquot-config.model';
+import { KostenDefinition } from '../../shared/models/kosten-definition.model';
 import { OrganisationDTO } from '../../shared/models/organisation.model';
 
 class FakeSemesterService {
@@ -42,24 +48,66 @@ class FakeKostenValueService {
   }
 }
 
+class FakeKostenDiscountService {
+  config: KostenDiscount = {
+    semesterId: '', applyToAll: false, order: 'MOST_EXPENSIVE_FIRST', tiers: [], eligibleDefinitionIds: [],
+  };
+  saveCalls: { semesterId: string; dto: KostenDiscount }[] = [];
+  get(_semesterId: string) {
+    return of(this.config);
+  }
+  save(semesterId: string, dto: KostenDiscount) {
+    this.saveCalls.push({ semesterId, dto });
+    return of(dto);
+  }
+}
+
+class FakeAliquotConfigService {
+  config: AliquotConfig = { semesterId: '', stundenMode: 'NONE', kostenMode: 'NONE' };
+  saveCalls: { semesterId: string; dto: AliquotConfig }[] = [];
+  get(_semesterId: string) {
+    return of(this.config);
+  }
+  save(semesterId: string, dto: AliquotConfig) {
+    this.saveCalls.push({ semesterId, dto });
+    return of(dto);
+  }
+}
+
+class FakeKostenDefinitionService {
+  defs: KostenDefinition[] = [];
+  getAll() {
+    return of(this.defs);
+  }
+}
+
 describe('KostenProSemesterComponent', () => {
   let component: KostenProSemesterComponent;
   let semesterService: FakeSemesterService;
   let orgService: FakeOrganisationService;
   let fieldInstanceService: FakeFieldInstanceService;
   let kostenValueService: FakeKostenValueService;
+  let kostenDiscountService: FakeKostenDiscountService;
+  let aliquotConfigService: FakeAliquotConfigService;
+  let kostenDefinitionService: FakeKostenDefinitionService;
 
   beforeEach(() => {
     semesterService = new FakeSemesterService();
     orgService = new FakeOrganisationService();
     fieldInstanceService = new FakeFieldInstanceService();
     kostenValueService = new FakeKostenValueService();
+    kostenDiscountService = new FakeKostenDiscountService();
+    aliquotConfigService = new FakeAliquotConfigService();
+    kostenDefinitionService = new FakeKostenDefinitionService();
 
     component = new KostenProSemesterComponent(
       semesterService as unknown as SemesterService,
       orgService as unknown as OrganisationService,
       fieldInstanceService as unknown as FieldInstanceService,
       kostenValueService as unknown as KostenValueService,
+      kostenDiscountService as unknown as KostenDiscountService,
+      aliquotConfigService as unknown as AliquotConfigService,
+      kostenDefinitionService as unknown as KostenDefinitionService,
     );
   });
 
@@ -128,5 +176,62 @@ describe('KostenProSemesterComponent', () => {
     expect(kostenValueService.upsertCalls).toEqual([
       { semesterId: 's1', groupId: 'g1', definitionId: 'd1', amount: 340 },
     ]);
+  });
+
+  it('saveKostenDiscount posts to /kosten-discount with applyToAll, order, tiers, eligibleDefinitionIds', () => {
+    component.selectedSemesterId = 's1';
+    component.kdApplyToAll = false;
+    component.kdOrder = 'LEAST_EXPENSIVE_FIRST';
+    component.kdTiers = [{ fromChild: 2, percent: 50 }];
+    component.kdEligibleIds = ['d1'];
+
+    component.saveKostenDiscount();
+
+    expect(component.kdError).toBeNull();
+    expect(kostenDiscountService.saveCalls.length).toBe(1);
+    expect(kostenDiscountService.saveCalls[0].semesterId).toBe('s1');
+    expect(kostenDiscountService.saveCalls[0].dto).toEqual({
+      semesterId: 's1',
+      applyToAll: false,
+      order: 'LEAST_EXPENSIVE_FIRST',
+      tiers: [{ fromChild: 2, percent: 50 }],
+      eligibleDefinitionIds: ['d1'],
+    });
+  });
+
+  it('saveKostenDiscount rejects invalid tiers and sets kdError', () => {
+    component.selectedSemesterId = 's1';
+    component.kdTiers = [{ fromChild: 1, percent: 10 }];
+
+    component.saveKostenDiscount();
+
+    expect(component.kdError).not.toBeNull();
+    expect(kostenDiscountService.saveCalls.length).toBe(0);
+  });
+
+  it('saveKostenAliquot posts to /aliquot-config echoing loaded stundenMode with chosen kostenMode', () => {
+    component.selectedSemesterId = 's1';
+    component.stundenMode = 'PER_DAY';
+    component.kostenMode = 'WHOLE_MONTH';
+
+    component.saveKostenAliquot();
+
+    expect(aliquotConfigService.saveCalls.length).toBe(1);
+    expect(aliquotConfigService.saveCalls[0].semesterId).toBe('s1');
+    expect(aliquotConfigService.saveCalls[0].dto).toEqual({
+      semesterId: 's1',
+      stundenMode: 'PER_DAY',
+      kostenMode: 'WHOLE_MONTH',
+    });
+  });
+
+  it('recomputeKdPreview yields default plus one row per tier', () => {
+    component.kdTiers = [{ fromChild: 2, percent: 50 }];
+
+    component.recomputeKdPreview();
+
+    expect(component.kdPreview.length).toBe(2);
+    expect(component.kdPreview[0]).toEqual({ child: 1, percent: 0 });
+    expect(component.kdPreview[1]).toEqual({ child: 2, percent: 50 });
   });
 });
