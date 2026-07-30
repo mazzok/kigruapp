@@ -4,6 +4,8 @@ import at.kigruapp.entity.FieldDefinition;
 import at.kigruapp.entity.MailAccount;
 import at.kigruapp.entity.MailEncryption;
 import at.kigruapp.entity.MailJob;
+import at.kigruapp.entity.RecipientKind;
+import at.kigruapp.entity.RecipientSelection;
 import com.mongodb.client.MongoClient;
 import io.quarkus.scheduler.Scheduler;
 import io.quarkus.test.junit.QuarkusTest;
@@ -16,6 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -43,7 +46,22 @@ class MailJobResourceTest {
         return id;
     }
 
+    private ObjectId persistDefinitionAndInstance(String fieldName, boolean outdated) {
+        FieldDefinition def = new FieldDefinition();
+        def.fieldName = fieldName;
+        def.createdAt = java.time.Instant.now();
+        if (outdated) {
+            def.outdatedAt = java.time.Instant.now();
+        }
+        def.persist();
+        ObjectId instanceId = new ObjectId();
+        mongoClient.getDatabase(databaseName).getCollection("field_instances")
+                .insertOne(new Document("_id", instanceId).append("definitionId", def.id));
+        return instanceId;
+    }
+
     private String enabledAccountId;
+    private ObjectId templateId;
 
     @BeforeEach
     void cleanup() {
@@ -61,12 +79,26 @@ class MailJobResourceTest {
         acc.enabled = true;
         acc.persist();
         enabledAccountId = acc.id.toHexString();
+        templateId = new ObjectId();
     }
 
     private String validPayload(ObjectId templateId) {
         return "{\"name\":\"Willkommen-Job\",\"templateId\":\"" + templateId
                 + "\",\"subject\":\"Willkommen\",\"cron\":\"0 0 8 * * ?\",\"allParents\":true,"
                 + "\"senderAccountId\":\"" + enabledAccountId + "\"}";
+    }
+
+    private String jobBody(String recipientJson) {
+        return """
+                {
+                  "name": "Job",
+                  "templateId": "%s",
+                  "subject": "Betreff",
+                  "senderAccountId": "%s",
+                  "cron": "0 0 8 * * ?",
+                  %s
+                }
+                """.formatted(templateId.toHexString(), enabledAccountId, recipientJson);
     }
 
     private MailJob persistJob(String name) {
@@ -282,5 +314,67 @@ class MailJobResourceTest {
                 .body(validPayload(new ObjectId()).replace("\"Willkommen-Job\"", "\"\""))
                 .when().post("/api/v1/mail-jobs")
                 .then().statusCode(400);
+    }
+
+    @Test
+    void acceptsSelectionsForGroupTeamAndRole() {
+        ObjectId group = persistDefinitionAndInstance("group", false);
+        ObjectId team = persistDefinitionAndInstance("parent-team", false);
+        ObjectId board = persistDefinitionAndInstance("board", false);
+        ObjectId teamRole = persistDefinitionAndInstance("parent-team-role", false);
+        ObjectId boardRole = persistDefinitionAndInstance("board-role", false);
+
+        given().contentType(ContentType.JSON)
+                .body(jobBody("""
+                        "allParents": false,
+                        "recipientSelections": [
+                          {"kind":"GROUP","fieldInstanceId":"%s"},
+                          {"kind":"TEAM","fieldInstanceId":"%s"},
+                          {"kind":"TEAM","fieldInstanceId":"%s"},
+                          {"kind":"ROLE","fieldInstanceId":"%s"},
+                          {"kind":"ROLE","fieldInstanceId":"%s"}
+                        ]
+                        """.formatted(group.toHexString(), team.toHexString(), board.toHexString(),
+                        teamRole.toHexString(), boardRole.toHexString())))
+                .when().post("/api/v1/mail-jobs")
+                .then().statusCode(201)
+                .body("recipientSelections.size()", equalTo(5));
+    }
+
+    @Test
+    void rejectsTeamSelectionPointingAtAGroupInstance() {
+        ObjectId group = persistDefinitionAndInstance("group", false);
+
+        given().contentType(ContentType.JSON)
+                .body(jobBody("""
+                        "allParents": false,
+                        "recipientSelections": [{"kind":"TEAM","fieldInstanceId":"%s"}]
+                        """.formatted(group.toHexString())))
+                .when().post("/api/v1/mail-jobs")
+                .then().statusCode(400);
+    }
+
+    @Test
+    void rejectsSelectionWithOutdatedDefinition() {
+        ObjectId outdatedTeam = persistDefinitionAndInstance("parent-team", true);
+
+        given().contentType(ContentType.JSON)
+                .body(jobBody("""
+                        "allParents": false,
+                        "recipientSelections": [{"kind":"TEAM","fieldInstanceId":"%s"}]
+                        """.formatted(outdatedTeam.toHexString())))
+                .when().post("/api/v1/mail-jobs")
+                .then().statusCode(400);
+    }
+
+    @Test
+    void skipsSelectionValidationWhenAllParentsIsSet() {
+        given().contentType(ContentType.JSON)
+                .body(jobBody("""
+                        "allParents": true,
+                        "recipientSelections": [{"kind":"TEAM","fieldInstanceId":"%s"}]
+                        """.formatted(new ObjectId().toHexString())))
+                .when().post("/api/v1/mail-jobs")
+                .then().statusCode(201);
     }
 }

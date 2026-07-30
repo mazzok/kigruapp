@@ -2,6 +2,8 @@ package at.kigruapp.resource;
 
 import at.kigruapp.entity.FieldDefinition;
 import at.kigruapp.entity.MailJob;
+import at.kigruapp.entity.RecipientKind;
+import at.kigruapp.entity.RecipientSelection;
 import at.kigruapp.scheduler.MailJobScheduler;
 import com.cronutils.model.CronType;
 import com.cronutils.model.definition.CronDefinitionBuilder;
@@ -19,6 +21,8 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Admin-only mail job endpoint. Not whitelisted in SecurityFilter, so the
@@ -31,6 +35,12 @@ public class MailJobResource {
 
     private final CronParser cronParser =
             new CronParser(CronDefinitionBuilder.instanceDefinitionFor(CronType.QUARTZ));
+
+    /** fieldNames a selection of the given kind may legitimately point at. */
+    private static final Map<RecipientKind, Set<String>> ALLOWED_FIELD_NAMES = Map.of(
+            RecipientKind.GROUP, Set.of("group"),
+            RecipientKind.TEAM, Set.of("parent-team", "board"),
+            RecipientKind.ROLE, Set.of("parent-team-role", "board-role"));
 
     @Inject
     MailJobScheduler mailJobScheduler;
@@ -166,6 +176,7 @@ public class MailJobResource {
             throw new BadRequestException("invalid cron expression: " + e.getMessage());
         }
         validateSenderAccountId(request.senderAccountId);
+        validateRecipientSelections(request);
     }
 
     private void validateSenderAccountId(String senderAccountId) {
@@ -183,5 +194,42 @@ public class MailJobResource {
         if (!account.enabled) {
             throw new BadRequestException("senderAccountId references a disabled mail account");
         }
+    }
+
+    /**
+     * Each selection must point at an existing field instance whose definition is
+     * not outdated and matches the selection's kind. Skipped entirely when the job
+     * addresses all parents, because the selections are ignored at run time then.
+     */
+    private void validateRecipientSelections(MailJob request) {
+        if (request.allParents || request.recipientSelections == null) {
+            return;
+        }
+        for (RecipientSelection sel : request.recipientSelections) {
+            if (sel == null || sel.kind == null || sel.fieldInstanceId == null) {
+                throw new BadRequestException("recipientSelections entry is missing kind or fieldInstanceId");
+            }
+            if (!matchesKind(sel)) {
+                throw new BadRequestException("recipientSelections contains an unknown or outdated "
+                        + sel.kind + ": " + sel.fieldInstanceId);
+            }
+        }
+    }
+
+    private boolean matchesKind(RecipientSelection sel) {
+        Document inst = mongoClient.getDatabase(databaseName)
+                .getCollection("field_instances")
+                .find(Filters.eq("_id", sel.fieldInstanceId))
+                .first();
+        if (inst == null) {
+            return false;
+        }
+        ObjectId definitionId = inst.getObjectId("definitionId");
+        if (definitionId == null) {
+            return false;
+        }
+        FieldDefinition def = FieldDefinition.findById(definitionId);
+        return def != null && def.outdatedAt == null
+                && ALLOWED_FIELD_NAMES.get(sel.kind).contains(def.fieldName);
     }
 }
