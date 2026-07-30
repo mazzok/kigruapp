@@ -55,4 +55,32 @@ class AliquotServiceTest {
         BigDecimal f = service.monthFraction(AliquotMode.PER_DAY, "2026-11-01", "2027-01-31", 2026, 10);
         assertTrue(f.signum() == 0);
     }
+
+    @Test
+    void monthPresence_perDayReportsDayCounts() {
+        // enter Nov 16 in a 30-day month -> days 16..30 = 15 present of 30
+        AliquotService.MonthPresence p =
+                service.monthPresence(AliquotMode.PER_DAY, "2026-11-16", null, 2026, 11);
+        assertEquals(15, p.presentDays());
+        assertEquals(30, p.daysInMonth());
+        assertEquals(0, new java.math.BigDecimal("0.5").compareTo(p.fraction().stripTrailingZeros()));
+    }
+
+    @Test
+    void monthPresence_wholeMonthIsFullDaysAndFractionOne() {
+        AliquotService.MonthPresence p =
+                service.monthPresence(AliquotMode.WHOLE_MONTH, "2026-11-16", null, 2026, 11);
+        assertEquals(30, p.presentDays());
+        assertEquals(30, p.daysInMonth());
+        assertEquals(0, java.math.BigDecimal.ONE.compareTo(p.fraction()));
+    }
+
+    @Test
+    void monthPresence_outsideWindowIsZeroPresentDays() {
+        AliquotService.MonthPresence p =
+                service.monthPresence(AliquotMode.PER_DAY, "2026-11-01", "2027-01-31", 2026, 10);
+        assertEquals(0, p.presentDays());
+        assertEquals(31, p.daysInMonth());
+        assertEquals(0, p.fraction().signum());
+    }
 }

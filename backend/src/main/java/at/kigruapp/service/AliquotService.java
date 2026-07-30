@@ -11,10 +11,13 @@ import java.time.temporal.TemporalAdjusters;
 @ApplicationScoped
 public class AliquotService {
 
-    /** Presence weight in [0,1] for a child in the given month, per the aliquot mode. */
-    public BigDecimal monthFraction(AliquotMode mode, String entryDate, String exitDate, int year, int month) {
+    public record MonthPresence(BigDecimal fraction, int presentDays, int daysInMonth) {}
+
+    /** Presence weight in [0,1] for a child in the given month, plus the day counts behind it. */
+    public MonthPresence monthPresence(AliquotMode mode, String entryDate, String exitDate, int year, int month) {
         LocalDate monthStart = LocalDate.of(year, month, 1);
         LocalDate monthEnd = monthStart.with(TemporalAdjusters.lastDayOfMonth());
+        int daysInMonth = monthEnd.getDayOfMonth();
 
         LocalDate entry = parse(entryDate);
         LocalDate exit = parse(exitDate);
@@ -23,15 +26,21 @@ public class AliquotService {
         LocalDate effEnd = (exit != null && exit.isBefore(monthEnd)) ? exit : monthEnd;
 
         if (effStart.isAfter(effEnd)) {
-            return BigDecimal.ZERO; // not present at all this month
+            return new MonthPresence(BigDecimal.ZERO, 0, daysInMonth); // not present at all
         }
         if (mode == AliquotMode.PER_DAY) {
-            long presentDays = ChronoUnit.DAYS.between(effStart, effEnd) + 1;
-            long daysInMonth = monthEnd.getDayOfMonth();
-            return BigDecimal.valueOf(presentDays)
+            int presentDays = (int) (ChronoUnit.DAYS.between(effStart, effEnd) + 1);
+            BigDecimal frac = BigDecimal.valueOf(presentDays)
                     .divide(BigDecimal.valueOf(daysInMonth), 6, RoundingMode.HALF_UP);
+            return new MonthPresence(frac, presentDays, daysInMonth);
         }
-        return BigDecimal.ONE; // NONE / WHOLE_MONTH: present any day -> full month
+        // NONE / WHOLE_MONTH: present any day -> full month
+        return new MonthPresence(BigDecimal.ONE, daysInMonth, daysInMonth);
+    }
+
+    /** Presence weight in [0,1] for a child in the given month, per the aliquot mode. */
+    public BigDecimal monthFraction(AliquotMode mode, String entryDate, String exitDate, int year, int month) {
+        return monthPresence(mode, entryDate, exitDate, year, month).fraction();
     }
 
     private LocalDate parse(String date) {
