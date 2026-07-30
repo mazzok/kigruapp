@@ -112,7 +112,7 @@ class MailAccountResourceTest {
         at.kigruapp.entity.MailJob job = new at.kigruapp.entity.MailJob();
         job.name = "J"; job.templateId = new org.bson.types.ObjectId(); job.subject = "s";
         job.cron = "0 0 8 * * ?"; job.senderAccountId = id;
-        job.recipientMode = at.kigruapp.entity.RecipientMode.ALL_PARENTS;
+        job.allParents = true;
         job.persist();
 
         given().when().delete("/api/v1/mail-accounts/" + id).then().statusCode(409);

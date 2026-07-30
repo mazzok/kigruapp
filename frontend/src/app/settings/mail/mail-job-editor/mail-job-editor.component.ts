@@ -6,12 +6,12 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatListModule } from '@angular/material/list';
-import { MatRadioModule } from '@angular/material/radio';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MailJobService } from '../../../shared/services/mail-job.service';
-import { MailJob, RecipientMode, SaveMailJobRequest } from '../../../shared/models/mail-job.model';
+import { MailJob, RecipientKind, RecipientSelection, SaveMailJobRequest } from '../../../shared/models/mail-job.model';
 import { MailTemplateService } from '../../../shared/services/mail-template.service';
 import { MailTemplate } from '../../../shared/models/mail-template.model';
 import { MailAccountService } from '../../../shared/services/mail-account.service';
@@ -31,7 +31,7 @@ const DEFAULT_CRON = '0 0 8 * * ?';
   imports: [
     CommonModule, ReactiveFormsModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatListModule,
-    MatRadioModule, MatSlideToggleModule, MatIconModule, MatTooltipModule,
+    MatCheckboxModule, MatSlideToggleModule, MatIconModule, MatTooltipModule,
     CronScheduleBuilderComponent,
   ],
   templateUrl: './mail-job-editor.component.html',
@@ -41,8 +41,24 @@ export class MailJobEditorComponent implements OnInit {
   jobs: MailJob[] = [];
   templates: MailTemplate[] = [];
   accounts: MailAccount[] = [];
-  /** Selectable groups = the field instances of the "group" template definition. */
+  /** Selectable pools; each is the field instances of that pool's single template definition. */
   groups: FieldInstanceDTO[] = [];
+  parentTeams: FieldInstanceDTO[] = [];
+  boardTeams: FieldInstanceDTO[] = [];
+  teamRoles: FieldInstanceDTO[] = [];
+  boardRoles: FieldInstanceDTO[] = [];
+
+  /**
+   * Currently picked options, encoded as "<KIND>:<fieldInstanceId>". The kind
+   * travels in the value because board and parent teams sit in separate
+   * optgroups but resolve to the same kind.
+   */
+  recipientOptionValues: string[] = [];
+
+  /** Counts pool loads so we know when it is safe to prune stale selections (see {@link pruneStaleRecipientSelections}). */
+  private poolsLoadedCount = 0;
+  private static readonly POOL_COUNT = 5;
+
   selectedId: string | null = null;
   /** When false the form is hidden and a placeholder is shown instead. */
   editing = false;
@@ -53,8 +69,7 @@ export class MailJobEditorComponent implements OnInit {
     subject: new FormControl('', Validators.required),
     senderAccountId: new FormControl('', Validators.required),
     cron: new FormControl(DEFAULT_CRON, Validators.required),
-    recipientMode: new FormControl<RecipientMode>('ALL_PARENTS', { nonNullable: true }),
-    recipientGroupDefinitionIds: new FormControl<string[]>([], { nonNullable: true }),
+    allParents: new FormControl<boolean>(true, { nonNullable: true }),
   });
 
   constructor(
@@ -70,32 +85,86 @@ export class MailJobEditorComponent implements OnInit {
     this.load();
     this.mailTemplateService.list().subscribe((templates) => (this.templates = templates));
     this.mailAccountService.list().subscribe((accounts) => (this.accounts = accounts));
-    // The actual groups (Bären, Löwen, …) are field instances of the single
-    // "group" template definition — mirror the pattern used across the app.
-    this.organisationService.getByTag('groups').subscribe((org) => {
-      const templateDef = org.definitions.find((d) => d.fieldName === 'group' && !d.outdatedAt);
-      if (!templateDef?.id) return;
-      this.fieldInstanceService.listByDefinitionId(templateDef.id).subscribe((instances) => (this.groups = instances));
+    this.loadPool('groups', 'group', (i) => (this.groups = i));
+    this.loadPool('parent-teams', 'parent-team', (i) => (this.parentTeams = i));
+    this.loadPool('board', 'board', (i) => (this.boardTeams = i));
+    this.loadPool('parent-team-roles', 'parent-team-role', (i) => (this.teamRoles = i));
+    this.loadPool('board-roles', 'board-role', (i) => (this.boardRoles = i));
+  }
+
+  /**
+   * Each pool is an organisation tag holding exactly one active template
+   * definition; the pickable entries are that definition's field instances.
+   */
+  private loadPool(tag: string, fieldName: string, assign: (instances: FieldInstanceDTO[]) => void): void {
+    this.organisationService.getByTag(tag).subscribe({
+      next: (org) => {
+        const templateDef = org?.definitions?.find((d) => d.fieldName === fieldName && !d.outdatedAt);
+        if (!templateDef?.id) {
+          this.onPoolLoaded();
+          return;
+        }
+        this.fieldInstanceService.listByDefinitionId(templateDef.id).subscribe((instances) => {
+          assign(instances);
+          this.onPoolLoaded();
+        });
+      },
+      error: () => {
+        assign([]);
+        this.onPoolLoaded();
+      },
     });
   }
 
-  /** Groups picked in the dropdown; empty array switches back to "all parents". */
-  onGroupsChange(ids: string[]): void {
-    const next = ids ?? [];
-    this.form.patchValue({
-      recipientMode: next.length ? 'GROUPS' : 'ALL_PARENTS',
-      recipientGroupDefinitionIds: next,
+  /** Once every pool has loaded, drop any selection whose instance no longer exists in its pool. */
+  private onPoolLoaded(): void {
+    this.poolsLoadedCount++;
+    if (this.poolsLoadedCount === MailJobEditorComponent.POOL_COUNT) {
+      this.pruneStaleRecipientSelections();
+    }
+  }
+
+  /**
+   * Removes recipientOptionValues entries whose "<KIND>:<id>" no longer resolves
+   * to an instance in the corresponding loaded pool (e.g. a team or role that was
+   * deleted after the job was saved). Without this, a stale value stays selected
+   * internally but renders as unselected (mat-select finds no matching option),
+   * and every future save silently re-sends it, causing an opaque 400.
+   */
+  private pruneStaleRecipientSelections(): void {
+    const validValues = new Set<string>([
+      ...this.groups.map((i) => this.optionValue('GROUP', i.id ?? '')),
+      ...this.parentTeams.map((i) => this.optionValue('TEAM', i.id ?? '')),
+      ...this.boardTeams.map((i) => this.optionValue('TEAM', i.id ?? '')),
+      ...this.teamRoles.map((i) => this.optionValue('ROLE', i.id ?? '')),
+      ...this.boardRoles.map((i) => this.optionValue('ROLE', i.id ?? '')),
+    ]);
+    this.recipientOptionValues = this.recipientOptionValues.filter((v) => validValues.has(v));
+  }
+
+  onRecipientSelectionChange(values: string[]): void {
+    this.recipientOptionValues = values ?? [];
+  }
+
+  /** Encodes one pickable entry as the option's value. */
+  optionValue(kind: RecipientKind, instanceId: string): string {
+    return `${kind}:${instanceId}`;
+  }
+
+  private toSelections(values: string[]): RecipientSelection[] {
+    return values.map((v) => {
+      const separator = v.indexOf(':');
+      return {
+        kind: v.slice(0, separator) as RecipientKind,
+        fieldInstanceId: v.slice(separator + 1),
+      };
     });
   }
 
-  selectAllParents(): void {
-    this.form.patchValue({ recipientMode: 'ALL_PARENTS', recipientGroupDefinitionIds: [] });
-  }
-
-  /** Display name of a group instance (its value's label), with a safe fallback. */
-  groupLabel(g: FieldInstanceDTO): string {
-    const label = (g.value as { label?: string } | null)?.label;
-    return label || g.label?.['de'] || g.fieldName;
+  /** Display name of a pickable entry (its value's label), with a safe fallback. */
+  instanceLabel(i: FieldInstanceDTO): string {
+    const label = (i.value as { label?: string } | null)?.label;
+    return label || i.label?.['de'] || i.fieldName;
   }
 
   toggleActive(job: MailJob): void {
@@ -158,9 +227,16 @@ export class MailJobEditorComponent implements OnInit {
       subject: job.subject,
       senderAccountId: job.senderAccountId,
       cron: job.cron,
-      recipientMode: job.recipientMode,
-      recipientGroupDefinitionIds: job.recipientGroupDefinitionIds,
+      allParents: job.allParents,
     });
+    this.recipientOptionValues = (job.recipientSelections ?? [])
+      .map((s) => this.optionValue(s.kind, s.fieldInstanceId));
+    // Pools may already be loaded (typical case); prune now so a stale selection
+    // never flashes as "selected". If pools are still loading, onPoolLoaded()
+    // prunes once they finish.
+    if (this.poolsLoadedCount === MailJobEditorComponent.POOL_COUNT) {
+      this.pruneStaleRecipientSelections();
+    }
   }
 
   newJob(): void {
@@ -168,8 +244,9 @@ export class MailJobEditorComponent implements OnInit {
     this.editing = true;
     this.form.reset({
       name: '', templateId: '', subject: '', senderAccountId: '', cron: DEFAULT_CRON,
-      recipientMode: 'ALL_PARENTS', recipientGroupDefinitionIds: [],
+      allParents: true,
     });
+    this.recipientOptionValues = [];
   }
 
   /** Close the editor and return to the placeholder (no job selected). */
@@ -178,8 +255,9 @@ export class MailJobEditorComponent implements OnInit {
     this.editing = false;
     this.form.reset({
       name: '', templateId: '', subject: '', senderAccountId: '', cron: DEFAULT_CRON,
-      recipientMode: 'ALL_PARENTS', recipientGroupDefinitionIds: [],
+      allParents: true,
     });
+    this.recipientOptionValues = [];
   }
 
   save(): void {
@@ -190,8 +268,8 @@ export class MailJobEditorComponent implements OnInit {
       subject: v.subject ?? '',
       senderAccountId: v.senderAccountId ?? '',
       cron: v.cron ?? '',
-      recipientMode: v.recipientMode ?? 'ALL_PARENTS',
-      recipientGroupDefinitionIds: v.recipientGroupDefinitionIds ?? [],
+      allParents: v.allParents ?? true,
+      recipientSelections: v.allParents ? [] : this.toSelections(this.recipientOptionValues),
     };
     const isUpdate = this.selectedId !== null;
     const save$ = this.selectedId

@@ -15,8 +15,9 @@ public class MailJob extends PanacheMongoEntity {
     public String subject;
     public String senderAccountId;
     public String cron;
-    public RecipientMode recipientMode = RecipientMode.ALL_PARENTS;
-    public List<ObjectId> recipientGroupDefinitionIds = new ArrayList<>();
+    /** When true every parent is addressed and {@link #recipientSelections} is ignored. */
+    public boolean allParents = false;
+    public List<RecipientSelection> recipientSelections = new ArrayList<>();
     public boolean active;
     public Instant lastRunAt;
     public String lastRunStatus;

@@ -87,20 +87,30 @@
 
     <section class="card">
       <p class="eyebrow">Empfänger</p>
-      <mat-radio-group class="recipient-mode">
-        <mat-radio-button [checked]="form.value.recipientMode === 'ALL_PARENTS'" (change)="selectAllParents()">
-          Alle Eltern
-        </mat-radio-button>
-      </mat-radio-group>
+      <mat-checkbox formControlName="allParents">Alle Eltern</mat-checkbox>
 
-      <div class="groups" *ngIf="groups.length">
-        <p class="sub-label">oder bestimmte Gruppen</p>
-        <mat-form-field appearance="outline" class="group-select">
-          <mat-label>Gruppen auswählen</mat-label>
+      <div class="recipient-select" *ngIf="!form.value.allParents">
+        <p class="sub-label">Zielgruppen auswählen</p>
+        <mat-form-field appearance="outline" class="recipient-field">
+          <mat-label>Gruppen, Teams und Rollen</mat-label>
           <mat-select multiple
-                      [value]="form.value.recipientGroupDefinitionIds"
-                      (selectionChange)="onGroupsChange($event.value)">
-            <mat-option *ngFor="let g of groups" [value]="g.id">{{ groupLabel(g) }}</mat-option>
+                      [value]="recipientOptionValues"
+                      (selectionChange)="onRecipientSelectionChange($event.value)">
+            <mat-optgroup label="Gruppen" *ngIf="groups.length">
+              <mat-option *ngFor="let g of groups" [value]="optionValue('GROUP', g.id!)">{{ instanceLabel(g) }}</mat-option>
+            </mat-optgroup>
+            <mat-optgroup label="Elternteams" *ngIf="parentTeams.length">
+              <mat-option *ngFor="let t of parentTeams" [value]="optionValue('TEAM', t.id!)">{{ instanceLabel(t) }}</mat-option>
+            </mat-optgroup>
+            <mat-optgroup label="Vorstand" *ngIf="boardTeams.length">
+              <mat-option *ngFor="let b of boardTeams" [value]="optionValue('TEAM', b.id!)">{{ instanceLabel(b) }}</mat-option>
+            </mat-optgroup>
+            <mat-optgroup label="Team-Rollen" *ngIf="teamRoles.length">
+              <mat-option *ngFor="let r of teamRoles" [value]="optionValue('ROLE', r.id!)">{{ instanceLabel(r) }}</mat-option>
+            </mat-optgroup>
+            <mat-optgroup label="Vorstandsrollen" *ngIf="boardRoles.length">
+              <mat-option *ngFor="let r of boardRoles" [value]="optionValue('ROLE', r.id!)">{{ instanceLabel(r) }}</mat-option>
+            </mat-optgroup>
           </mat-select>
         </mat-form-field>
       </div>

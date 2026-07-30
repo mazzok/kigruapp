@@ -4,7 +4,8 @@ import at.kigruapp.entity.FieldDefinition;
 import at.kigruapp.entity.FieldRef;
 import at.kigruapp.entity.MailJob;
 import at.kigruapp.entity.Person;
-import at.kigruapp.entity.RecipientMode;
+import at.kigruapp.entity.RecipientKind;
+import at.kigruapp.entity.RecipientSelection;
 import at.kigruapp.entity.SemesterAssignment;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
@@ -35,6 +36,8 @@ class RecipientResolverServiceTest {
     private FieldDefinition groupDef;
     private FieldDefinition personTypeDef;
     private FieldDefinition emailDef;
+    private FieldDefinition teamDef;
+    private FieldDefinition roleDef;
 
     @BeforeEach
     void cleanup() {
@@ -46,6 +49,8 @@ class RecipientResolverServiceTest {
         groupDef = persistDefinition("group");
         personTypeDef = persistDefinition("personType");
         emailDef = persistDefinition("email");
+        teamDef = persistDefinition("parent-team");
+        roleDef = persistDefinition("board-role");
     }
 
     private MongoCollection<Document> fieldInstances() {
@@ -93,6 +98,17 @@ class RecipientResolverServiceTest {
         semesterAssignments().insertOne(sa.toDocument());
     }
 
+    private void assignToSection(ObjectId personId, ObjectId semesterId, String section,
+                                 ObjectId definitionId, ObjectId instanceId) {
+        SemesterAssignment sa = new SemesterAssignment();
+        sa.personId = personId;
+        sa.semesterId = semesterId;
+        sa.section = section;
+        sa.definitionId = definitionId;
+        sa.fieldInstanceId = instanceId;
+        semesterAssignments().insertOne(sa.toDocument());
+    }
+
     @Test
     void resolveGroupParentsReturnsDedupedParentsWithEmail() {
         ObjectId semesterId = new ObjectId();
@@ -132,35 +148,110 @@ class RecipientResolverServiceTest {
     }
 
     @Test
-    void resolveDispatchesByRecipientModeAndAttachesProperties() {
+    void resolveAssignedParentsReturnsParentsOfTeamWithEmail() {
+        ObjectId semesterId = new ObjectId();
+        ObjectId teamInstanceId = new ObjectId();
+
+        Person parentWithEmail = persistPerson(new ObjectId(), "PARENT", "team@example.test");
+        Person parentWithoutEmail = persistPerson(new ObjectId(), "PARENT", null);
+        Person childInTeam = persistPerson(new ObjectId(), "CHILD", "child@example.test");
+        Person unrelatedParent = persistPerson(new ObjectId(), "PARENT", "other@example.test");
+
+        assignToSection(parentWithEmail.id, semesterId, "team", teamDef.id, teamInstanceId);
+        assignToSection(parentWithoutEmail.id, semesterId, "team", teamDef.id, teamInstanceId);
+        assignToSection(childInTeam.id, semesterId, "team", teamDef.id, teamInstanceId);
+        assignToSection(unrelatedParent.id, semesterId, "team", teamDef.id, new ObjectId());
+
+        List<Person> result = resolver.resolveAssignedParents("team", List.of(teamInstanceId), semesterId);
+
+        assertEquals(1, result.size(), "only the parent with an email, not the child, not the other team");
+        assertEquals(parentWithEmail.id, result.get(0).id);
+    }
+
+    @Test
+    void resolveAssignedParentsIgnoresOtherSemesters() {
+        ObjectId semesterId = new ObjectId();
+        ObjectId otherSemesterId = new ObjectId();
+        ObjectId roleInstanceId = new ObjectId();
+
+        Person parent = persistPerson(new ObjectId(), "PARENT", "role@example.test");
+        assignToSection(parent.id, otherSemesterId, "role", roleDef.id, roleInstanceId);
+
+        List<Person> result = resolver.resolveAssignedParents("role", List.of(roleInstanceId), semesterId);
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void resolveAssignedParentsReturnsEmptyForUnknownInstance() {
+        assertTrue(resolver.resolveAssignedParents("team", List.of(new ObjectId()), new ObjectId()).isEmpty());
+        assertTrue(resolver.resolveAssignedParents("team", List.of(), new ObjectId()).isEmpty());
+    }
+
+    @Test
+    void resolveUnionsKindsAndDedupesByPerson() {
         FieldDefinition firstNameDef = persistDefinition("firstName");
         ObjectId semesterId = new ObjectId();
         ObjectId familyId = new ObjectId();
-
-        Person parent = persistPerson(familyId, "PARENT", "parent@example.test");
-        ObjectId parentFirstNameInstance = persistFieldInstance(firstNameDef.id, "Anna");
-        parent.basicProperties = new java.util.ArrayList<>(parent.basicProperties);
-        parent.basicProperties.add(new FieldRef(firstNameDef.id, parentFirstNameInstance));
-        parent.update();
-
-        Person child = persistPerson(familyId, "CHILD", null);
         ObjectId groupInstanceId = new ObjectId();
+        ObjectId teamInstanceId = new ObjectId();
+        ObjectId roleInstanceId = new ObjectId();
+
+        // Parent A is reachable twice: via the group (through their child) and via the team.
+        Person parentA = persistPerson(familyId, "PARENT", "a@example.test");
+        parentA.basicProperties = new java.util.ArrayList<>(parentA.basicProperties);
+        parentA.basicProperties.add(new FieldRef(firstNameDef.id, persistFieldInstance(firstNameDef.id, "Anna")));
+        parentA.update();
+        Person child = persistPerson(familyId, "CHILD", null);
         assignToGroup(child.id, semesterId, groupInstanceId);
+        assignToSection(parentA.id, semesterId, "team", teamDef.id, teamInstanceId);
 
-        MailJob groupsJob = new MailJob();
-        groupsJob.recipientMode = RecipientMode.GROUPS;
-        groupsJob.recipientGroupDefinitionIds = List.of(groupInstanceId);
+        // Parent B only via the role.
+        Person parentB = persistPerson(new ObjectId(), "PARENT", "b@example.test");
+        assignToSection(parentB.id, semesterId, "role", roleDef.id, roleInstanceId);
 
-        List<RecipientResolverService.ResolvedRecipient> groupsResult = resolver.resolve(groupsJob, semesterId);
-        assertEquals(1, groupsResult.size());
-        assertEquals("parent@example.test", groupsResult.get(0).email());
-        assertEquals("Anna", groupsResult.get(0).properties().get("firstName"));
+        MailJob job = new MailJob();
+        job.allParents = false;
+        job.recipientSelections = List.of(
+                new RecipientSelection(RecipientKind.GROUP, groupInstanceId),
+                new RecipientSelection(RecipientKind.TEAM, teamInstanceId),
+                new RecipientSelection(RecipientKind.ROLE, roleInstanceId));
 
-        MailJob allParentsJob = new MailJob();
-        allParentsJob.recipientMode = RecipientMode.ALL_PARENTS;
+        List<RecipientResolverService.ResolvedRecipient> result = resolver.resolve(job, semesterId);
 
-        List<RecipientResolverService.ResolvedRecipient> allResult = resolver.resolve(allParentsJob, semesterId);
-        assertEquals(1, allResult.size());
-        assertEquals("parent@example.test", allResult.get(0).email());
+        assertEquals(2, result.size(), "parentA must appear exactly once despite two matching selections");
+        List<String> emails = result.stream().map(RecipientResolverService.ResolvedRecipient::email).toList();
+        assertTrue(emails.contains("a@example.test"));
+        assertTrue(emails.contains("b@example.test"));
+        RecipientResolverService.ResolvedRecipient a = result.stream()
+                .filter(r -> r.email().equals("a@example.test")).findFirst().orElseThrow();
+        assertEquals("Anna", a.properties().get("firstName"));
+    }
+
+    @Test
+    void resolveWithAllParentsIgnoresSelections() {
+        ObjectId semesterId = new ObjectId();
+        Person parent = persistPerson(new ObjectId(), "PARENT", "all@example.test");
+        assertNotNull(parent.id);
+
+        MailJob job = new MailJob();
+        job.allParents = true;
+        job.recipientSelections = List.of(new RecipientSelection(RecipientKind.TEAM, new ObjectId()));
+
+        List<RecipientResolverService.ResolvedRecipient> result = resolver.resolve(job, semesterId);
+
+        assertEquals(1, result.size());
+        assertEquals("all@example.test", result.get(0).email());
+    }
+
+    @Test
+    void resolveWithoutAllParentsAndWithoutSelectionsReturnsNothing() {
+        persistPerson(new ObjectId(), "PARENT", "nobody@example.test");
+
+        MailJob job = new MailJob();
+        job.allParents = false;
+        job.recipientSelections = List.of();
+
+        assertTrue(resolver.resolve(job, new ObjectId()).isEmpty());
     }
 }

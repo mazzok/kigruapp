@@ -1,7 +1,6 @@
 package at.kigruapp.scheduler;
 
 import at.kigruapp.entity.MailJob;
-import at.kigruapp.entity.RecipientMode;
 import io.quarkus.scheduler.Scheduler;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
@@ -28,7 +27,7 @@ class MailJobStartupRearmerTest {
     private MailJob persistJob(boolean active) {
         MailJob job = new MailJob();
         job.cron = "0 0 8 * * ?";
-        job.recipientMode = RecipientMode.ALL_PARENTS;
+        job.allParents = true;
         job.active = active;
         job.persist();
         return job;

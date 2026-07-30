@@ -1,5 +1,7 @@
 import { of, throwError } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { MailJobEditorComponent } from './mail-job-editor.component';
 import { NotificationService } from '../../../shared/services/notification.service';
 import { MailJobService } from '../../../shared/services/mail-job.service';
@@ -17,8 +19,8 @@ class FakeMailJobService {
   jobs: MailJob[] = [
     {
       id: 'j1', name: 'Willkommen-Job', templateId: 't1', subject: 'Willkommen',
-      senderAccountId: 'acc1', cron: '0 0 8 * * ?', recipientMode: 'ALL_PARENTS',
-      recipientGroupDefinitionIds: [], active: false, lastRunAt: null, lastRunStatus: null,
+      senderAccountId: 'acc1', cron: '0 0 8 * * ?', allParents: true,
+      recipientSelections: [], active: false, lastRunAt: null, lastRunStatus: null,
       lastRunError: null, createdAt: '2026-01-01', updatedAt: '2026-01-01',
     },
   ];
@@ -74,29 +76,54 @@ class FakeMailAccountService {
 }
 
 class FakeOrganisationService {
-  org: OrganisationDTO = {
-    id: 'org1',
-    tag: 'groups',
-    // A single "group" template definition; the actual groups are its instances.
-    definitions: [
-      { id: 'def-group', fieldName: 'group', label: { de: 'Gruppen' }, jsonSchema: {}, required: false },
-    ],
-    entries: [],
+  orgs: Record<string, OrganisationDTO> = {
+    groups: {
+      id: 'org-groups', tag: 'groups', entries: [],
+      definitions: [{ id: 'def-group', fieldName: 'group', label: { de: 'Gruppen' }, jsonSchema: {}, required: false }],
+    },
+    'parent-teams': {
+      id: 'org-teams', tag: 'parent-teams', entries: [],
+      definitions: [{ id: 'def-team', fieldName: 'parent-team', label: { de: 'Teams' }, jsonSchema: {}, required: false }],
+    },
+    board: {
+      id: 'org-board', tag: 'board', entries: [],
+      definitions: [{ id: 'def-board', fieldName: 'board', label: { de: 'Vorstand' }, jsonSchema: {}, required: false }],
+    },
+    'parent-team-roles': {
+      id: 'org-team-roles', tag: 'parent-team-roles', entries: [],
+      definitions: [{ id: 'def-team-role', fieldName: 'parent-team-role', label: { de: 'Team-Rollen' }, jsonSchema: {}, required: false }],
+    },
+    'board-roles': {
+      id: 'org-board-roles', tag: 'board-roles', entries: [],
+      definitions: [{ id: 'def-board-role', fieldName: 'board-role', label: { de: 'Vorstandsrollen' }, jsonSchema: {}, required: false }],
+    },
   };
   getByTag(tag: string) {
-    return of(this.org);
+    return of(this.orgs[tag]);
   }
 }
 
 class FakeFieldInstanceService {
-  instances: FieldInstanceDTO[] = [
-    { id: 'g1', definitionId: 'def-group', fieldName: 'group', label: { de: 'Gruppen' }, jsonSchema: {}, required: false, value: { label: 'Rote Gruppe' }, definitionOutdated: false },
-    { id: 'g2', definitionId: 'def-group', fieldName: 'group', label: { de: 'Gruppen' }, jsonSchema: {}, required: false, value: { label: 'Blaue Gruppe' }, definitionOutdated: false },
-  ];
-  listByDefinitionIdCalls: string[] = [];
+  byDefinition: Record<string, FieldInstanceDTO[]> = {
+    'def-group': [
+      { id: 'g1', definitionId: 'def-group', fieldName: 'group', label: { de: 'Gruppen' }, jsonSchema: {}, required: false, value: { label: 'Rote Gruppe' }, definitionOutdated: false },
+      { id: 'g2', definitionId: 'def-group', fieldName: 'group', label: { de: 'Gruppen' }, jsonSchema: {}, required: false, value: { label: 'Blaue Gruppe' }, definitionOutdated: false },
+    ],
+    'def-team': [
+      { id: 't1', definitionId: 'def-team', fieldName: 'parent-team', label: { de: 'Teams' }, jsonSchema: {}, required: false, value: { label: 'Gartenteam' }, definitionOutdated: false },
+    ],
+    'def-board': [
+      { id: 'b1', definitionId: 'def-board', fieldName: 'board', label: { de: 'Vorstand' }, jsonSchema: {}, required: false, value: { label: 'Vorstand' }, definitionOutdated: false },
+    ],
+    'def-team-role': [
+      { id: 'tr1', definitionId: 'def-team-role', fieldName: 'parent-team-role', label: { de: 'Team-Rollen' }, jsonSchema: {}, required: false, value: { label: 'Teamleitung' }, definitionOutdated: false },
+    ],
+    'def-board-role': [
+      { id: 'br1', definitionId: 'def-board-role', fieldName: 'board-role', label: { de: 'Vorstandsrollen' }, jsonSchema: {}, required: false, value: { label: 'Obfrau' }, definitionOutdated: false },
+    ],
+  };
   listByDefinitionId(definitionId: string) {
-    this.listByDefinitionIdCalls.push(definitionId);
-    return of(this.instances);
+    return of(this.byDefinition[definitionId] ?? []);
   }
 }
 
@@ -194,36 +221,88 @@ describe('MailJobEditorComponent', () => {
     expect(jobService.deleteCalls).toEqual(['j1']);
   });
 
-  it('loads the actual groups (field instances of the "group" template), not the template itself', () => {
-    expect(fieldInstanceService.listByDefinitionIdCalls).toEqual(['def-group']);
-    expect(component.groups.length).toBe(2);
-    expect(component.groupLabel(component.groups[0])).toBe('Rote Gruppe');
-    expect(component.groupLabel(component.groups[1])).toBe('Blaue Gruppe');
+  it('loads all five recipient pools on init', () => {
+    expect(component.groups.map((g) => g.id)).toEqual(['g1', 'g2']);
+    expect(component.parentTeams.map((t) => t.id)).toEqual(['t1']);
+    expect(component.boardTeams.map((t) => t.id)).toEqual(['b1']);
+    expect(component.teamRoles.map((r) => r.id)).toEqual(['tr1']);
+    expect(component.boardRoles.map((r) => r.id)).toEqual(['br1']);
   });
 
-  it('selecting groups sets GROUPS mode and populates recipientGroupDefinitionIds', () => {
-    component.onGroupsChange(['g1', 'g2']);
-
-    expect(component.form.value.recipientMode).toBe('GROUPS');
-    expect(component.form.value.recipientGroupDefinitionIds).toEqual(['g1', 'g2']);
+  it('formats the display label of a pickable entry', () => {
+    expect(component.instanceLabel(component.groups[0])).toBe('Rote Gruppe');
+    expect(component.instanceLabel(component.groups[1])).toBe('Blaue Gruppe');
   });
 
-  it('clearing the group selection falls back to ALL_PARENTS mode', () => {
-    component.onGroupsChange(['g1']);
+  it('maps encoded option values to recipientSelections on save', () => {
+    component.newJob();
+    component.form.patchValue({
+      name: 'Job', templateId: 't1', subject: 'Betreff', senderAccountId: 'acc1', cron: '0 0 8 * * ?',
+      allParents: false,
+    });
+    component.onRecipientSelectionChange(['GROUP:g1', 'TEAM:b1', 'ROLE:tr1']);
 
-    component.onGroupsChange([]);
+    component.save();
 
-    expect(component.form.value.recipientMode).toBe('ALL_PARENTS');
-    expect(component.form.value.recipientGroupDefinitionIds).toEqual([]);
+    expect(jobService.createCalls.length).toBe(1);
+    expect(jobService.createCalls[0].allParents).toBeFalse();
+    expect(jobService.createCalls[0].recipientSelections).toEqual([
+      { kind: 'GROUP', fieldInstanceId: 'g1' },
+      { kind: 'TEAM', fieldInstanceId: 'b1' },
+      { kind: 'ROLE', fieldInstanceId: 'tr1' },
+    ]);
   });
 
-  it('selecting ALL clears group selection and sets ALL_PARENTS mode', () => {
-    component.onGroupsChange(['g1']);
+  it('decodes an existing job back into option values', () => {
+    component.selectForEdit({
+      ...jobService.jobs[0],
+      allParents: false,
+      recipientSelections: [
+        { kind: 'TEAM', fieldInstanceId: 't1' },
+        { kind: 'ROLE', fieldInstanceId: 'br1' },
+      ],
+    });
 
-    component.selectAllParents();
+    expect(component.recipientOptionValues).toEqual(['TEAM:t1', 'ROLE:br1']);
+    expect(component.form.value.allParents).toBeFalse();
+  });
 
-    expect(component.form.value.recipientMode).toBe('ALL_PARENTS');
-    expect(component.form.value.recipientGroupDefinitionIds).toEqual([]);
+  it('prunes a stale recipient selection that no longer exists in its loaded pool, keeping valid ones', () => {
+    component.selectForEdit({
+      ...jobService.jobs[0],
+      allParents: false,
+      recipientSelections: [
+        { kind: 'TEAM', fieldInstanceId: 'deleted-id' },
+        { kind: 'TEAM', fieldInstanceId: 't1' },
+      ],
+    });
+
+    expect(component.recipientOptionValues).toEqual(['TEAM:t1']);
+  });
+
+  it('keeps the selection when all-parents is toggled on and off', () => {
+    component.newJob();
+    component.onRecipientSelectionChange(['TEAM:t1']);
+
+    component.form.patchValue({ allParents: true });
+    expect(component.recipientOptionValues).toEqual(['TEAM:t1']);
+
+    component.form.patchValue({ allParents: false });
+    expect(component.recipientOptionValues).toEqual(['TEAM:t1']);
+  });
+
+  it('sends an empty selection when all parents is set', () => {
+    component.newJob();
+    component.form.patchValue({
+      name: 'Job', templateId: 't1', subject: 'Betreff', senderAccountId: 'acc1', cron: '0 0 8 * * ?',
+      allParents: true,
+    });
+    component.onRecipientSelectionChange(['TEAM:t1']);
+
+    component.save();
+
+    expect(jobService.createCalls[0].allParents).toBeTrue();
+    expect(jobService.createCalls[0].recipientSelections).toEqual([]);
   });
 
   it('starts with the editor closed and opens it via newJob / selectForEdit', () => {
@@ -298,5 +377,67 @@ describe('MailJobEditorComponent', () => {
     expect(component.statusClass('SKIPPED_OVERLAP')).toBe('status-attention');
     expect(component.statusClass('FAILED')).toBe('status-attention');
     expect(component.statusClass('PARTIAL')).toBe('status-attention');
+  });
+});
+
+describe('MailJobEditorComponent (Template)', () => {
+  let fixture: ComponentFixture<MailJobEditorComponent>;
+  let component: MailJobEditorComponent;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [MailJobEditorComponent],
+      providers: [
+        provideNoopAnimations(),
+        { provide: MailJobService, useClass: FakeMailJobService },
+        { provide: MailTemplateService, useClass: FakeMailTemplateService },
+        { provide: MailAccountService, useClass: FakeMailAccountService },
+        { provide: OrganisationService, useClass: FakeOrganisationService },
+        { provide: FieldInstanceService, useClass: FakeFieldInstanceService },
+        { provide: NotificationService, useClass: FakeNotificationService },
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(MailJobEditorComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  /** Opens the recipient select and returns the optgroup labels from the overlay. */
+  function openAndReadOptgroupLabels(): (string | undefined)[] {
+    const trigger: HTMLElement = fixture.nativeElement.querySelector('.recipient-field .mat-mdc-select-trigger');
+    trigger.click();
+    fixture.detectChanges();
+    return Array.from(document.querySelectorAll('.mat-mdc-optgroup .mat-mdc-optgroup-label'))
+      .map((el) => (el as HTMLElement).textContent?.trim());
+  }
+
+  it('renders one optgroup per non-empty pool', () => {
+    component.newJob();
+    component.form.patchValue({ allParents: false });
+    fixture.detectChanges();
+
+    expect(openAndReadOptgroupLabels())
+      .toEqual(['Gruppen', 'Elternteams', 'Vorstand', 'Team-Rollen', 'Vorstandsrollen']);
+  });
+
+  it('omits the optgroup of an empty pool', () => {
+    component.newJob();
+    component.form.patchValue({ allParents: false });
+    component.boardRoles = [];
+    fixture.detectChanges();
+
+    expect(openAndReadOptgroupLabels()).not.toContain('Vorstandsrollen');
+  });
+
+  it('hides the recipient select while all parents is checked', () => {
+    component.newJob();
+    component.form.patchValue({ allParents: true });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.recipient-select')).toBeNull();
+
+    component.form.patchValue({ allParents: false });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.recipient-select')).not.toBeNull();
   });
 });

@@ -1,4 +1,9 @@
-export type RecipientMode = 'GROUPS' | 'ALL_PARENTS';
+export type RecipientKind = 'GROUP' | 'TEAM' | 'ROLE';
+
+export interface RecipientSelection {
+  kind: RecipientKind;
+  fieldInstanceId: string;
+}
 
 export interface MailJob {
   id: string;
@@ -7,8 +12,8 @@ export interface MailJob {
   subject: string;
   senderAccountId: string;
   cron: string;
-  recipientMode: RecipientMode;
-  recipientGroupDefinitionIds: string[];
+  allParents: boolean;
+  recipientSelections: RecipientSelection[];
   active: boolean;
   lastRunAt: string | null;
   lastRunStatus: string | null;
@@ -23,6 +28,6 @@ export interface SaveMailJobRequest {
   subject: string;
   senderAccountId: string;
   cron: string;
-  recipientMode: RecipientMode;
-  recipientGroupDefinitionIds: string[];
+  allParents: boolean;
+  recipientSelections: RecipientSelection[];
 }
