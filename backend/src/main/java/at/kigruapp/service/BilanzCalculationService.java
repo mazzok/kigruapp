@@ -402,27 +402,16 @@ public class BilanzCalculationService {
         public BigDecimal base;
     }
 
-    /** Discount factor (0..1) for targetChild given the family's present children this month. */
-    public BigDecimal discountFactor(KostenDiscount cfg, String targetChildId, List<ChildBase> present) {
-        if (cfg == null || cfg.tiers == null || cfg.tiers.isEmpty()) {
-            return BigDecimal.ONE;
-        }
-        List<ChildBase> ranked = new ArrayList<>(present);
-        Comparator<ChildBase> byBase = Comparator.comparing((ChildBase b) -> b.base);
-        boolean leastFirst = "LEAST_EXPENSIVE_FIRST".equals(cfg.order);
-        Comparator<ChildBase> cmp = (leastFirst ? byBase : byBase.reversed())
-                .thenComparing(b -> b.childId);
-        ranked.sort(cmp);
+    public record DiscountResult(BigDecimal factor, int ordinal) {}
 
-        int ordinal = -1;
-        for (int i = 0; i < ranked.size(); i++) {
-            if (ranked.get(i).childId.equals(targetChildId)) {
-                ordinal = i + 1;
-                break;
-            }
+    /** Discount factor (0..1) and 1-based sibling rank for targetChild among present children. */
+    public DiscountResult discountResult(KostenDiscount cfg, String targetChildId, List<ChildBase> present) {
+        if (cfg == null || cfg.tiers == null || cfg.tiers.isEmpty()) {
+            return new DiscountResult(BigDecimal.ONE, ordinalOf(cfg, targetChildId, present));
         }
+        int ordinal = ordinalOf(cfg, targetChildId, present);
         if (ordinal < 1) {
-            return BigDecimal.ONE;
+            return new DiscountResult(BigDecimal.ONE, 0);
         }
         int percent = 0;
         int bestFrom = 0;
@@ -432,7 +421,31 @@ public class BilanzCalculationService {
                 percent = t.percent;
             }
         }
-        return BigDecimal.valueOf(100 - percent)
+        BigDecimal factor = BigDecimal.valueOf(100 - percent)
                 .divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
+        return new DiscountResult(factor, ordinal);
+    }
+
+    /** 1-based rank of targetChild by discountable base per cfg.order; 0 if cfg null or not found. */
+    private int ordinalOf(KostenDiscount cfg, String targetChildId, List<ChildBase> present) {
+        if (cfg == null) {
+            return 0;
+        }
+        List<ChildBase> ranked = new ArrayList<>(present);
+        Comparator<ChildBase> byBase = Comparator.comparing((ChildBase b) -> b.base);
+        boolean leastFirst = "LEAST_EXPENSIVE_FIRST".equals(cfg.order);
+        Comparator<ChildBase> cmp = (leastFirst ? byBase : byBase.reversed())
+                .thenComparing(b -> b.childId);
+        ranked.sort(cmp);
+        for (int i = 0; i < ranked.size(); i++) {
+            if (ranked.get(i).childId.equals(targetChildId)) {
+                return i + 1;
+            }
+        }
+        return 0;
+    }
+
+    public BigDecimal discountFactor(KostenDiscount cfg, String targetChildId, List<ChildBase> present) {
+        return discountResult(cfg, targetChildId, present).factor();
     }
 }

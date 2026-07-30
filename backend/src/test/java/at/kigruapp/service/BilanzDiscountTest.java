@@ -61,4 +61,21 @@ class BilanzDiscountTest {
     void nullConfig_fullPrice() {
         assertEquals(0, BigDecimal.ONE.compareTo(svc.discountFactor(null, "a", List.of())));
     }
+
+    @Test
+    void discountResult_reportsOneBasedOrdinal() {
+        KostenDiscount c = cfg("MOST_EXPENSIVE_FIRST", new int[]{2, 50});
+        List<BilanzCalculationService.ChildBase> present =
+                List.of(cb("a", "100"), cb("b", "80"), cb("c", "60"));
+        assertEquals(1, svc.discountResult(c, "a", present).ordinal()); // most expensive -> 1st
+        assertEquals(2, svc.discountResult(c, "b", present).ordinal());
+        assertEquals(3, svc.discountResult(c, "c", present).ordinal());
+        assertEquals(0, new java.math.BigDecimal("0.5000")
+                .compareTo(svc.discountResult(c, "b", present).factor()));
+    }
+
+    @Test
+    void discountResult_nullConfigOrdinalZero() {
+        assertEquals(0, svc.discountResult(null, "a", List.of()).ordinal());
+    }
 }
