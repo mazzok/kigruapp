@@ -85,7 +85,7 @@ import { discountFactors } from '../../settings/organisation/kosten-discount-pre
         <div class="config-card">
           <div class="card-heading">
             <h3>Geschwisterrabatt</h3>
-            <mat-icon class="info-icon" matTooltip="Geschwisterrabatt: Ab dem 2. (bzw. konfigurierten) Kind wird der ausgewählte Kostenbeitrag prozentual reduziert. Die Reihenfolge legt fest, welches Kind als erstes (voller Beitrag) gilt.">info</mat-icon>
+            <mat-icon class="info-icon" matTooltip="Geschwisterrabatt: Pro Familie werden die anwesenden Kinder nach der Höhe ihrer rabattfähigen Kosten gereiht. Ein Kind zahlt den vollen Beitrag, ab dem 2. (bzw. konfigurierten) Kind wird prozentual reduziert. Die Auswahl legt fest, ob der Rabatt auf die günstigeren oder die teureren Kinder wirkt.">info</mat-icon>
           </div>
 
           <mat-checkbox [(ngModel)]="kdApplyToAll" (ngModelChange)="saveKostenDiscount()">Rabatt auf alle Kostenpositionen anwenden</mat-checkbox>
@@ -99,10 +99,10 @@ import { discountFactors } from '../../settings/organisation/kosten-discount-pre
           }
 
           <mat-form-field appearance="outline" class="order-field">
-            <mat-label>Reihenfolge</mat-label>
+            <mat-label>Geschwisterrabatt gilt für</mat-label>
             <mat-select [(ngModel)]="kdOrder" (selectionChange)="saveKostenDiscount()">
-              <mat-option value="MOST_EXPENSIVE_FIRST">Teuerstes Kind zuerst</mat-option>
-              <mat-option value="LEAST_EXPENSIVE_FIRST">Günstigstes Kind zuerst</mat-option>
+              <mat-option value="MOST_EXPENSIVE_FIRST">Rabatt auf günstigere Kinder</mat-option>
+              <mat-option value="LEAST_EXPENSIVE_FIRST">Rabatt auf teurere Kinder</mat-option>
             </mat-select>
           </mat-form-field>
 
