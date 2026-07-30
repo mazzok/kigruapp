@@ -1,5 +1,7 @@
 import { of, throwError } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { MailJobEditorComponent } from './mail-job-editor.component';
 import { NotificationService } from '../../../shared/services/notification.service';
 import { MailJobService } from '../../../shared/services/mail-job.service';
@@ -362,5 +364,67 @@ describe('MailJobEditorComponent', () => {
     expect(component.statusClass('SKIPPED_OVERLAP')).toBe('status-attention');
     expect(component.statusClass('FAILED')).toBe('status-attention');
     expect(component.statusClass('PARTIAL')).toBe('status-attention');
+  });
+});
+
+describe('MailJobEditorComponent (Template)', () => {
+  let fixture: ComponentFixture<MailJobEditorComponent>;
+  let component: MailJobEditorComponent;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [MailJobEditorComponent],
+      providers: [
+        provideNoopAnimations(),
+        { provide: MailJobService, useClass: FakeMailJobService },
+        { provide: MailTemplateService, useClass: FakeMailTemplateService },
+        { provide: MailAccountService, useClass: FakeMailAccountService },
+        { provide: OrganisationService, useClass: FakeOrganisationService },
+        { provide: FieldInstanceService, useClass: FakeFieldInstanceService },
+        { provide: NotificationService, useClass: FakeNotificationService },
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(MailJobEditorComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  /** Opens the recipient select and returns the optgroup labels from the overlay. */
+  function openAndReadOptgroupLabels(): (string | undefined)[] {
+    const trigger: HTMLElement = fixture.nativeElement.querySelector('.recipient-field .mat-mdc-select-trigger');
+    trigger.click();
+    fixture.detectChanges();
+    return Array.from(document.querySelectorAll('.mat-mdc-optgroup .mat-mdc-optgroup-label'))
+      .map((el) => (el as HTMLElement).textContent?.trim());
+  }
+
+  it('renders one optgroup per non-empty pool', () => {
+    component.newJob();
+    component.form.patchValue({ allParents: false });
+    fixture.detectChanges();
+
+    expect(openAndReadOptgroupLabels())
+      .toEqual(['Gruppen', 'Elternteams', 'Vorstand', 'Team-Rollen', 'Vorstandsrollen']);
+  });
+
+  it('omits the optgroup of an empty pool', () => {
+    component.newJob();
+    component.form.patchValue({ allParents: false });
+    component.boardRoles = [];
+    fixture.detectChanges();
+
+    expect(openAndReadOptgroupLabels()).not.toContain('Vorstandsrollen');
+  });
+
+  it('hides the recipient select while all parents is checked', () => {
+    component.newJob();
+    component.form.patchValue({ allParents: true });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.recipient-select')).toBeNull();
+
+    component.form.patchValue({ allParents: false });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.recipient-select')).not.toBeNull();
   });
 });
