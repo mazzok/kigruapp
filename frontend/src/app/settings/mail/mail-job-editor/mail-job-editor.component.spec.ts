@@ -267,6 +267,19 @@ describe('MailJobEditorComponent', () => {
     expect(component.form.value.allParents).toBeFalse();
   });
 
+  it('prunes a stale recipient selection that no longer exists in its loaded pool, keeping valid ones', () => {
+    component.selectForEdit({
+      ...jobService.jobs[0],
+      allParents: false,
+      recipientSelections: [
+        { kind: 'TEAM', fieldInstanceId: 'deleted-id' },
+        { kind: 'TEAM', fieldInstanceId: 't1' },
+      ],
+    });
+
+    expect(component.recipientOptionValues).toEqual(['TEAM:t1']);
+  });
+
   it('keeps the selection when all-parents is toggled on and off', () => {
     component.newJob();
     component.onRecipientSelectionChange(['TEAM:t1']);

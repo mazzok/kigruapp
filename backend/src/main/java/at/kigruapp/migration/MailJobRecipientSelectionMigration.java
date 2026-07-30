@@ -12,6 +12,7 @@ import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -63,6 +64,6 @@ public class MailJobRecipientSelectionMigration {
                             .append("recipientGroupDefinitionIds", "")));
         }
 
-        migrations.insertOne(new Document("_id", MIGRATION_ID));
+        migrations.insertOne(new Document("_id", MIGRATION_ID).append("executedAt", Instant.now()));
     }
 }

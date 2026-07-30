@@ -20,6 +20,7 @@ import org.bson.types.ObjectId;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -153,7 +154,7 @@ public class MailJobResource {
         job.cron = request.cron;
         job.allParents = request.allParents;
         job.recipientSelections = request.recipientSelections == null
-                ? new java.util.ArrayList<>()
+                ? new ArrayList<>()
                 : request.recipientSelections;
     }
 

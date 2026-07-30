@@ -1,5 +1,7 @@
 package at.kigruapp.migration;
 
+import at.kigruapp.entity.MailJob;
+import at.kigruapp.entity.RecipientKind;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoDatabase;
 import io.quarkus.test.junit.QuarkusTest;
@@ -79,6 +81,10 @@ class MailJobRecipientSelectionMigrationTest {
         assertEquals(g1, selections.get(0).getObjectId("fieldInstanceId"));
         assertEquals(g2, selections.get(1).getObjectId("fieldInstanceId"));
         assertFalse(job.containsKey("recipientMode"));
+
+        MailJob decoded = MailJob.findById(id);
+        assertEquals(RecipientKind.GROUP, decoded.recipientSelections.get(0).kind);
+        assertEquals(g1, decoded.recipientSelections.get(0).fieldInstanceId);
     }
 
     @Test
@@ -105,6 +111,15 @@ class MailJobRecipientSelectionMigrationTest {
                 new Document("$set", new Document("allParents", true)));
         migration.run();
 
-        assertTrue(jobById(id).getBoolean("allParents"));
+        Document job = jobById(id);
+        assertTrue(job.getBoolean("allParents"));
+        // Without the idempotency guard, recipientMode/recipientGroupDefinitionIds are
+        // already gone (unset by the first run), so a guardless rerun would compute
+        // allParents=true and blank recipientSelections to []. The correct idempotent
+        // behavior is that the second run is a true no-op and the selection survives.
+        List<Document> selections = job.getList("recipientSelections", Document.class);
+        assertEquals(1, selections.size());
+        assertEquals("GROUP", selections.get(0).getString("kind"));
+        assertEquals(g1, selections.get(0).getObjectId("fieldInstanceId"));
     }
 }

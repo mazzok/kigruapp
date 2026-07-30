@@ -55,6 +55,10 @@ export class MailJobEditorComponent implements OnInit {
    */
   recipientOptionValues: string[] = [];
 
+  /** Counts pool loads so we know when it is safe to prune stale selections (see {@link pruneStaleRecipientSelections}). */
+  private poolsLoadedCount = 0;
+  private static readonly POOL_COUNT = 5;
+
   selectedId: string | null = null;
   /** When false the form is hidden and a placeholder is shown instead. */
   editing = false;
@@ -96,11 +100,46 @@ export class MailJobEditorComponent implements OnInit {
     this.organisationService.getByTag(tag).subscribe({
       next: (org) => {
         const templateDef = org?.definitions?.find((d) => d.fieldName === fieldName && !d.outdatedAt);
-        if (!templateDef?.id) return;
-        this.fieldInstanceService.listByDefinitionId(templateDef.id).subscribe((instances) => assign(instances));
+        if (!templateDef?.id) {
+          this.onPoolLoaded();
+          return;
+        }
+        this.fieldInstanceService.listByDefinitionId(templateDef.id).subscribe((instances) => {
+          assign(instances);
+          this.onPoolLoaded();
+        });
       },
-      error: () => assign([]),
+      error: () => {
+        assign([]);
+        this.onPoolLoaded();
+      },
     });
+  }
+
+  /** Once every pool has loaded, drop any selection whose instance no longer exists in its pool. */
+  private onPoolLoaded(): void {
+    this.poolsLoadedCount++;
+    if (this.poolsLoadedCount === MailJobEditorComponent.POOL_COUNT) {
+      this.pruneStaleRecipientSelections();
+    }
+  }
+
+  /**
+   * Removes recipientOptionValues entries whose "<KIND>:<id>" no longer resolves
+   * to an instance in the corresponding loaded pool (e.g. a team or role that was
+   * deleted after the job was saved). Without this, a stale value stays selected
+   * internally but renders as unselected (mat-select finds no matching option),
+   * and every future save silently re-sends it, causing an opaque 400.
+   */
+  private pruneStaleRecipientSelections(): void {
+    const validValues = new Set<string>([
+      ...this.groups.map((i) => this.optionValue('GROUP', i.id ?? '')),
+      ...this.parentTeams.map((i) => this.optionValue('TEAM', i.id ?? '')),
+      ...this.boardTeams.map((i) => this.optionValue('TEAM', i.id ?? '')),
+      ...this.teamRoles.map((i) => this.optionValue('ROLE', i.id ?? '')),
+      ...this.boardRoles.map((i) => this.optionValue('ROLE', i.id ?? '')),
+    ]);
+    this.recipientOptionValues = this.recipientOptionValues.filter((v) => validValues.has(v));
   }
 
   onRecipientSelectionChange(values: string[]): void {
@@ -192,6 +231,12 @@ export class MailJobEditorComponent implements OnInit {
     });
     this.recipientOptionValues = (job.recipientSelections ?? [])
       .map((s) => this.optionValue(s.kind, s.fieldInstanceId));
+    // Pools may already be loaded (typical case); prune now so a stale selection
+    // never flashes as "selected". If pools are still loading, onPoolLoaded()
+    // prunes once they finish.
+    if (this.poolsLoadedCount === MailJobEditorComponent.POOL_COUNT) {
+      this.pruneStaleRecipientSelections();
+    }
   }
 
   newJob(): void {
