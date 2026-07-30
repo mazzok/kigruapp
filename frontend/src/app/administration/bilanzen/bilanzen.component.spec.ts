@@ -10,7 +10,9 @@ function cell(partial: Partial<BilanzMonthCell>): BilanzMonthCell {
   return {
     month: 1, amount: 0, currencySymbol: '€', mixedCurrency: false,
     future: false, editable: false, active: false,
-    entryMarker: false, exitMarker: false, ...partial,
+    entryMarker: false, exitMarker: false,
+    reason: null, aliquotMode: null, entryDate: null, exitDate: null, lines: [],
+    ...partial,
   };
 }
 

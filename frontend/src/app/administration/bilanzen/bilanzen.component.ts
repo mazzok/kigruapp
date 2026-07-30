@@ -17,6 +17,7 @@ import {
   BilanzCellDialogData,
   BilanzCellDialogResult,
 } from './bilanz-cell-dialog.component';
+import { BilanzCellDetailDirective } from './bilanz-cell-detail.directive';
 
 @Component({
   selector: 'app-bilanzen',
@@ -24,7 +25,7 @@ import {
   imports: [
     CommonModule, MatTableModule, MatSelectModule, MatFormFieldModule,
     MatButtonModule, MatIconModule, MatTooltipModule, MatProgressSpinnerModule,
-    MatDialogModule,
+    MatDialogModule, BilanzCellDetailDirective,
   ],
   template: `
     <div class="page-container">
@@ -60,6 +61,9 @@ import {
                 <th mat-header-cell *matHeaderCellDef>{{ monthLabels[m - 1] }}</th>
                 <td mat-cell *matCellDef="let row"
                     [ngClass]="'cell-' + cellState(row.months[m - 1])"
+                    [appBilanzCellDetail]="row.months[m - 1]"
+                    [detailMonthLabel]="monthLabels[m - 1]"
+                    [detailYear]="selectedYear"
                     (click)="onCellClick(row, row.months[m - 1])">
                   <span class="cell-content">
                     @if (row.months[m - 1].mixedCurrency) {
