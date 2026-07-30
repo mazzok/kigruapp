@@ -3,7 +3,8 @@ package at.kigruapp.service;
 import at.kigruapp.entity.FieldRef;
 import at.kigruapp.entity.MailJob;
 import at.kigruapp.entity.Person;
-import at.kigruapp.entity.RecipientMode;
+import at.kigruapp.entity.RecipientKind;
+import at.kigruapp.entity.RecipientSelection;
 import at.kigruapp.entity.SemesterAssignment;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
@@ -15,6 +16,7 @@ import org.bson.types.ObjectId;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -42,13 +44,13 @@ public class RecipientResolverService {
     public record ResolvedRecipient(String email, Map<String, String> properties) {}
 
     /**
-     * Given a MailJob, produces the final (email, propertyMap) list by
-     * dispatching to group or all-parents resolution and attaching property maps.
+     * Given a MailJob, produces the final (email, propertyMap) list. Selections
+     * are resolved per kind and unioned, deduplicated by person id.
      */
     public List<ResolvedRecipient> resolve(MailJob job, ObjectId semesterId) {
-        List<Person> parents = job.recipientMode == RecipientMode.GROUPS
-                ? resolveGroupParents(job.recipientGroupDefinitionIds, semesterId)
-                : resolveAllParents();
+        List<Person> parents = job.allParents
+                ? resolveAllParents()
+                : resolveSelections(job.recipientSelections, semesterId);
 
         Map<ObjectId, Map<String, String>> propertiesByPersonId = personPropertyResolver.resolve(parents);
 
@@ -59,6 +61,57 @@ public class RecipientResolverService {
             result.add(new ResolvedRecipient(email, propertiesByPersonId.getOrDefault(parent.id, Map.of())));
         }
         return result;
+    }
+
+    /** Buckets the selections by kind, resolves each bucket and unions the result. */
+    private List<Person> resolveSelections(List<RecipientSelection> selections, ObjectId semesterId) {
+        if (selections == null || selections.isEmpty()) {
+            return List.of();
+        }
+        Map<RecipientKind, List<ObjectId>> byKind = new EnumMap<>(RecipientKind.class);
+        for (RecipientSelection sel : selections) {
+            if (sel == null || sel.kind == null || sel.fieldInstanceId == null) continue;
+            byKind.computeIfAbsent(sel.kind, k -> new ArrayList<>()).add(sel.fieldInstanceId);
+        }
+
+        Map<ObjectId, Person> union = new LinkedHashMap<>();
+        addAll(union, resolveGroupParents(byKind.get(RecipientKind.GROUP), semesterId));
+        addAll(union, resolveAssignedParents("team", byKind.get(RecipientKind.TEAM), semesterId));
+        addAll(union, resolveAssignedParents("role", byKind.get(RecipientKind.ROLE), semesterId));
+        return new ArrayList<>(union.values());
+    }
+
+    private void addAll(Map<ObjectId, Person> union, List<Person> people) {
+        for (Person p : people) {
+            union.putIfAbsent(p.id, p);
+        }
+    }
+
+    /**
+     * Resolves the parents directly assigned to any of the given field instances
+     * in the given semester section ("team" or "role"). Unlike groups, these
+     * assignments already point at parents, so no family detour is needed.
+     * Instances that no longer exist simply match nothing.
+     */
+    public List<Person> resolveAssignedParents(String section, List<ObjectId> instanceIds, ObjectId semesterId) {
+        if (instanceIds == null || instanceIds.isEmpty() || semesterId == null) {
+            return List.of();
+        }
+        Map<ObjectId, Person> deduped = new LinkedHashMap<>();
+        for (Document doc : semesterAssignments().find(Filters.and(
+                Filters.eq("section", section),
+                Filters.eq("semesterId", semesterId),
+                Filters.in("fieldInstanceId", instanceIds)))) {
+            SemesterAssignment sa = SemesterAssignment.fromDocument(doc);
+            if (sa.personId == null || deduped.containsKey(sa.personId)) {
+                continue;
+            }
+            Person person = Person.findById(sa.personId);
+            if (person != null && isParent(person) && hasNonBlankEmail(person)) {
+                deduped.put(person.id, person);
+            }
+        }
+        return new ArrayList<>(deduped.values());
     }
 
     private MongoCollection<Document> semesterAssignments() {

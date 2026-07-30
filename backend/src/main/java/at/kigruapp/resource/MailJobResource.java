@@ -2,7 +2,6 @@ package at.kigruapp.resource;
 
 import at.kigruapp.entity.FieldDefinition;
 import at.kigruapp.entity.MailJob;
-import at.kigruapp.entity.RecipientMode;
 import at.kigruapp.scheduler.MailJobScheduler;
 import com.cronutils.model.CronType;
 import com.cronutils.model.definition.CronDefinitionBuilder;
@@ -142,8 +141,10 @@ public class MailJobResource {
         job.subject = request.subject;
         job.senderAccountId = request.senderAccountId;
         job.cron = request.cron;
-        job.recipientMode = request.recipientMode;
-        job.recipientGroupDefinitionIds = request.recipientGroupDefinitionIds;
+        job.allParents = request.allParents;
+        job.recipientSelections = request.recipientSelections == null
+                ? new java.util.ArrayList<>()
+                : request.recipientSelections;
     }
 
     private void validate(MailJob request) {
@@ -165,43 +166,6 @@ public class MailJobResource {
             throw new BadRequestException("invalid cron expression: " + e.getMessage());
         }
         validateSenderAccountId(request.senderAccountId);
-        validateRecipientGroupDefinitionIds(request);
-    }
-
-    /**
-     * The ids identify individual groups, i.e. field instances of the "group"
-     * template definition. Each must exist and resolve (via its definitionId) to
-     * a non-outdated "group" definition.
-     */
-    private void validateRecipientGroupDefinitionIds(MailJob request) {
-        if (request.recipientMode != RecipientMode.GROUPS) {
-            return;
-        }
-        List<ObjectId> ids = request.recipientGroupDefinitionIds;
-        if (ids == null) {
-            return;
-        }
-        for (ObjectId instanceId : ids) {
-            if (!isGroupInstance(instanceId)) {
-                throw new BadRequestException("recipientGroupDefinitionIds contains an unknown or outdated group: " + instanceId);
-            }
-        }
-    }
-
-    private boolean isGroupInstance(ObjectId instanceId) {
-        Document inst = mongoClient.getDatabase(databaseName)
-                .getCollection("field_instances")
-                .find(Filters.eq("_id", instanceId))
-                .first();
-        if (inst == null) {
-            return false;
-        }
-        ObjectId definitionId = inst.getObjectId("definitionId");
-        if (definitionId == null) {
-            return false;
-        }
-        FieldDefinition def = FieldDefinition.findById(definitionId);
-        return def != null && def.outdatedAt == null && "group".equals(def.fieldName);
     }
 
     private void validateSenderAccountId(String senderAccountId) {

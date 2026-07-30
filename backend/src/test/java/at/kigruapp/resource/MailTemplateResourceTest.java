@@ -2,7 +2,6 @@ package at.kigruapp.resource;
 
 import at.kigruapp.entity.FieldDefinition;
 import at.kigruapp.entity.MailJob;
-import at.kigruapp.entity.RecipientMode;
 import at.kigruapp.entity.MailTemplate;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -132,7 +131,7 @@ class MailTemplateResourceTest {
         job.templateId = t.id;
         job.subject = "Subject";
         job.cron = "0 0 8 * * ?";
-        job.recipientMode = RecipientMode.ALL_PARENTS;
+        job.allParents = true;
         job.createdAt = java.time.Instant.now();
         job.updatedAt = job.createdAt;
         job.persist();

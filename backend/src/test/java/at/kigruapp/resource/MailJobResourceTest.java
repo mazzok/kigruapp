@@ -4,7 +4,6 @@ import at.kigruapp.entity.FieldDefinition;
 import at.kigruapp.entity.MailAccount;
 import at.kigruapp.entity.MailEncryption;
 import at.kigruapp.entity.MailJob;
-import at.kigruapp.entity.RecipientMode;
 import com.mongodb.client.MongoClient;
 import io.quarkus.scheduler.Scheduler;
 import io.quarkus.test.junit.QuarkusTest;
@@ -66,7 +65,7 @@ class MailJobResourceTest {
 
     private String validPayload(ObjectId templateId) {
         return "{\"name\":\"Willkommen-Job\",\"templateId\":\"" + templateId
-                + "\",\"subject\":\"Willkommen\",\"cron\":\"0 0 8 * * ?\",\"recipientMode\":\"ALL_PARENTS\","
+                + "\",\"subject\":\"Willkommen\",\"cron\":\"0 0 8 * * ?\",\"allParents\":true,"
                 + "\"senderAccountId\":\"" + enabledAccountId + "\"}";
     }
 
@@ -76,7 +75,7 @@ class MailJobResourceTest {
         job.templateId = new ObjectId();
         job.subject = "Subject";
         job.cron = "0 0 8 * * ?";
-        job.recipientMode = RecipientMode.ALL_PARENTS;
+        job.allParents = true;
         job.senderAccountId = enabledAccountId;
         job.createdAt = java.time.Instant.now();
         job.updatedAt = job.createdAt;
@@ -206,19 +205,6 @@ class MailJobResourceTest {
     }
 
     @Test
-    void rejectsUnknownOrOutdatedGroupDefinitionId() {
-        String payload = validPayload(new ObjectId())
-                .replace("\"recipientMode\":\"ALL_PARENTS\"",
-                        "\"recipientMode\":\"GROUPS\",\"recipientGroupDefinitionIds\":[\"000000000000000000000099\"]");
-
-        given()
-                .contentType(ContentType.JSON)
-                .body(payload)
-                .when().post("/api/v1/mail-jobs")
-                .then().statusCode(400);
-    }
-
-    @Test
     void acceptsValidGroupDefinitionIds() {
         FieldDefinition group = new FieldDefinition();
         group.fieldName = "group";
@@ -227,8 +213,8 @@ class MailJobResourceTest {
         ObjectId groupInstanceId = persistGroupInstance(group.id);
 
         String payload = validPayload(new ObjectId())
-                .replace("\"recipientMode\":\"ALL_PARENTS\"",
-                        "\"recipientMode\":\"GROUPS\",\"recipientGroupDefinitionIds\":[\"" + groupInstanceId + "\"]");
+                .replace("\"allParents\":true",
+                        "\"allParents\":false,\"recipientSelections\":[{\"kind\":\"GROUP\",\"fieldInstanceId\":\"" + groupInstanceId + "\"}]");
 
         given()
                 .contentType(ContentType.JSON)

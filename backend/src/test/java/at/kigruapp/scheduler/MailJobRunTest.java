@@ -143,8 +143,8 @@ class MailJobRunTest {
         MailJob job = new MailJob();
         job.templateId = template.id;
         job.subject = "Willkommen";
-        job.recipientMode = RecipientMode.GROUPS;
-        job.recipientGroupDefinitionIds = List.of(groupInstanceId);
+        job.allParents = false;
+        job.recipientSelections = List.of(new RecipientSelection(RecipientKind.GROUP, groupInstanceId));
         MailAccount account = persistEnabledAccount();
         job.senderAccountId = account.id.toHexString();
         job.persist();
@@ -165,7 +165,7 @@ class MailJobRunTest {
         MailJob job = new MailJob();
         job.templateId = template.id;
         job.subject = "Willkommen";
-        job.recipientMode = RecipientMode.ALL_PARENTS;
+        job.allParents = true;
         job.persist();
 
         mailJobScheduler.markRunningForTest(job.id);
@@ -182,8 +182,8 @@ class MailJobRunTest {
         MailJob job = new MailJob();
         job.templateId = template.id;
         job.subject = "Willkommen";
-        job.recipientMode = RecipientMode.GROUPS;
-        job.recipientGroupDefinitionIds = List.of(groupDef.id); // no children assigned to this group
+        job.allParents = false;
+        job.recipientSelections = List.of(new RecipientSelection(RecipientKind.GROUP, groupDef.id)); // no children assigned to this group
         MailAccount account = persistEnabledAccount();
         job.senderAccountId = account.id.toHexString();
         job.persist();
@@ -200,7 +200,7 @@ class MailJobRunTest {
         job.templateId = new ObjectId(); // no such template
         job.subject = "Willkommen";
         job.cron = "0 0 8 * * ?";
-        job.recipientMode = RecipientMode.ALL_PARENTS;
+        job.allParents = true;
         job.active = true;
         job.persist();
         mailJobScheduler.schedule(job);
@@ -236,7 +236,7 @@ class MailJobRunTest {
         MailJob job = new MailJob();
         job.templateId = template.id;
         job.subject = "Willkommen";
-        job.recipientMode = RecipientMode.ALL_PARENTS;
+        job.allParents = true;
         MailAccount account = persistEnabledAccount();
         job.senderAccountId = account.id.toHexString();
         job.persist();
@@ -254,7 +254,7 @@ class MailJobRunTest {
         MailJob job = new MailJob();
         job.templateId = template.id;
         job.subject = "Willkommen";
-        job.recipientMode = RecipientMode.ALL_PARENTS;
+        job.allParents = true;
         job.senderAccountId = new ObjectId().toHexString(); // no such account
         job.persist();
 
