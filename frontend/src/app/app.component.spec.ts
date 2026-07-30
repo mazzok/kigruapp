@@ -1,6 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { AppComponent } from './app.component';
 import { OAuthService } from 'angular-oauth2-oidc';
+import { CurrentUserService } from './core/services/current-user.service';
+import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { provideRouter } from '@angular/router';
 
 describe('AppComponent', () => {
   beforeEach(async () => {
@@ -10,10 +13,17 @@ describe('AppComponent', () => {
     ]);
     oauthSpy.loadDiscoveryDocumentAndTryLogin.and.returnValue(Promise.resolve(true));
 
+    const currentUserSpy = jasmine.createSpyObj('CurrentUserService', [
+      'loadCurrentUser',
+    ]);
+    currentUserSpy.loadCurrentUser.and.returnValue({ subscribe: () => {} });
+
     await TestBed.configureTestingModule({
-      imports: [AppComponent],
+      imports: [AppComponent, NoopAnimationsModule],
       providers: [
         { provide: OAuthService, useValue: oauthSpy },
+        { provide: CurrentUserService, useValue: currentUserSpy },
+        provideRouter([]),
       ],
     }).compileComponents();
   });
@@ -22,5 +32,22 @@ describe('AppComponent', () => {
     const fixture = TestBed.createComponent(AppComponent);
     const app = fixture.componentInstance;
     expect(app).toBeTruthy();
+  });
+
+  it('should default the admin section to expanded', () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    const app = fixture.componentInstance;
+    expect(app.adminSectionExpanded).toBeTrue();
+  });
+
+  it('should toggle the admin section state', () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    const app = fixture.componentInstance;
+
+    app.toggleAdminSection();
+    expect(app.adminSectionExpanded).toBeFalse();
+
+    app.toggleAdminSection();
+    expect(app.adminSectionExpanded).toBeTrue();
   });
 });

@@ -21,10 +21,16 @@ import { CurrentUserService } from './core/services/current-user.service';
   styleUrl: './app.component.scss',
 })
 export class AppComponent implements OnInit {
+  adminSectionExpanded = true;
+
   constructor(
     public auth: AuthService,
     public currentUser: CurrentUserService,
   ) {}
+
+  toggleAdminSection(): void {
+    this.adminSectionExpanded = !this.adminSectionExpanded;
+  }
 
   ngOnInit(): void {
     // Always attempt to load — works in dev mode (no OIDC) and after production login
