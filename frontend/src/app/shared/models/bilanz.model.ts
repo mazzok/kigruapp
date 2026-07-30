@@ -1,3 +1,16 @@
+export interface BilanzLineBreakdown {
+  label: string;
+  currencySymbol: string;
+  baseAmount: number;
+  discountPercent: number;
+  discountOrdinal: number;
+  presentDays: number;
+  daysInMonth: number;
+  fullMonth: boolean;
+  overridden: boolean;
+  effectiveAmount: number;
+}
+
 export interface BilanzMonthCell {
   month: number;
   amount: number;
@@ -8,6 +21,11 @@ export interface BilanzMonthCell {
   active: boolean;
   entryMarker: boolean;
   exitMarker: boolean;
+  reason: string | null;          // "FUTURE" | "NO_PLACE" | null
+  aliquotMode: string | null;     // "NONE" | "WHOLE_MONTH" | "PER_DAY" | null
+  entryDate: string | null;
+  exitDate: string | null;
+  lines: BilanzLineBreakdown[];
 }
 
 export interface BilanzChildRow {
