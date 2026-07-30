@@ -13,9 +13,9 @@
         <span matListItemTitle>Unsere Stunden</span>
       </a>
       @if (currentUser.isAdmin) {
-        <button mat-list-item class="admin-section-toggle" (click)="toggleAdminSection()">
-          <span class="admin-section-toggle-label">Administration</span>
-          <mat-icon class="admin-section-toggle-icon">
+        <button mat-list-item type="button" class="admin-section-toggle" (click)="toggleAdminSection()" [attr.aria-expanded]="adminSectionExpanded">
+          <span matListItemTitle class="admin-section-toggle-label">Administration</span>
+          <mat-icon matListItemMeta class="admin-section-toggle-icon">
             {{ adminSectionExpanded ? 'expand_less' : 'expand_more' }}
           </mat-icon>
         </button>

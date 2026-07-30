@@ -4,6 +4,7 @@ import { OAuthService } from 'angular-oauth2-oidc';
 import { CurrentUserService } from './core/services/current-user.service';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
+import { of } from 'rxjs';
 
 describe('AppComponent', () => {
   beforeEach(async () => {
@@ -49,5 +50,24 @@ describe('AppComponent', () => {
 
     app.toggleAdminSection();
     expect(app.adminSectionExpanded).toBeTrue();
+  });
+
+  it('hides admin links when the section is collapsed', () => {
+    TestBed.overrideProvider(CurrentUserService, {
+      useValue: { isAdmin: true, loadCurrentUser: () => of(null) },
+    });
+    TestBed.overrideProvider(OAuthService, {
+      useValue: { ...jasmine.createSpyObj('OAuthService', ['hasValidAccessToken', 'getAccessToken', 'getIdentityClaims']), events: of() },
+    });
+
+    const fixture = TestBed.createComponent(AppComponent);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('a[href^="/administration"]').length).toBeGreaterThan(0);
+
+    fixture.componentInstance.toggleAdminSection();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('a[href^="/administration"]').length).toBe(0);
   });
 });
