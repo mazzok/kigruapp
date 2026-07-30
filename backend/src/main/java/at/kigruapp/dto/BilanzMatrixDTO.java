@@ -15,5 +15,22 @@ public record BilanzMatrixDTO(int year, String currentYearMonth, List<ChildRow> 
             boolean editable,
             boolean active,
             boolean entryMarker,
-            boolean exitMarker) {}
+            boolean exitMarker,
+            String reason,        // "FUTURE" | "NO_PLACE" | null
+            String aliquotMode,   // "NONE" | "WHOLE_MONTH" | "PER_DAY" | null
+            String entryDate,     // ISO date if entry falls in this month, else null
+            String exitDate,      // ISO date if exit falls in this month, else null
+            List<LineBreakdown> lines) {}
+
+    public record LineBreakdown(
+            String label,
+            String currencySymbol,
+            BigDecimal baseAmount,
+            int discountPercent,
+            int discountOrdinal,
+            int presentDays,
+            int daysInMonth,
+            boolean fullMonth,
+            boolean overridden,
+            BigDecimal effectiveAmount) {}
 }

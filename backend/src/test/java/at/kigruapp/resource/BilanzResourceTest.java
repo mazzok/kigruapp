@@ -40,9 +40,31 @@ public class BilanzResourceTest {
         Semester.deleteAll();
         Person.deleteAll();
         Family.deleteAll();
+        at.kigruapp.entity.AliquotConfig.deleteAll();
+        at.kigruapp.entity.KostenDiscount.deleteAll();
         coll("semester_assignments").deleteMany(new Document());
         coll("field_instances").deleteMany(new Document());
         coll("field_definitions").deleteMany(new Document());
+    }
+
+    private void setAliquotKostenMode(ObjectId semesterId, String kostenMode) {
+        at.kigruapp.entity.AliquotConfig c = new at.kigruapp.entity.AliquotConfig();
+        c.semesterId = semesterId;
+        c.stundenMode = "NONE";
+        c.kostenMode = kostenMode;
+        c.persist();
+    }
+
+    private void setDiscount(ObjectId semesterId, int fromChild, int percent) {
+        at.kigruapp.entity.KostenDiscount d = new at.kigruapp.entity.KostenDiscount();
+        d.semesterId = semesterId;
+        d.applyToAll = true;
+        d.order = "MOST_EXPENSIVE_FIRST";
+        at.kigruapp.entity.KostenDiscount.Tier t = new at.kigruapp.entity.KostenDiscount.Tier();
+        t.fromChild = fromChild; t.percent = percent;
+        d.tiers = java.util.List.of(t);
+        d.eligibleDefinitionIds = null;
+        d.persist();
     }
 
     private Instant utc(int year, int month, int day) {
@@ -570,5 +592,85 @@ public class BilanzResourceTest {
                 }
             }
         }
+    }
+
+    @Test
+    void matrixCellCarriesLineBreakdownWithBaseDiscountAndAliquot() {
+        fullCleanup();
+        ObjectId semesterId = createSemester(2020);
+        ObjectId currencyId = createCurrency("EUR", "€");
+        ObjectId defId = createDefinition(currencyId, "Elternbeitrag");
+        ObjectId groupId = new ObjectId();
+        setDefault(semesterId, groupId, defId, "100.00");
+        setAliquotKostenMode(semesterId, "PER_DAY");
+        setDiscount(semesterId, 2, 50); // ab 2. Kind -50%
+        ObjectId familyId = createFamily("Meier");
+        // zwei Kinder -> jüngeres ist 2. Kind (gleiche base -> tie-break per childId)
+        createChild(familyId, "Anna", semesterId, groupId, null, null);
+        createChild(familyId, "Ben", semesterId, groupId, "2020-05-16", null); // Eintritt Mai
+
+        var months = given().queryParam("year", 2020)
+                .when().get("/api/v1/bilanzen").then().statusCode(200)
+                .extract().jsonPath();
+
+        // Mai-Zelle (Index 4) von Ben: Eintritt 16.05. in 31-Tage-Monat -> 16 Tage
+        int benRow = months.getString("children[0].name").equals("Anna") ? 1 : 0;
+        String base = "children[" + benRow + "].months[4]";
+        org.junit.jupiter.api.Assertions.assertNull(months.getString(base + ".reason"));
+        org.junit.jupiter.api.Assertions.assertEquals("PER_DAY", months.getString(base + ".aliquotMode"));
+        org.junit.jupiter.api.Assertions.assertEquals(1, months.getList(base + ".lines").size());
+        org.junit.jupiter.api.Assertions.assertEquals(100.0f, months.getFloat(base + ".lines[0].baseAmount"));
+        org.junit.jupiter.api.Assertions.assertEquals(16, months.getInt(base + ".lines[0].presentDays"));
+        org.junit.jupiter.api.Assertions.assertEquals(31, months.getInt(base + ".lines[0].daysInMonth"));
+        org.junit.jupiter.api.Assertions.assertEquals("2020-05-16", months.getString(base + ".entryDate"));
+    }
+
+    @Test
+    void matrixInactiveCellHasNoPlaceReason_futureCellHasFutureReason() {
+        fullCleanup();
+        int futureYear = YearMonth.now().getYear() + 1;
+        // Semester deckt Vorjahr..Zukunft, Kind aktiv nur ab März des Zukunftsjahres
+        Semester s = new Semester();
+        s.start = utc(YearMonth.now().getYear() - 1, 1, 1);
+        s.end = utc(futureYear, 12, 31);
+        s.createdAt = Instant.now();
+        s.persist();
+        ObjectId currencyId = createCurrency("EUR", "€");
+        ObjectId defId = createDefinition(currencyId, "Elternbeitrag");
+        ObjectId groupId = new ObjectId();
+        setDefault(s.id, groupId, defId, "100.00");
+        ObjectId familyId = createFamily("Meier");
+        createChild(familyId, "Anna", s.id, groupId, futureYear + "-03-01", null);
+
+        given().queryParam("year", futureYear)
+            .when().get("/api/v1/bilanzen").then().statusCode(200)
+            // Januar Zukunftsjahr: zukünftig UND vor Eintritt -> FUTURE hat Vorrang
+            .body("children[0].months[0].reason", is("FUTURE"));
+
+        given().queryParam("year", YearMonth.now().getYear() - 1)
+            .when().get("/api/v1/bilanzen").then().statusCode(200)
+            // Vorjahr: nicht aktiv (vor Eintritt), nicht zukünftig -> NO_PLACE
+            .body("children[0].months[0].reason", is("NO_PLACE"));
+    }
+
+    @Test
+    void matrixLineEffectiveSumEqualsCellAmount() {
+        fullCleanup();
+        ObjectId semesterId = createSemester(2020);
+        ObjectId currencyId = createCurrency("EUR", "€");
+        ObjectId defA = createDefinition(currencyId, "Elternbeitrag");
+        ObjectId defB = createDefinition(currencyId, "Materialbeitrag");
+        ObjectId groupId = new ObjectId();
+        setDefault(semesterId, groupId, defA, "100.00");
+        setDefault(semesterId, groupId, defB, "40.00");
+        ObjectId familyId = createFamily("Meier");
+        createChild(familyId, "Anna", semesterId, groupId, null, null);
+
+        var jp = given().queryParam("year", 2020)
+                .when().get("/api/v1/bilanzen").then().statusCode(200).extract().jsonPath();
+        float cell = jp.getFloat("children[0].months[2].amount");
+        float lineSum = jp.getList("children[0].months[2].lines.effectiveAmount", Float.class)
+                .stream().reduce(0f, Float::sum);
+        org.junit.jupiter.api.Assertions.assertEquals(cell, lineSum, 0.001f);
     }
 }

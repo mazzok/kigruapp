@@ -75,9 +75,12 @@ public class BilanzCalculationService {
             BigDecimal total = BigDecimal.ZERO;
             for (int m = 1; m <= 12; m++) {
                 CellComputation cc = computeCellInternal(single, year, m, semesters, activeDefs, current);
+                String reason = cc.future ? "FUTURE" : (!cc.active ? "NO_PLACE" : null);
                 months.add(new BilanzMatrixDTO.MonthCell(
                         m, cc.amount, cc.currencySymbol, cc.mixedCurrency,
-                        cc.future, cc.editable, cc.active, cc.entryMarker, cc.exitMarker));
+                        cc.future, cc.editable, cc.active, cc.entryMarker, cc.exitMarker,
+                        reason, cc.active ? cc.aliquotMode : null,
+                        cc.entryDate, cc.exitDate, cc.lines));
                 if (!cc.future) {
                     total = total.add(cc.amount);
                 }
@@ -157,6 +160,10 @@ public class BilanzCalculationService {
         boolean editable = false;
         boolean entryMarker = false;
         boolean exitMarker = false;
+        String aliquotMode = null;
+        String entryDate = null;
+        String exitDate = null;
+        List<BilanzMatrixDTO.LineBreakdown> lines = new ArrayList<>();
     }
 
     private CellComputation computeCellInternal(
@@ -171,6 +178,7 @@ public class BilanzCalculationService {
 
         if (semester != null) {
             AliquotMode mode = aliquotMode(semester.id);
+            cc.aliquotMode = mode.name();
             KostenDiscount discountCfg = KostenDiscount.findBySemesterId(semester.id);
             for (Person child : children) {
                 GroupRef gref = groupAssignment(child.id, semester.id);
@@ -179,41 +187,68 @@ public class BilanzCalculationService {
                 }
                 if (matchesYearMonth(gref.entryDate, year, month)) {
                     cc.entryMarker = true;
+                    cc.entryDate = gref.entryDate;
                 }
                 if (matchesYearMonth(gref.exitDate, year, month)) {
                     cc.exitMarker = true;
+                    cc.exitDate = gref.exitDate;
                 }
-                BigDecimal frac = aliquotService.monthFraction(
+                AliquotService.MonthPresence presence = aliquotService.monthPresence(
                         mode, gref.entryDate, gref.exitDate, year, month);
+                BigDecimal frac = presence.fraction();
                 if (frac.signum() == 0) {
                     continue;
                 }
                 cc.active = true;
                 List<ChildBase> present = presentSiblings(
                         child.familyId, semester, year, month, mode, activeDefs, discountCfg);
-                BigDecimal factor = discountFactor(discountCfg, child.id.toHexString(), present);
+                DiscountResult dr = discountResult(discountCfg, child.id.toHexString(), present);
+                BigDecimal factor = dr.factor();
                 for (KostenDefinition def : activeDefs) {
                     BigDecimal def0 = defaultAmount(semester.id, gref.groupId, def.id);
                     BilanzOverride o = BilanzOverride.findByKeys(child.id, year, month, def.id);
                     BigDecimal eff;
+                    int discountPercent;
+                    int discountOrdinal;
+                    int presentDays;
+                    boolean fullMonth;
+                    boolean overridden;
+                    boolean elig = eligible(discountCfg, def);
                     if (o != null) {
                         eff = o.amount; // override bypasses discount and aliquot
+                        discountPercent = 0;
+                        discountOrdinal = 0;
+                        presentDays = presence.daysInMonth();
+                        fullMonth = true;
+                        overridden = true;
                     } else if (def0 == null) {
                         continue;
                     } else {
-                        boolean elig = eligible(discountCfg, def);
                         BigDecimal defFactor = elig ? factor : BigDecimal.ONE;
                         eff = def0.multiply(defFactor).multiply(frac)
                                 .setScale(2, RoundingMode.HALF_UP);
+                        discountPercent = elig
+                                ? (int) Math.round((1 - factor.doubleValue()) * 100) : 0;
+                        discountOrdinal = (discountPercent > 0) ? dr.ordinal() : 0;
+                        presentDays = presence.presentDays();
+                        fullMonth = presence.presentDays() == presence.daysInMonth();
+                        overridden = false;
                     }
                     cc.amount = cc.amount.add(eff);
                     Currency cur = Currency.findById(def.currencyId);
+                    String symbol = cur != null ? cur.symbol : "";
                     if (cur != null) {
                         if (currencies.isEmpty()) {
                             firstSymbol = cur.symbol;
                         }
                         currencies.add(def.currencyId);
                     }
+                    cc.lines.add(new BilanzMatrixDTO.LineBreakdown(
+                            def.label, symbol,
+                            def0 != null ? def0 : eff,
+                            discountPercent, discountOrdinal,
+                            presentDays, presence.daysInMonth(),
+                            fullMonth, overridden, eff));
                 }
             }
         }
@@ -228,6 +263,9 @@ public class BilanzCalculationService {
             cc.mixedCurrency = false;
             cc.entryMarker = false;
             cc.exitMarker = false;
+            cc.entryDate = null;
+            cc.exitDate = null;
+            cc.lines = new ArrayList<>();
         }
         return cc;
     }
