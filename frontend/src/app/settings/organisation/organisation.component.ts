@@ -33,6 +33,7 @@ import { AliquotMode } from '../../shared/models/aliquot-config.model';
 import { RequiredHoursGroupRate, RequiredHoursOrder } from '../../shared/models/required-hours.model';
 import { parseHhmm, formatMinutes } from '../../shared/util/time-format.util';
 import { familyMonthlyMinutes, groupCombinationMinutes } from './required-hours-preview.util';
+import { SchliesstageComponent } from '../schliesstage/schliesstage.component';
 import { ParentDirectoryAttributesComponent } from './parent-directory-attributes/parent-directory-attributes.component';
 
 interface GroupRateRow {
@@ -49,6 +50,8 @@ interface GroupRateRow {
     CommonModule, ReactiveFormsModule, FormsModule,
     MatTabsModule, MatTableModule, MatFormFieldModule,
     MatInputModule, MatButtonModule, MatIconModule,
+    MatExpansionModule, MatDialogModule, MatDatepickerModule, MatSelectModule, MatTooltipModule, IconPickerDialogComponent,
+    SchliesstageComponent,
     MatExpansionModule, MatDialogModule, MatDatepickerModule, MatSelectModule, MatTooltipModule,
     MatCheckboxModule, IconPickerDialogComponent,
     ParentDirectoryAttributesComponent,

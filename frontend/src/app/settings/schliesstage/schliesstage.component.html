@@ -1,0 +1,40 @@
+<div class="schliesstage">
+  <mat-form-field appearance="outline">
+    <mat-label>Semester</mat-label>
+    <mat-select [value]="selectedSemesterId" (selectionChange)="onSemesterChange($event.value)">
+      @for (semester of semesters; track semester.id) {
+        <mat-option [value]="semester.id">{{ semesterLabel(semester) }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  @if (loading) {
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  }
+
+  <app-closure-calendar
+    [from]="from"
+    [to]="to"
+    [periods]="periods"
+    [definitions]="definitions"
+    [holidays]="holidays"
+    (selectionChange)="onSelectionChange($event)">
+  </app-closure-calendar>
+
+  @if (selectedDays.length > 0) {
+    <div class="assign-bar">
+      <span class="assign-count">{{ selectedDays.length }} Tage gewählt</span>
+      <div class="assign-options">
+        @for (definition of definitions; track definition.id) {
+          <mat-checkbox
+            [checked]="tristate(definition.id) === 'all'"
+            [indeterminate]="tristate(definition.id) === 'some'"
+            (change)="toggleDefinition(definition)">
+            <span class="swatch" [style.background-color]="definition.color"></span>
+            {{ definition.label }}
+          </mat-checkbox>
+        }
+      </div>
+    </div>
+  }
+</div>
