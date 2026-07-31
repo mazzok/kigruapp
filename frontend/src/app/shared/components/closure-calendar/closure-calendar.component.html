@@ -1,4 +1,8 @@
-<div class="closure-calendar">
+<div class="closure-calendar"
+     [class.ctrl-active]="ctrlActive"
+     [class.readonly]="readonly"
+     (mouseenter)="onPointerEnter()"
+     (mouseleave)="onPointerLeave()">
   @for (month of months; track month.key) {
     <div class="month">
       <div class="month-label">{{ month.label }}</div>
@@ -16,10 +20,14 @@
                 [class.weekend]="!day.selectable && !day.holidayName"
                 [class.holiday]="!!day.holidayName"
                 [class.assigned]="day.colors.length > 0"
+                [class.selected]="isSelected(day)"
+                [class.selectable]="day.selectable && !readonly"
                 [style.background]="background(day)"
                 [matTooltip]="tooltip(day)"
                 [matTooltipDisabled]="tooltip(day) === ''"
-                [attr.data-date]="day.date">
+                [attr.data-date]="day.date"
+                (mousedown)="onDayMouseDown(day, $event)"
+                (mouseenter)="onDayMouseEnter(day)">
             <span class="day-number">{{ day.dayOfMonth }}</span>
           </span>
         }

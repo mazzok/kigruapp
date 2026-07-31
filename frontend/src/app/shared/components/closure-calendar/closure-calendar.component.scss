@@ -63,6 +63,25 @@
   color: rgba(0, 0, 0, 0.87);
 }
 
+.day.selectable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.day.selected {
+  outline: 2px solid #2e7d32;
+  outline-offset: -1px;
+}
+
+// Pfeil mit Plus, solange STRG gedrueckt ist und der Zeiger im Kalender steht.
+.closure-calendar.ctrl-active .day.selectable {
+  cursor: copy;
+}
+
+.closure-calendar.readonly .day {
+  cursor: default;
+}
+
 .empty {
   opacity: 0.6;
   font-style: italic;

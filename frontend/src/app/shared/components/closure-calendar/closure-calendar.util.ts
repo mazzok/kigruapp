@@ -139,3 +139,17 @@ export function dayBackground(day: CalendarDay): string {
     .join(', ');
   return `linear-gradient(90deg, ${stops})`;
 }
+
+/**
+ * Alle auswaehlbaren Tage zwischen zwei Ankern, unabhaengig von der Ziehrichtung.
+ * Wochenenden und Feiertage werden uebersprungen — der Bereich darf sie aber
+ * ueberspannen.
+ */
+export function selectableRange(months: CalendarMonth[], a: string, b: string): string[] {
+  const from = a <= b ? a : b;
+  const to = a <= b ? b : a;
+  return months
+    .flatMap(month => month.days)
+    .filter(day => day.selectable && day.date >= from && day.date <= to)
+    .map(day => day.date);
+}
