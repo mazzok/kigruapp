@@ -2,11 +2,14 @@ import { TestBed } from '@angular/core/testing';
 import { AppComponent } from './app.component';
 import { OAuthService } from 'angular-oauth2-oidc';
 import { CurrentUserService } from './core/services/current-user.service';
+import { HoursSummaryService } from './shared/services/hours-summary.service';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 
 describe('AppComponent', () => {
+  let hoursSummaryStub: { summary$: unknown; reload: jasmine.Spy; clear: jasmine.Spy };
+
   beforeEach(async () => {
     const oauthSpy = jasmine.createSpyObj('OAuthService', [
       'configure', 'loadDiscoveryDocumentAndTryLogin', 'setupAutomaticSilentRefresh',
@@ -19,11 +22,18 @@ describe('AppComponent', () => {
     ]);
     currentUserSpy.loadCurrentUser.and.returnValue({ subscribe: () => {} });
 
+    hoursSummaryStub = {
+      summary$: of(null),
+      reload: jasmine.createSpy('reload'),
+      clear: jasmine.createSpy('clear'),
+    };
+
     await TestBed.configureTestingModule({
       imports: [AppComponent, NoopAnimationsModule],
       providers: [
         { provide: OAuthService, useValue: oauthSpy },
         { provide: CurrentUserService, useValue: currentUserSpy },
+        { provide: HoursSummaryService, useValue: hoursSummaryStub },
         provideRouter([]),
       ],
     }).compileComponents();
@@ -69,5 +79,38 @@ describe('AppComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelectorAll('a[href^="/administration"]').length).toBe(0);
+  });
+
+  /** Gemeinsame Vorbereitung: angemeldeter Benutzer mit Familie, ngOnInit lauffähig. */
+  function authenticatedFixture() {
+    TestBed.overrideProvider(OAuthService, {
+      useValue: {
+        ...jasmine.createSpyObj('OAuthService', ['configure', 'setupAutomaticSilentRefresh']),
+        hasValidAccessToken: () => true,
+        getAccessToken: () => 'token',
+        getIdentityClaims: () => ({ preferred_username: 'elternteil' }),
+        loadDiscoveryDocumentAndTryLogin: () => Promise.resolve(true),
+        events: of(),
+      },
+    });
+    TestBed.overrideProvider(CurrentUserService, {
+      useValue: { isAdmin: false, loadCurrentUser: () => of({ id: 'p1' }) },
+    });
+
+    const fixture = TestBed.createComponent(AppComponent);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  it('loads the hours summary once the current user is known', () => {
+    authenticatedFixture();
+
+    expect(hoursSummaryStub.reload).toHaveBeenCalled();
+  });
+
+  it('renders the hours ring in the toolbar', () => {
+    const fixture = authenticatedFixture();
+
+    expect(fixture.nativeElement.querySelector('app-hours-ring')).not.toBeNull();
   });
 });

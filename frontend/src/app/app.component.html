@@ -79,6 +79,7 @@
       <span>KigruApp</span>
       <span class="spacer"></span>
       @if (auth.isAuthenticated) {
+        <app-hours-ring></app-hours-ring>
         <span>{{ auth.userName }}</span>
         <button mat-icon-button (click)="auth.logout()">
           <mat-icon>logout</mat-icon>
