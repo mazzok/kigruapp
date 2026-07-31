@@ -5,7 +5,9 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Predicate;
 
 /**
@@ -34,6 +36,57 @@ public final class ClosurePeriodNormalizer {
         List<DateSpan> all = new ArrayList<>(existing);
         all.addAll(toSpans(days));
         return coalesce(all, selectable);
+    }
+
+    /**
+     * Nimmt Tage aus bestehenden Zeitraeumen heraus. Es wird bewusst nicht neu
+     * verschmolzen: Entfernen kann nur trennen, nie verbinden.
+     */
+    public static List<DateSpan> remove(List<DateSpan> existing,
+                                        Collection<LocalDate> days,
+                                        Predicate<LocalDate> selectable) {
+        Set<LocalDate> cut = new HashSet<>(days);
+        List<DateSpan> out = new ArrayList<>();
+
+        for (DateSpan span : existing) {
+            LocalDate start = null;
+            for (LocalDate day = span.from(); !day.isAfter(span.to()); day = day.plusDays(1)) {
+                if (cut.contains(day)) {
+                    if (start != null) {
+                        addTrimmed(out, start, day.minusDays(1), selectable);
+                        start = null;
+                    }
+                } else if (start == null) {
+                    start = day;
+                }
+            }
+            if (start != null) {
+                addTrimmed(out, start, span.to(), selectable);
+            }
+        }
+
+        out.sort(Comparator.comparing(DateSpan::from));
+        return out;
+    }
+
+    /**
+     * Beschneidet einen Rest auf Betriebstage und verwirft ihn, wenn danach nichts
+     * uebrig bleibt. Haelt die Invariante, dass ein Zeitraum immer auf einem
+     * auswaehlbaren Tag beginnt und endet.
+     */
+    private static void addTrimmed(List<DateSpan> out, LocalDate from, LocalDate to,
+                                   Predicate<LocalDate> selectable) {
+        LocalDate first = from;
+        LocalDate last = to;
+        while (!first.isAfter(last) && !selectable.test(first)) {
+            first = first.plusDays(1);
+        }
+        while (!last.isBefore(first) && !selectable.test(last)) {
+            last = last.minusDays(1);
+        }
+        if (!first.isAfter(last)) {
+            out.add(new DateSpan(first, last));
+        }
     }
 
     /** Verdichtet eine Tagesmenge zu zusammenhaengenden Spans. */
