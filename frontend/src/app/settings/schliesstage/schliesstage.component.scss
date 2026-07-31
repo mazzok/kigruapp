@@ -25,6 +25,17 @@
   gap: 16px;
 }
 
+.definition-form {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+tr.inactive {
+  opacity: 0.5;
+}
+
 .swatch {
   display: inline-block;
   width: 12px;
