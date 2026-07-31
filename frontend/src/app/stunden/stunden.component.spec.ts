@@ -109,9 +109,28 @@ describe('StundenComponent', () => {
   });
 
   it('takes the family hours from the shared summary service', () => {
-    const summary = TestBed.inject(HoursSummaryService);
+    expect(component.our).toEqual(ourHours);
+  });
 
-    expect(component.our).toEqual(summary.current);
+  it('does not fetch again when the summary already has a value', () => {
+    // beforeEach already triggered one load via the initial fixture.
+    expect(service.our).toHaveBeenCalledTimes(1);
+
+    const fixture2 = TestBed.createComponent(StundenComponent);
+    fixture2.detectChanges();
+
+    expect(service.our).toHaveBeenCalledTimes(1);
+  });
+
+  it('fetches when the shared summary is still empty', () => {
+    const summary = TestBed.inject(HoursSummaryService);
+    summary.clear();
+    service.our.calls.reset();
+
+    const fixture2 = TestBed.createComponent(StundenComponent);
+    fixture2.detectChanges();
+
+    expect(service.our).toHaveBeenCalledTimes(1);
   });
 
   it('reloads the shared summary after saving an entry', () => {

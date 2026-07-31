@@ -47,13 +47,16 @@ export function buildRingState(our: OurHours | null, today: string): RingState |
   const dueMonths = monthsWithSoll.filter((m) => m.month <= today);
   const sollToDateMinutes = dueMonths.reduce((sum, m) => sum + m.sollMinutes, 0);
   const elapsedMonths = dueMonths.length;
-  const totalMonths = our.monthsInSemester > 0 ? our.monthsInSemester : monthsWithSoll.length;
+  const totalMonths = monthsWithSoll.length > 0 ? monthsWithSoll.length : our.monthsInSemester;
 
   const istMinutes = our.istMinutes;
   const sollMinutes = our.sollMinutes;
   const deltaMinutes = istMinutes - sollToDateMinutes;
-  // Abgeleitet statt familyMonthlyMinutes: bleibt bei aliquotierten Semestern
-  // mit dem angezeigten Soll konsistent.
+  // Abgeleitet statt familyMonthlyMinutes: Bei aliquotierten Semestern (unterjähriger
+  // Ein- oder Austritt) liefert das Backend für Monate, die die Familie nicht schuldet,
+  // sollMinutes = 0. Nur die Monate mit Soll zu zählen hält monatlichesSoll, den
+  // Tooltip-Bruch und das Amber/Rot-Toleranzband konsistent mit dem angezeigten Soll.
+  // familyMonthlyMinutes bleibt weiterhin bewusst ungenutzt.
   const monthlySollMinutes = totalMonths > 0 ? Math.round(sollMinutes / totalMonths) : sollMinutes;
   const avgDoneMinutes = elapsedMonths > 0 ? Math.round(istMinutes / elapsedMonths) : 0;
 

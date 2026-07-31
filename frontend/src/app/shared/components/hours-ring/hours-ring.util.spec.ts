@@ -122,6 +122,39 @@ describe('buildRingState', () => {
     expect(state.status).toBe('onTrack');
   });
 
+  it('shows no Soll due yet when today lies before the semester starts', () => {
+    const state = buildRingState(ourHours({ istMinutes: 0 }), '2026-08')!;
+
+    expect(state.sollToDateMinutes).toBe(0);
+    expect(state.status).toBe('onTrack');
+    expect(state.ringPercent).toBe(0);
+  });
+
+  it('uses only the months carrying Soll as denominator on an aliquoted semester', () => {
+    const our = ourHours({ istMinutes: 360 });
+    our.months = [
+      { month: '2026-09', sollMinutes: 0, istMinutes: 0 },
+      { month: '2026-10', sollMinutes: 0, istMinutes: 0 },
+      { month: '2026-11', sollMinutes: 0, istMinutes: 0 },
+      { month: '2026-12', sollMinutes: 300, istMinutes: 0 },
+      { month: '2027-01', sollMinutes: 300, istMinutes: 0 },
+      { month: '2027-02', sollMinutes: 300, istMinutes: 360 },
+    ];
+    our.sollMinutes = 900;
+    our.monthsInSemester = 6;
+
+    const state = buildRingState(our, '2027-01')!;
+
+    expect(state.totalMonths).toBe(3);
+    expect(state.monthlySollMinutes).toBe(300);
+    expect(state.tooltip).toContain('Soll gesamt: 15:00 h (3 Monate × 05:00 h)');
+    expect(state.tooltip).toContain('Fällig bis heute: 10:00 h (2 von 3 Monaten)');
+    // 4:00 h Rückstand liegt unter dem echten Monats-Soll (05:00 h) ⇒ leicht im Rückstand,
+    // nicht "im Rückstand" wie bei der alten Rechnung mit monthsInSemester (900/6 = 02:30 h).
+    expect(state.deltaMinutes).toBe(-240);
+    expect(state.status).toBe('slightlyBehind');
+  });
+
   it('builds a tooltip that explains the calculation', () => {
     const state = buildRingState(ourHours({ istMinutes: 750 }), '2026-11')!;
 

@@ -105,7 +105,7 @@ describe('AppComponent', () => {
   it('loads the hours summary once the current user is known', () => {
     authenticatedFixture();
 
-    expect(hoursSummaryStub.reload).toHaveBeenCalled();
+    expect(hoursSummaryStub.reload).toHaveBeenCalledTimes(1);
   });
 
   it('renders the hours ring in the toolbar', () => {

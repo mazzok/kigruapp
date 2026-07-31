@@ -47,7 +47,7 @@ describe('HoursSummaryService', () => {
     service.reload();
 
     expect(hourService.our).toHaveBeenCalledWith('');
-    expect(seen as any).toEqual(ourHours);
+    expect(seen).toEqual(ourHours);
     expect(service.current).toEqual(ourHours);
   });
 
@@ -59,9 +59,11 @@ describe('HoursSummaryService', () => {
   });
 
   it('falls back to empty on error instead of throwing', () => {
-    hourService.our.and.returnValue(throwError(() => new Error('boom')));
-    let seen: OurHours | null | undefined = ourHours;
+    let seen: OurHours | null = null;
     service.summary$.subscribe((s: OurHours | null) => (seen = s));
+
+    service.reload(); // subject now holds ourHours
+    hourService.our.and.returnValue(throwError(() => new Error('boom')));
 
     expect(() => service.reload()).not.toThrow();
     expect(seen).toBeNull();

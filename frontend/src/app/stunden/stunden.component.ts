@@ -63,7 +63,9 @@ export class StundenComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.load();
     this.summarySub = this.hoursSummary.summary$.subscribe((o) => (this.our = o));
-    this.hoursSummary.reload();
+    if (!this.hoursSummary.current) {
+      this.hoursSummary.reload();
+    }
     this.hourService.roleOptions().subscribe({
       next: (opts) => (this.options = opts),
       error: (err) => this.notify.error(this.notify.extractError(err)),
