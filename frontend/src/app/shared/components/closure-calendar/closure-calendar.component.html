@@ -1,0 +1,32 @@
+<div class="closure-calendar">
+  @for (month of months; track month.key) {
+    <div class="month">
+      <div class="month-label">{{ month.label }}</div>
+      <div class="weekdays">
+        @for (label of weekdayLabels; track label) {
+          <span class="weekday">{{ label }}</span>
+        }
+      </div>
+      <div class="days">
+        @for (blank of blanks(month); track blank) {
+          <span class="day blank"></span>
+        }
+        @for (day of month.days; track day.date) {
+          <span class="day"
+                [class.weekend]="!day.selectable && !day.holidayName"
+                [class.holiday]="!!day.holidayName"
+                [class.assigned]="day.colors.length > 0"
+                [style.background]="background(day)"
+                [matTooltip]="tooltip(day)"
+                [matTooltipDisabled]="tooltip(day) === ''"
+                [attr.data-date]="day.date">
+            <span class="day-number">{{ day.dayOfMonth }}</span>
+          </span>
+        }
+      </div>
+    </div>
+  }
+  @if (months.length === 0) {
+    <p class="empty">Kein Zeitraum ausgewählt.</p>
+  }
+</div>
