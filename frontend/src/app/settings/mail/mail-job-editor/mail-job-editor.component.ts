@@ -25,6 +25,11 @@ import { CronScheduleBuilderComponent } from './cron-schedule-builder.component'
 /** Valid Quartz default: daily at 08:00. Keeps the form valid before the user touches the schedule. */
 const DEFAULT_CRON = '0 0 8 * * ?';
 
+export interface TeamWithRoles {
+  team: FieldInstanceDTO;
+  roles: FieldInstanceDTO[];
+}
+
 @Component({
   selector: 'app-mail-job-editor',
   standalone: true,
@@ -47,6 +52,10 @@ export class MailJobEditorComponent implements OnInit {
   boardTeams: FieldInstanceDTO[] = [];
   teamRoles: FieldInstanceDTO[] = [];
   boardRoles: FieldInstanceDTO[] = [];
+
+  /** Jedes Team, zusammen mit den Rollen, die zu ihm gehören (siehe {@link buildTeamGroups}). */
+  parentTeamGroups: TeamWithRoles[] = [];
+  boardTeamGroups: TeamWithRoles[] = [];
 
   /**
    * Currently picked options, encoded as "<KIND>:<fieldInstanceId>". The kind
@@ -118,10 +127,32 @@ export class MailJobEditorComponent implements OnInit {
 
   /** Once every pool has loaded, drop any selection whose instance no longer exists in its pool. */
   private onPoolLoaded(): void {
+    this.buildTeamGroups();
     this.poolsLoadedCount++;
     if (this.poolsLoadedCount === MailJobEditorComponent.POOL_COUNT) {
       this.pruneStaleRecipientSelections();
     }
+  }
+
+  /**
+   * Fasst jedes Team mit den Rollen zusammen, die zu ihm gehören. Elternteam-Rollen
+   * tragen dazu in value.teamInstanceId die ID ihres Teams; Board-Rollen haben kein
+   * teamInstanceId, weil es nur ein einziges Board-Team gibt, also landen sie
+   * ungefiltert unter diesem einen Team.
+   */
+  private buildTeamGroups(): void {
+    this.parentTeamGroups = this.parentTeams.map((team) => ({
+      team,
+      roles: this.teamRoles.filter((r) => this.roleTeamInstanceId(r) === team.id),
+    }));
+    this.boardTeamGroups = this.boardTeams.map((team) => ({
+      team,
+      roles: this.boardRoles,
+    }));
+  }
+
+  private roleTeamInstanceId(role: FieldInstanceDTO): string | undefined {
+    return (role.value as { teamInstanceId?: string } | null)?.teamInstanceId;
   }
 
   /**

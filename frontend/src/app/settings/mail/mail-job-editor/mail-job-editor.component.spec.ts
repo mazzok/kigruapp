@@ -111,12 +111,14 @@ class FakeFieldInstanceService {
     ],
     'def-team': [
       { id: 't1', definitionId: 'def-team', fieldName: 'parent-team', label: { de: 'Teams' }, jsonSchema: {}, required: false, value: { label: 'Gartenteam' }, definitionOutdated: false },
+      { id: 't2', definitionId: 'def-team', fieldName: 'parent-team', label: { de: 'Teams' }, jsonSchema: {}, required: false, value: { label: 'Kuechenteam' }, definitionOutdated: false },
     ],
     'def-board': [
       { id: 'b1', definitionId: 'def-board', fieldName: 'board', label: { de: 'Vorstand' }, jsonSchema: {}, required: false, value: { label: 'Vorstand' }, definitionOutdated: false },
     ],
     'def-team-role': [
-      { id: 'tr1', definitionId: 'def-team-role', fieldName: 'parent-team-role', label: { de: 'Team-Rollen' }, jsonSchema: {}, required: false, value: { label: 'Teamleitung' }, definitionOutdated: false },
+      { id: 'tr1', definitionId: 'def-team-role', fieldName: 'parent-team-role', label: { de: 'Team-Rollen' }, jsonSchema: {}, required: false, value: { label: 'Teamleitung', teamInstanceId: 't1' }, definitionOutdated: false },
+      { id: 'tr2', definitionId: 'def-team-role', fieldName: 'parent-team-role', label: { de: 'Team-Rollen' }, jsonSchema: {}, required: false, value: { label: 'Kochleitung', teamInstanceId: 't2' }, definitionOutdated: false },
     ],
     'def-board-role': [
       { id: 'br1', definitionId: 'def-board-role', fieldName: 'board-role', label: { de: 'Vorstandsrollen' }, jsonSchema: {}, required: false, value: { label: 'Obfrau' }, definitionOutdated: false },
@@ -223,10 +225,28 @@ describe('MailJobEditorComponent', () => {
 
   it('loads all five recipient pools on init', () => {
     expect(component.groups.map((g) => g.id)).toEqual(['g1', 'g2']);
-    expect(component.parentTeams.map((t) => t.id)).toEqual(['t1']);
+    expect(component.parentTeams.map((t) => t.id)).toEqual(['t1', 't2']);
     expect(component.boardTeams.map((t) => t.id)).toEqual(['b1']);
-    expect(component.teamRoles.map((r) => r.id)).toEqual(['tr1']);
+    expect(component.teamRoles.map((r) => r.id)).toEqual(['tr1', 'tr2']);
     expect(component.boardRoles.map((r) => r.id)).toEqual(['br1']);
+  });
+
+  it('groups each parent team with its own roles (matched via teamInstanceId)', () => {
+    expect(component.parentTeamGroups).toEqual([
+      { team: component.parentTeams[0], roles: [component.teamRoles[0]] },
+      { team: component.parentTeams[1], roles: [component.teamRoles[1]] },
+    ]);
+  });
+
+  it('groups the board team with all board roles (no teamInstanceId needed)', () => {
+    expect(component.boardTeamGroups).toEqual([
+      { team: component.boardTeams[0], roles: component.boardRoles },
+    ]);
+  });
+
+  it("does not spill a role into a different team's group", () => {
+    expect(component.parentTeamGroups[0].roles.map((r) => r.id)).toEqual(['tr1']);
+    expect(component.parentTeamGroups[1].roles.map((r) => r.id)).toEqual(['tr2']);
   });
 
   it('formats the display label of a pickable entry', () => {
