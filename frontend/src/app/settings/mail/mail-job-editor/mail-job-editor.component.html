@@ -101,13 +101,13 @@
             </mat-optgroup>
             <mat-optgroup label="Elternteams" *ngIf="parentTeams.length">
               <ng-container *ngFor="let group of parentTeamGroups">
-                <mat-option [value]="optionValue('TEAM', group.team.id!)">{{ instanceLabel(group.team) }}</mat-option>
+                <mat-option class="recipient-team-option" [value]="optionValue('TEAM', group.team.id!)">{{ instanceLabel(group.team) }}</mat-option>
                 <mat-option *ngFor="let r of group.roles" class="recipient-role-option" [value]="optionValue('ROLE', r.id!)">{{ instanceLabel(r) }}</mat-option>
               </ng-container>
             </mat-optgroup>
             <mat-optgroup label="Vorstand" *ngIf="boardTeams.length">
               <ng-container *ngFor="let group of boardTeamGroups">
-                <mat-option [value]="optionValue('TEAM', group.team.id!)">{{ instanceLabel(group.team) }}</mat-option>
+                <mat-option class="recipient-team-option" [value]="optionValue('TEAM', group.team.id!)">{{ instanceLabel(group.team) }}</mat-option>
                 <mat-option *ngFor="let r of group.roles" class="recipient-role-option" [value]="optionValue('ROLE', r.id!)">{{ instanceLabel(r) }}</mat-option>
               </ng-container>
             </mat-optgroup>

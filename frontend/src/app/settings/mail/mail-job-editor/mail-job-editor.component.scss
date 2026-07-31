@@ -290,7 +290,37 @@ $accent: #3f51b5;
 }
 
 /* mat-option-Panel wird per CDK Overlay außerhalb dieser Komponente gerendert,
-   daher hier absichtlich global (kein einschließender Vorfahren-Selektor). */
-::ng-deep .recipient-role-option {
+   daher hier absichtlich global (kein einschließender Vorfahren-Selektor).
+   Zwei verkettete Klassen (statt einer) heben die Spezifität über Materials
+   eigene .mat-mdc-option-Regel — sonst gewinnt zufällig je nach Ladereihenfolge
+   entweder unser padding-left oder Materials "padding: 0 16px" (gleiche
+   Spezifität 0-1-0). */
+::ng-deep .mat-mdc-option.recipient-team-option {
+  font-weight: 600;
+}
+
+::ng-deep .mat-mdc-option.recipient-role-option {
   padding-left: 40px;
+  position: relative;
+
+  /* Baumlinie: verbindet die Rolle optisch mit ihrem Team darüber. */
+  &::before {
+    content: '';
+    position: absolute;
+    left: 25px;
+    top: 0;
+    bottom: 50%;
+    width: 1px;
+    background: $border-strong;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 25px;
+    top: 50%;
+    width: 8px;
+    height: 1px;
+    background: $border-strong;
+  }
 }

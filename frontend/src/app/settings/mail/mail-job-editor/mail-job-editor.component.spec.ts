@@ -465,13 +465,14 @@ describe('MailJobEditorComponent (Template)', () => {
     const options = Array.from(elternteamsGroup!.querySelectorAll('mat-option')).map((el) => ({
       text: el.textContent?.trim(),
       indented: el.classList.contains('recipient-role-option'),
+      teamHeading: el.classList.contains('recipient-team-option'),
     }));
 
     expect(options).toEqual([
-      { text: 'Gartenteam', indented: false },
-      { text: 'Teamleitung', indented: true },
-      { text: 'Kuechenteam', indented: false },
-      { text: 'Kochleitung', indented: true },
+      { text: 'Gartenteam', indented: false, teamHeading: true },
+      { text: 'Teamleitung', indented: true, teamHeading: false },
+      { text: 'Kuechenteam', indented: false, teamHeading: true },
+      { text: 'Kochleitung', indented: true, teamHeading: false },
     ]);
   });
 
