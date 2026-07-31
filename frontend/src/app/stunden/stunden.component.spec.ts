@@ -5,6 +5,7 @@ import { StundenComponent } from './stunden.component';
 import { HourEntryService } from '../shared/services/hour-entry.service';
 import { NotificationService } from '../shared/services/notification.service';
 import { CurrentUserService } from '../core/services/current-user.service';
+import { HoursSummaryService } from '../shared/services/hours-summary.service';
 import { HourEntry, OurHours, RoleOption } from '../shared/models/hour-entry.model';
 
 describe('StundenComponent', () => {
@@ -105,5 +106,38 @@ describe('StundenComponent', () => {
     component.form.setValue({ roleKey: '__kochen__', date: new Date(2026, 9, 6), time: '99:99', comment: '' });
     component.save();
     expect(service.create).not.toHaveBeenCalled();
+  });
+
+  it('takes the family hours from the shared summary service', () => {
+    const summary = TestBed.inject(HoursSummaryService);
+
+    expect(component.our).toEqual(summary.current);
+  });
+
+  it('reloads the shared summary after saving an entry', () => {
+    const summary = TestBed.inject(HoursSummaryService);
+    const reload = spyOn(summary, 'reload').and.callThrough();
+
+    component.newEntry();
+    component.form.setValue({
+      roleKey: '__kochen__',
+      date: new Date(2026, 8, 15),
+      time: '01:30',
+      comment: '',
+    });
+    service.create.and.returnValue(of(entry));
+    component.save();
+
+    expect(reload).toHaveBeenCalled();
+  });
+
+  it('reloads the shared summary after deleting an entry', () => {
+    const summary = TestBed.inject(HoursSummaryService);
+    const reload = spyOn(summary, 'reload').and.callThrough();
+    service.delete.and.returnValue(of(undefined));
+
+    component.delete(entry);
+
+    expect(reload).toHaveBeenCalled();
   });
 });

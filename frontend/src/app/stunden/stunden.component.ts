@@ -1,5 +1,6 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Subscription } from 'rxjs';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -10,6 +11,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { provideNativeDateAdapter } from '@angular/material/core';
 import { MAT_DATE_LOCALE } from '@angular/material/core';
 import { HourEntryService } from '../shared/services/hour-entry.service';
+import { HoursSummaryService } from '../shared/services/hours-summary.service';
 import { NotificationService } from '../shared/services/notification.service';
 import { HourEntry, OurHours, OurHoursEntry, OurHoursMonthRow, RoleOption } from '../shared/models/hour-entry.model';
 import { CurrentUserService } from '../core/services/current-user.service';
@@ -34,7 +36,7 @@ const KOCHEN_KEY = '__kochen__';
   templateUrl: './stunden.component.html',
   styleUrl: './stunden.component.scss',
 })
-export class StundenComponent implements OnInit {
+export class StundenComponent implements OnInit, OnDestroy {
   entries: HourEntry[] = [];
   options: RoleOption[] = [];
   /** Zusatzoption, falls ein bearbeiteter Alt-Eintrag eine nicht mehr aktive Rolle hat. */
@@ -42,6 +44,7 @@ export class StundenComponent implements OnInit {
   selectedId: string | null = null;
   editing = false;
   our: OurHours | null = null;
+  private summarySub?: Subscription;
 
   form = new FormGroup({
     roleKey: new FormControl<string | null>(null, Validators.required),
@@ -54,27 +57,26 @@ export class StundenComponent implements OnInit {
     private hourService: HourEntryService,
     private notify: NotificationService,
     public currentUser: CurrentUserService,
+    private hoursSummary: HoursSummaryService,
   ) {}
 
   ngOnInit(): void {
     this.load();
-    this.loadOur();
+    this.summarySub = this.hoursSummary.summary$.subscribe((o) => (this.our = o));
+    this.hoursSummary.reload();
     this.hourService.roleOptions().subscribe({
       next: (opts) => (this.options = opts),
       error: (err) => this.notify.error(this.notify.extractError(err)),
     });
   }
 
+  ngOnDestroy(): void {
+    this.summarySub?.unsubscribe();
+  }
+
   load(): void {
     this.hourService.listMine().subscribe({
       next: (entries) => (this.entries = entries),
-      error: (err) => this.notify.error(this.notify.extractError(err)),
-    });
-  }
-
-  loadOur(): void {
-    this.hourService.our('').subscribe({    // '' -> Backend nimmt jüngstes Semester
-      next: (o) => (this.our = o),
       error: (err) => this.notify.error(this.notify.extractError(err)),
     });
   }
@@ -166,7 +168,7 @@ export class StundenComponent implements OnInit {
         this.notify.success(isUpdate ? 'Eintrag aktualisiert' : 'Eintrag gespeichert');
         this.closeEditor();
         this.load();
-        this.loadOur();
+        this.hoursSummary.reload();
       },
       error: (err) => this.notify.error(this.notify.extractError(err)),
     });
@@ -180,7 +182,7 @@ export class StundenComponent implements OnInit {
           this.closeEditor();
         }
         this.load();
-        this.loadOur();
+        this.hoursSummary.reload();
       },
       error: (err) => this.notify.error(this.notify.extractError(err)),
     });
