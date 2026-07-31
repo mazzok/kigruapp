@@ -100,16 +100,16 @@
               <mat-option *ngFor="let g of groups" [value]="optionValue('GROUP', g.id!)">{{ instanceLabel(g) }}</mat-option>
             </mat-optgroup>
             <mat-optgroup label="Elternteams" *ngIf="parentTeams.length">
-              <mat-option *ngFor="let t of parentTeams" [value]="optionValue('TEAM', t.id!)">{{ instanceLabel(t) }}</mat-option>
+              <ng-container *ngFor="let group of parentTeamGroups">
+                <mat-option [value]="optionValue('TEAM', group.team.id!)">{{ instanceLabel(group.team) }}</mat-option>
+                <mat-option *ngFor="let r of group.roles" class="recipient-role-option" [value]="optionValue('ROLE', r.id!)">{{ instanceLabel(r) }}</mat-option>
+              </ng-container>
             </mat-optgroup>
             <mat-optgroup label="Vorstand" *ngIf="boardTeams.length">
-              <mat-option *ngFor="let b of boardTeams" [value]="optionValue('TEAM', b.id!)">{{ instanceLabel(b) }}</mat-option>
-            </mat-optgroup>
-            <mat-optgroup label="Team-Rollen" *ngIf="teamRoles.length">
-              <mat-option *ngFor="let r of teamRoles" [value]="optionValue('ROLE', r.id!)">{{ instanceLabel(r) }}</mat-option>
-            </mat-optgroup>
-            <mat-optgroup label="Vorstandsrollen" *ngIf="boardRoles.length">
-              <mat-option *ngFor="let r of boardRoles" [value]="optionValue('ROLE', r.id!)">{{ instanceLabel(r) }}</mat-option>
+              <ng-container *ngFor="let group of boardTeamGroups">
+                <mat-option [value]="optionValue('TEAM', group.team.id!)">{{ instanceLabel(group.team) }}</mat-option>
+                <mat-option *ngFor="let r of group.roles" class="recipient-role-option" [value]="optionValue('ROLE', r.id!)">{{ instanceLabel(r) }}</mat-option>
+              </ng-container>
             </mat-optgroup>
           </mat-select>
         </mat-form-field>

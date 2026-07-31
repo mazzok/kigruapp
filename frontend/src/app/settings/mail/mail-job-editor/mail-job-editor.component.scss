@@ -288,3 +288,9 @@ $accent: #3f51b5;
     grid-template-columns: 1fr;
   }
 }
+
+/* mat-option-Panel wird per CDK Overlay außerhalb dieser Komponente gerendert,
+   daher hier absichtlich global (kein einschließender Vorfahren-Selektor). */
+::ng-deep .recipient-role-option {
+  padding-left: 40px;
+}

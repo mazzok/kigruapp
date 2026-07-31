@@ -437,17 +437,42 @@ describe('MailJobEditorComponent (Template)', () => {
     component.form.patchValue({ allParents: false });
     fixture.detectChanges();
 
-    expect(openAndReadOptgroupLabels())
-      .toEqual(['Gruppen', 'Elternteams', 'Vorstand', 'Team-Rollen', 'Vorstandsrollen']);
+    expect(openAndReadOptgroupLabels()).toEqual(['Gruppen', 'Elternteams', 'Vorstand']);
   });
 
-  it('omits the optgroup of an empty pool', () => {
+  it('omits the Elternteams optgroup when there are no parent teams', () => {
     component.newJob();
     component.form.patchValue({ allParents: false });
-    component.boardRoles = [];
+    component.parentTeams = [];
+    component.parentTeamGroups = [];
     fixture.detectChanges();
 
-    expect(openAndReadOptgroupLabels()).not.toContain('Vorstandsrollen');
+    expect(openAndReadOptgroupLabels()).not.toContain('Elternteams');
+  });
+
+  it('renders each team option followed by its own indented role options', () => {
+    component.newJob();
+    component.form.patchValue({ allParents: false });
+    fixture.detectChanges();
+
+    const trigger: HTMLElement = fixture.nativeElement.querySelector('.recipient-field .mat-mdc-select-trigger');
+    trigger.click();
+    fixture.detectChanges();
+
+    const optgroups = Array.from(document.querySelectorAll('.mat-mdc-optgroup'));
+    const elternteamsGroup = optgroups.find((g) =>
+      g.querySelector('.mat-mdc-optgroup-label')?.textContent?.trim() === 'Elternteams');
+    const options = Array.from(elternteamsGroup!.querySelectorAll('mat-option')).map((el) => ({
+      text: el.textContent?.trim(),
+      indented: el.classList.contains('recipient-role-option'),
+    }));
+
+    expect(options).toEqual([
+      { text: 'Gartenteam', indented: false },
+      { text: 'Teamleitung', indented: true },
+      { text: 'Kuechenteam', indented: false },
+      { text: 'Kochleitung', indented: true },
+    ]);
   });
 
   it('hides the recipient select while all parents is checked', () => {
