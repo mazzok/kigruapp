@@ -100,6 +100,16 @@
             <version>2.1.3</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>de.focus-shift</groupId>
+            <artifactId>jollyday-core</artifactId>
+            <version>1.5.2</version>
+        </dependency>
+        <dependency>
+            <groupId>de.focus-shift</groupId>
+            <artifactId>jollyday-jackson</artifactId>
+            <version>1.5.2</version>
+        </dependency>
     </dependencies>
 
     <build>
