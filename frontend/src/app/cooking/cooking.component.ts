@@ -4,8 +4,13 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { CalendarEvent, CalendarModule } from 'angular-calendar';
-import { Subject } from 'rxjs';
+import {
+  CalendarEvent, CalendarModule, CalendarMonthViewBeforeRenderEvent,
+} from 'angular-calendar';
+import { forkJoin, Subject } from 'rxjs';
+import { ClosurePeriodService } from '../shared/services/closure-period.service';
+import { HolidayService } from '../shared/services/holiday.service';
+import { closedDatesFrom, toIsoDate } from './cooking-closure.util';
 import { OrganisationService } from '../shared/services/organisation.service';
 import { CookingDutyService } from './services/cooking-duty.service';
 import { PersonService } from '../shared/services/person.service';
@@ -57,7 +62,41 @@ export class CookingComponent implements OnInit {
     private fieldInstanceService: FieldInstanceService,
     private currentUserService: CurrentUserService,
     private dialog: MatDialog,
+    private closurePeriodService: ClosurePeriodService,
+    private holidayService: HolidayService,
   ) {}
+
+  /** ISO-Tage des angezeigten Monats, an denen der Kindergarten geschlossen hat. */
+  closedDates = new Set<string>();
+
+  beforeMonthViewRender(event: CalendarMonthViewBeforeRenderEvent): void {
+    for (const day of event.body) {
+      if (!this.closedDates.has(toIsoDate(day.date))) {
+        continue;
+      }
+      day.cssClass = 'closure-day';
+      // Bestehende Dienste an nachtraeglich eingetragenen Schliesstagen bleiben
+      // erhalten und werden hier nur als Konflikt markiert.
+      if (day.events.length > 0) {
+        day.cssClass = 'closure-day closure-conflict';
+      }
+    }
+  }
+
+  private loadClosedDates(): void {
+    const year = this.viewDate.getFullYear();
+    const month = this.viewDate.getMonth();
+    const from = toIsoDate(new Date(year, month, 1));
+    const to = toIsoDate(new Date(year, month + 1, 0));
+
+    forkJoin({
+      periods: this.closurePeriodService.getRange(from, to),
+      holidays: this.holidayService.getRange(from, to),
+    }).subscribe(result => {
+      this.closedDates = closedDatesFrom(result.periods, result.holidays);
+      this.refresh.next();
+    });
+  }
 
   ngOnInit(): void {
     const person = this.currentUserService.currentPerson;
@@ -101,6 +140,7 @@ export class CookingComponent implements OnInit {
     const month = String(this.viewDate.getMonth() + 1).padStart(2, '0');
     const monthStr = `${year}-${month}`;
     const activeGroups = Array.from(this.activeGroupIds);
+    this.loadClosedDates();
     this.cookingDutyService.getByMonth(monthStr, activeGroups).subscribe((duties) => {
       this.duties = duties;
       this.buildCalendarEvents();
@@ -184,6 +224,7 @@ export class CookingComponent implements OnInit {
       currentUserId: this.currentPersonId,
       existingDuty,
       canEdit,
+      closedDates: [...this.closedDates],
     };
 
     const dialogRef = this.dialog.open(CookingDutyDialogComponent, {

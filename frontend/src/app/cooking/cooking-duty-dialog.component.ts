@@ -12,6 +12,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { FieldDefinition } from '../shared/models/field-definition.model';
 import { CookingDutyDTO } from '../shared/models/organisation.model';
 import { PersonDTO } from '../shared/models/person.model';
+import { toIsoDate } from './cooking-closure.util';
 
 export interface CookingDutyDialogData {
   groups: FieldDefinition[];
@@ -20,6 +21,11 @@ export interface CookingDutyDialogData {
   currentUserId: string;
   existingDuty?: CookingDutyDTO;
   canEdit: boolean;
+  /**
+   * ISO-Tage, an denen geschlossen ist — im Datepicker gesperrt.
+   * Optional, damit vorhandene Aufrufstellen und Specs nicht brechen.
+   */
+  closedDates?: string[];
 }
 
 export interface CookingDutyDialogResult {
@@ -48,12 +54,22 @@ export class CookingDutyDialogComponent implements OnInit {
   isEdit: boolean;
   canEdit: boolean;
 
+  private closedDates = new Set<string>();
+
+  /**
+   * Als Property gebunden, damit `this` im Datepicker-Filter erhalten bleibt.
+   * null ist zulaessig, sonst liesse sich das Feld nicht leeren.
+   */
+  dateFilter = (date: Date | null): boolean =>
+    date === null || !this.closedDates.has(toIsoDate(date));
+
   constructor(
     private dialogRef: MatDialogRef<CookingDutyDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: CookingDutyDialogData,
   ) {
     this.isEdit = !!data.existingDuty;
     this.canEdit = data.canEdit;
+    this.closedDates = new Set(data.closedDates ?? []);
   }
 
   ngOnInit(): void {
