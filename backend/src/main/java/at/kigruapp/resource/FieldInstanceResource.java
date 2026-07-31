@@ -32,6 +32,9 @@ public class FieldInstanceResource {
     @Inject
     JsonSchemaValidatorService schemaValidator;
 
+    @Inject
+    at.kigruapp.service.ClosureGuard closureGuard;
+
     private MongoCollection<Document> getCollection() {
         return mongoClient.getDatabase(databaseName).getCollection("field_instances");
     }
@@ -93,6 +96,7 @@ public class FieldInstanceResource {
                 return Response.status(400).entity(def.fieldName + ": " + e.getMessage()).build();
             }
         }
+        closureGuard.rejectIfClosed(def, item.value());
 
         ObjectId instId = new ObjectId();
         Document doc = new Document("_id", instId)
@@ -127,6 +131,7 @@ public class FieldInstanceResource {
                 return Response.status(400).entity(def.fieldName + ": " + e.getMessage()).build();
             }
         }
+        closureGuard.rejectIfClosed(def, item.value());
 
         Date now = Date.from(Instant.now());
         coll.updateOne(
