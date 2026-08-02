@@ -108,6 +108,42 @@ describe('ElternComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('keiner Gruppe');
   });
 
+  it('rendert Familien mit doppelten oder fehlenden Kindernamen ohne zu werfen', async () => {
+    const duplicateNames: ParentDirectory = {
+      semesterId: 's1',
+      groups: [
+        {
+          groupInstanceId: 'g1',
+          groupName: 'Käfergruppe',
+          families: [
+            {
+              familyId: 'f1',
+              isOwnFamily: true,
+              children: ['Lena', 'Lena'],
+              parents: [{ firstName: 'Anna', lastName: 'Muster', email: 'anna@x.at', phone: '0660 111' }],
+              address: 'Hauptstraße 1, 1010 Wien',
+            },
+            {
+              familyId: 'f2',
+              isOwnFamily: false,
+              children: [null, null],
+              parents: [{ firstName: 'Bert', lastName: 'Berger', email: 'bert@x.at', phone: '0660 222' }],
+              address: null,
+            },
+          ],
+        },
+      ],
+    };
+
+    await setup(of(duplicateNames));
+
+    const rows = fixture.nativeElement.querySelectorAll('tbody tr');
+    expect(rows.length).toBe(2);
+    // Beide gleichnamigen Kinder erscheinen, der leere Name bleibt eine leere Zeile.
+    expect(rows[0].querySelectorAll('td')[0].textContent).toContain('LenaLena');
+    expect(rows[1].querySelectorAll('td')[0].querySelectorAll('div').length).toBe(2);
+  });
+
   it('meldet Ladefehler und zeigt einen Wiederholen-Hinweis', async () => {
     await setup(throwError(() => new Error('boom')));
 

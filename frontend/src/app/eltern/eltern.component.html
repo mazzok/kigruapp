@@ -35,7 +35,7 @@
           @for (family of selectedGroup?.families ?? []; track family.familyId) {
             <tr [class.own-family]="family.isOwnFamily">
               <td>
-                @for (child of family.children; track child) {
+                @for (child of family.children; track $index) {
                   <div>{{ child }}</div>
                 }
                 @if (family.isOwnFamily) {

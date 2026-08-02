@@ -8,7 +8,7 @@ export interface ParentDirectoryParent {
 export interface ParentDirectoryFamily {
   familyId: string;
   isOwnFamily: boolean;
-  children: string[];
+  children: (string | null)[];
   parents: ParentDirectoryParent[];
   address: string | null;
 }
