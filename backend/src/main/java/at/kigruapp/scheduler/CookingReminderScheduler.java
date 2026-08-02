@@ -10,9 +10,11 @@ import at.kigruapp.resource.CookingReminderSettingsResource;
 import at.kigruapp.service.MailService;
 import at.kigruapp.service.MailTemplateRenderer;
 import at.kigruapp.service.RecipientResolverService;
+import com.mongodb.MongoWriteException;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
+import com.mongodb.ErrorCategory;
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -71,9 +73,10 @@ public class CookingReminderScheduler {
         }
 
         if (!CookingReminderSettingsResource.isActive(settings)) {
-            Log.warnf("Kochdienst-Erinnerung: Konto fehlt oder ist deaktiviert, %d faellige Erinnerung(en) entfallen", due.size());
+            String reason = inactiveReason(settings);
+            Log.warnf("Kochdienst-Erinnerung: %s, %d faellige Erinnerung(en) entfallen", reason, due.size());
             for (DueDuty duty : due) {
-                writeLog(duty, CookingReminderStatus.ACCOUNT_UNAVAILABLE, 0, "Mailkonto fehlt oder ist deaktiviert");
+                writeLog(duty, CookingReminderStatus.ACCOUNT_UNAVAILABLE, 0, reason);
             }
             return;
         }
@@ -84,6 +87,19 @@ public class CookingReminderScheduler {
         for (DueDuty duty : due) {
             sendOne(duty, account, template, settings.subject);
         }
+    }
+
+    /**
+     * isActive prüft Konto und Vorlage gemeinsam; hier wird unterschieden,
+     * welche der beiden Ursachen tatsächlich zutrifft, damit der Log-Eintrag
+     * nicht pauschal auf das Konto zeigt, wenn in Wahrheit die Vorlage fehlt.
+     */
+    private String inactiveReason(CookingReminderSettings settings) {
+        MailAccount account = CookingReminderSettingsResource.findAccount(settings.senderAccountId);
+        if (account == null || !account.enabled) {
+            return "Mailkonto fehlt oder ist deaktiviert";
+        }
+        return "Mailvorlage fehlt";
     }
 
     /**
@@ -139,7 +155,9 @@ public class CookingReminderScheduler {
     /**
      * Der Log-Eintrag ist zugleich die Idempotenz-Sperre. Verliert dieser
      * Insert gegen einen parallelen Lauf (Unique-Index), ist die Erinnerung
-     * bereits verbucht und der Fehler wird verschluckt.
+     * bereits verbucht und der Fehler wird verschluckt. Jeder andere
+     * Schreibfehler (Mongo weg, Validierung) muss dagegen sichtbar bleiben —
+     * sonst gilt ein bereits versendeter Lauf am Folgetag wieder als fällig.
      */
     private void writeLog(DueDuty duty, CookingReminderStatus status, int recipientCount, String error) {
         CookingReminder reminder = new CookingReminder();
@@ -152,8 +170,13 @@ public class CookingReminderScheduler {
         reminder.error = error;
         try {
             reminder.persist();
-        } catch (Exception e) {
-            Log.warnf("Kochdienst-Erinnerung: Log-Eintrag fuer %s/%s bereits vorhanden", duty.dutyId(), duty.dueDate());
+        } catch (MongoWriteException e) {
+            if (e.getError().getCategory() == ErrorCategory.DUPLICATE_KEY) {
+                Log.warnf("Kochdienst-Erinnerung: Log-Eintrag fuer %s/%s bereits vorhanden", duty.dutyId(), duty.dueDate());
+            } else {
+                Log.errorf(e, "Kochdienst-Erinnerung: Log-Eintrag fuer %s/%s konnte nicht geschrieben werden", duty.dutyId(), duty.dueDate());
+                throw e;
+            }
         }
     }
 
@@ -193,7 +216,11 @@ public class CookingReminderScheduler {
             if (CookingReminder.existsFor(dutyId, dueDate)) continue;
 
             ObjectId familyId = resolveFamilyId(dutyId);
-            if (familyId == null) continue;
+            if (familyId == null) {
+                Log.warnf("Kochdienst-Erinnerung: keine Familie fuer faelligen Kochdienst %s (Datum %s) gefunden, wird uebersprungen",
+                        dutyId, dutyDate);
+                continue;
+            }
 
             List<String> groupIds = new ArrayList<>();
             Object groupsObj = value.get("groups");
@@ -245,22 +272,21 @@ public class CookingReminderScheduler {
         return "";
     }
 
+    /**
+     * value.groups eines Kochdienstes enthält Ids von FieldDefinitions — die
+     * Kochdienst-Ansicht lädt die Gruppen über GET /api/v1/organisation/groups,
+     * das die FieldDefinitions liefert, deren Ids das Frontend hier speichert.
+     * Nicht auffindbare Ids werden übersprungen.
+     */
     private String resolveGroupLabels(List<String> groupIds) {
         List<String> labels = new ArrayList<>();
         for (String groupId : groupIds) {
             if (!ObjectId.isValid(groupId)) continue;
-            Document instance = fieldInstances().find(Filters.eq("_id", new ObjectId(groupId))).first();
-            if (instance == null) continue;
-            Object value = instance.get("value");
-            if (value instanceof Document valueDoc) {
-                Object label = valueDoc.get("label");
-                if (label instanceof Document labelDoc && labelDoc.getString("de") != null) {
-                    labels.add(labelDoc.getString("de"));
-                    continue;
-                }
-            }
-            if (value != null) {
-                labels.add(value.toString());
+            FieldDefinition def = FieldDefinition.findById(new ObjectId(groupId));
+            if (def == null || def.label == null) continue;
+            String label = def.label.get("de");
+            if (label != null) {
+                labels.add(label);
             }
         }
         return String.join(", ", labels);

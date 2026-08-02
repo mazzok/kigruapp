@@ -128,7 +128,12 @@ class CookingReminderRunTest {
 
     /** Hängt einen Kochdienst an die Person und liefert die Instanz-Id zurück. */
     private ObjectId persistDuty(Person person, String date, boolean reminderEnabled, Integer daysBefore) {
-        Document value = new Document("date", date).append("groups", List.of("g1"))
+        return persistDuty(person, date, reminderEnabled, daysBefore, List.of("g1"));
+    }
+
+    private ObjectId persistDuty(Person person, String date, boolean reminderEnabled, Integer daysBefore,
+                                  List<String> groups) {
+        Document value = new Document("date", date).append("groups", groups)
                 .append("description", "Suppe");
         if (reminderEnabled) {
             value.append("reminderEnabled", true).append("reminderDaysBefore", daysBefore);
@@ -137,6 +142,17 @@ class CookingReminderRunTest {
         person.schedules.add(ref(cookingDutyDef.id, instanceId));
         person.update();
         return instanceId;
+    }
+
+    /** Persistiert eine Gruppen-FieldDefinition mit deutschem Label, wie sie /organisation/groups liefert. */
+    private FieldDefinition persistGroup(String labelDe) {
+        FieldDefinition def = new FieldDefinition();
+        def.fieldName = "group";
+        def.label = new java.util.HashMap<>();
+        def.label.put("de", labelDe);
+        def.createdAt = Instant.now();
+        def.persist();
+        return def;
     }
 
     @Test
@@ -249,5 +265,37 @@ class CookingReminderRunTest {
 
         assertEquals(0, greenMail.getReceivedMessages().length);
         assertEquals(0, CookingReminder.count());
+    }
+
+    /**
+     * value.groups eines Kochdienstes speichert Ids von FieldDefinitions (so wie
+     * sie GET /api/v1/organisation/groups liefert), nicht Ids von field_instances.
+     * Die Auflösung muss also über FieldDefinition laufen.
+     */
+    @Test
+    void loestGruppenLabelsUeberFieldDefinitionAuf() throws Exception {
+        FieldDefinition groupA = persistGroup("Adlergruppe");
+        FieldDefinition groupB = persistGroup("Fuchsgruppe");
+
+        MailTemplate groupsTemplate = new MailTemplate();
+        groupsTemplate.name = "Erinnerung mit Gruppen";
+        groupsTemplate.bodyHtml = "<p>Gruppen: {{duty.groups}}</p>";
+        groupsTemplate.createdAt = Instant.now();
+        groupsTemplate.persist();
+
+        CookingReminderSettings settings = CookingReminderSettings.findSingleton();
+        settings.templateId = groupsTemplate.id.toHexString();
+        settings.update();
+
+        Person anna = persistParent("Anna", "anna@example.org");
+        persistDuty(anna, "2026-09-15", true, 3,
+                List.of(groupA.id.toHexString(), groupB.id.toHexString()));
+
+        scheduler.runFor(LocalDate.of(2026, 9, 12));
+
+        assertTrue(greenMail.waitForIncomingEmail(5000, 1));
+        String body = GreenMailUtil.getBody(greenMail.getReceivedMessages()[0]);
+        assertTrue(body.contains("Adlergruppe, Fuchsgruppe"),
+                "Beide Gruppenlabels im Body erwartet, war: " + body);
     }
 }
