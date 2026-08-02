@@ -10,13 +10,29 @@
   <mat-tab-group>
     <mat-tab label="Bearbeiten">
       <div class="tab-body">
-        <form [formGroup]="form">
-          <quill-editor
-            formControlName="bodyHtml"
-            [modules]="quillModules"
-            (onEditorCreated)="onEditorCreated($event)"
-          ></quill-editor>
-        </form>
+        <div class="mode-bar">
+          <button mat-stroked-button (click)="toggleSourceMode()">
+            <mat-icon>{{ sourceMode ? 'visibility' : 'code' }}</mat-icon>
+            {{ sourceMode ? 'Zurück zum Editor' : 'HTML-Quelltext' }}
+          </button>
+        </div>
+
+        @if (sourceMode) {
+          <textarea
+            class="source-area"
+            spellcheck="false"
+            [(ngModel)]="sourceHtml"
+            [ngModelOptions]="{ standalone: true }"
+          ></textarea>
+        } @else {
+          <form [formGroup]="form">
+            <quill-editor
+              formControlName="bodyHtml"
+              [modules]="quillModules"
+              (onEditorCreated)="onEditorCreated($event)"
+            ></quill-editor>
+          </form>
+        }
       </div>
     </mat-tab>
     <mat-tab label="Vorschau">

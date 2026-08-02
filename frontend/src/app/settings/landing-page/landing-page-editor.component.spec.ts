@@ -54,4 +54,40 @@ describe('LandingPageEditorComponent', () => {
 
     expect(notify.success).toHaveBeenCalled();
   });
+
+  it('zeigt im Quelltextmodus rohe Tokens statt Pillen', () => {
+    component.toggleSourceMode();
+
+    expect(component.sourceMode).toBeTrue();
+    expect(component.sourceHtml).toBe('<p>Hallo {{person.firstName}}</p>');
+  });
+
+  it('übernimmt Änderungen aus dem Quelltext zurück in den Editor', () => {
+    component.toggleSourceMode();
+    component.sourceHtml = '<p>Neu {{person.firstName}}</p>';
+    component.toggleSourceMode();
+
+    expect(component.sourceMode).toBeFalse();
+    expect(component.form.value.bodyHtml).toContain('data-token="{{person.firstName}}"');
+    expect(component.form.value.bodyHtml).toContain('Neu');
+  });
+
+  it('speichert den im Quelltext bearbeiteten Inhalt korrekt', () => {
+    component.toggleSourceMode();
+    component.sourceHtml = '<p>Aus dem Quelltext</p>';
+    component.toggleSourceMode();
+
+    component.save();
+
+    expect(service.save).toHaveBeenCalledWith('<p>Aus dem Quelltext</p>');
+  });
+
+  it('speichert auch dann korrekt, wenn der Quelltextmodus noch aktiv ist', () => {
+    component.toggleSourceMode();
+    component.sourceHtml = '<p>Direkt gespeichert</p>';
+
+    component.save();
+
+    expect(service.save).toHaveBeenCalledWith('<p>Direkt gespeichert</p>');
+  });
 });

@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTabsModule } from '@angular/material/tabs';
@@ -16,7 +16,7 @@ import { WEB_QUILL_TOOLBAR, configureQuillForWebOutput } from './quill-web.confi
   selector: 'app-landing-page-editor',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule,
+    CommonModule, FormsModule, ReactiveFormsModule,
     MatButtonModule, MatIconModule, MatTabsModule, MatTooltipModule,
     QuillModule,
   ],
@@ -28,6 +28,8 @@ export class LandingPageEditorComponent implements OnInit {
 
   placeholders: LandingPlaceholder[] = [];
   quillInstance: any = null;
+  sourceMode = false;
+  sourceHtml = '';
 
   form = new FormGroup({
     bodyHtml: new FormControl(''),
@@ -61,8 +63,26 @@ export class LandingPageEditorComponent implements OnInit {
     this.quillInstance = editor;
   }
 
+  /**
+   * Wechselt zwischen WYSIWYG und Quelltext. Beide Ansichten arbeiten auf
+   * demselben Inhalt, nur in unterschiedlicher Darstellung: im Editor als
+   * Pillen, im Quelltext als rohe Tokens.
+   */
+  toggleSourceMode(): void {
+    if (this.sourceMode) {
+      this.form.patchValue({ bodyHtml: tokensToPills(this.sourceHtml, this.placeholders) });
+      this.sourceMode = false;
+    } else {
+      this.sourceHtml = pillsToTokens(this.form.value.bodyHtml ?? '');
+      this.sourceMode = true;
+    }
+  }
+
   save(): void {
-    const bodyHtml = pillsToTokens(this.form.value.bodyHtml ?? '');
+    // Im Quelltextmodus ist sourceHtml die Wahrheit, sonst das Formularfeld.
+    const bodyHtml = this.sourceMode
+      ? this.sourceHtml
+      : pillsToTokens(this.form.value.bodyHtml ?? '');
     this.landingPageService.save(bodyHtml).subscribe({
       next: () => this.notify.success('Startseite gespeichert'),
       error: (err) => this.notify.error(this.notify.extractError(err)),
