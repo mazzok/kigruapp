@@ -90,4 +90,62 @@ describe('LandingPageEditorComponent', () => {
 
     expect(service.save).toHaveBeenCalledWith('<p>Direkt gespeichert</p>');
   });
+
+  it('gruppiert die Kacheln nach Familie mit deutscher Überschrift', () => {
+    expect(component.groupedPlaceholders.length).toBe(1);
+    expect(component.groupedPlaceholders[0].group).toBe('person');
+    expect(component.groupedPlaceholders[0].label).toBe('Person');
+    expect(component.groupedPlaceholders[0].tiles.length).toBe(1);
+  });
+
+  it('hängt einen Platzhalter an, wenn noch kein Quill-Editor existiert', () => {
+    component.quillInstance = null;
+    component.form.patchValue({ bodyHtml: '<p>Text</p>' });
+
+    component.insertPlaceholder({ token: '{{person.firstName}}', label: 'Vorname', group: 'person' });
+
+    expect(component.form.value.bodyHtml).toContain('data-token="{{person.firstName}}"');
+  });
+
+  it('fügt einen Platzhalter an der Cursorposition ein', () => {
+    const insertEmbed = jasmine.createSpy('insertEmbed');
+    component.quillInstance = {
+      insertEmbed,
+      setSelection: jasmine.createSpy('setSelection'),
+      getSelection: () => ({ index: 3, length: 0 }),
+      getLength: () => 10,
+      root: { innerHTML: '<p>x</p>' },
+    };
+
+    component.insertPlaceholder({ token: '{{stunden.bilanz}}', label: 'Bilanz', group: 'stunden' });
+
+    expect(insertEmbed).toHaveBeenCalledWith(3, 'mail-token', {
+      token: '{{stunden.bilanz}}',
+      label: 'Bilanz',
+    });
+  });
+
+  it('legt beim Drag den Token in die DataTransfer-Nutzlast', () => {
+    const setData = jasmine.createSpy('setData');
+    const event = { dataTransfer: { setData, effectAllowed: '' } } as unknown as DragEvent;
+
+    component.onChipDragStart(event, { token: '{{person.firstName}}', label: 'Vorname', group: 'person' });
+
+    expect(setData).toHaveBeenCalledWith('application/x-landing-token', '{{person.firstName}}');
+  });
+
+  it('ignoriert einen Drop ohne passenden Token', () => {
+    const insertEmbed = jasmine.createSpy('insertEmbed');
+    component.quillInstance = { insertEmbed, setSelection: () => {}, getLength: () => 1, root: { innerHTML: '' } };
+    const event = {
+      dataTransfer: { getData: () => '{{unbekannt.feld}}' },
+      preventDefault: () => {},
+      clientX: 0,
+      clientY: 0,
+    } as unknown as DragEvent;
+
+    component.onEditorDrop(event);
+
+    expect(insertEmbed).not.toHaveBeenCalled();
+  });
 });

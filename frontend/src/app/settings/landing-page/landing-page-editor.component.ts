@@ -5,12 +5,28 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import Quill from 'quill';
 import { QuillModule } from 'ngx-quill';
 import { LandingPageService } from '../../shared/services/landing-page.service';
 import { NotificationService } from '../../shared/services/notification.service';
 import { LandingPlaceholder } from '../../shared/models/landing-page.model';
-import { pillsToTokens, tokensToPills } from '../../shared/landing-token.util';
+import { pillSpan, pillsToTokens, tokensToPills } from '../../shared/landing-token.util';
 import { WEB_QUILL_TOOLBAR, configureQuillForWebOutput } from './quill-web.config';
+
+const DRAG_MIME = 'application/x-landing-token';
+
+/** Deutsche Überschriften der Token-Familien. */
+const GROUP_LABELS: Record<string, string> = {
+  person: 'Person',
+  stunden: 'Stunden',
+  kochdienst: 'Kochdienst',
+};
+
+interface PlaceholderGroup {
+  group: string;
+  label: string;
+  tiles: LandingPlaceholder[];
+}
 
 @Component({
   selector: 'app-landing-page-editor',
@@ -27,6 +43,7 @@ export class LandingPageEditorComponent implements OnInit {
   readonly quillModules = { toolbar: WEB_QUILL_TOOLBAR };
 
   placeholders: LandingPlaceholder[] = [];
+  groupedPlaceholders: PlaceholderGroup[] = [];
   quillInstance: any = null;
   sourceMode = false;
   sourceHtml = '';
@@ -47,6 +64,7 @@ export class LandingPageEditorComponent implements OnInit {
     // Beschriftungen, sonst stünde der rohe Token in der Pille.
     this.landingPageService.placeholders().subscribe((tiles) => {
       this.placeholders = tiles;
+      this.groupedPlaceholders = this.groupTiles(tiles);
       this.loadContent();
     });
   }
@@ -61,6 +79,81 @@ export class LandingPageEditorComponent implements OnInit {
 
   onEditorCreated(editor: any): void {
     this.quillInstance = editor;
+  }
+
+  private groupTiles(tiles: LandingPlaceholder[]): PlaceholderGroup[] {
+    const byGroup = new Map<string, LandingPlaceholder[]>();
+    tiles.forEach((tile) => {
+      const list = byGroup.get(tile.group) ?? [];
+      list.push(tile);
+      byGroup.set(tile.group, list);
+    });
+    return Array.from(byGroup.entries()).map(([group, groupTiles]) => ({
+      group,
+      label: GROUP_LABELS[group] ?? group,
+      tiles: groupTiles,
+    }));
+  }
+
+  private insertPillAt(index: number, tile: LandingPlaceholder): void {
+    this.quillInstance.insertEmbed(index, 'mail-token', { token: tile.token, label: tile.label });
+    this.quillInstance.setSelection(index + 1, 0);
+    this.form.patchValue({ bodyHtml: this.quillInstance.root?.innerHTML ?? '' });
+  }
+
+  /** Einfügen an der Cursorposition; ohne lebenden Editor wird angehängt. */
+  insertPlaceholder(tile: LandingPlaceholder): void {
+    if (this.quillInstance) {
+      const selection = this.quillInstance.getSelection?.();
+      const index = selection ? selection.index : this.quillInstance.getLength();
+      this.insertPillAt(index, tile);
+    } else {
+      const current = this.form.value.bodyHtml ?? '';
+      this.form.patchValue({ bodyHtml: current + pillSpan(tile.token, tile.label) });
+    }
+  }
+
+  onChipDragStart(event: DragEvent, tile: LandingPlaceholder): void {
+    event.dataTransfer?.setData(DRAG_MIME, tile.token);
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'copy';
+    }
+  }
+
+  onEditorDragOver(event: DragEvent): void {
+    event.preventDefault();
+  }
+
+  onEditorDrop(event: DragEvent): void {
+    const token = event.dataTransfer?.getData(DRAG_MIME);
+    if (!token || !this.quillInstance) {
+      return;
+    }
+    const tile = this.placeholders.find((p) => p.token === token);
+    if (!tile) {
+      return;
+    }
+    event.preventDefault();
+    this.insertPillAt(this.dropIndex(event), tile);
+  }
+
+  /** Bestmögliche Cursorposition aus dem Drop-Punkt; sonst ans Dokumentende. */
+  private dropIndex(event: DragEvent): number {
+    const end = Math.max(0, this.quillInstance.getLength() - 1);
+    try {
+      const doc: any = document;
+      const range = doc.caretRangeFromPoint?.(event.clientX, event.clientY);
+      if (!range) {
+        return end;
+      }
+      const blot = Quill.find(range.startContainer, true);
+      if (!blot) {
+        return end;
+      }
+      return this.quillInstance.getIndex(blot) + range.startOffset;
+    } catch {
+      return end;
+    }
   }
 
   /**

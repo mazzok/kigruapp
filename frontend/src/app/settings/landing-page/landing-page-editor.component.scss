@@ -25,6 +25,58 @@
   margin-bottom: 0.5rem;
 }
 
+.edit-layout {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.tiles {
+  flex: 0 0 12rem;
+
+  h4 {
+    margin: 0.75rem 0 0.35rem;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(0, 0, 0, 0.6);
+  }
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.chip {
+  background: #eef0fb;
+  color: #3f51b5;
+  border: 1px solid #c9cff2;
+  border-radius: 12px;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: grab;
+}
+
+.editor-area {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+// Auf schmalen Geräten stehen die Kacheln über dem Editor.
+@media (max-width: 700px) {
+  .edit-layout {
+    flex-direction: column;
+  }
+
+  .tiles {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+}
+
 .source-area {
   width: 100%;
   min-height: 20rem;

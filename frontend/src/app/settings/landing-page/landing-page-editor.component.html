@@ -17,22 +17,46 @@
           </button>
         </div>
 
-        @if (sourceMode) {
-          <textarea
-            class="source-area"
-            spellcheck="false"
-            [(ngModel)]="sourceHtml"
-            [ngModelOptions]="{ standalone: true }"
-          ></textarea>
-        } @else {
-          <form [formGroup]="form">
-            <quill-editor
-              formControlName="bodyHtml"
-              [modules]="quillModules"
-              (onEditorCreated)="onEditorCreated($event)"
-            ></quill-editor>
-          </form>
-        }
+        <div class="edit-layout">
+          <aside class="tiles">
+            @for (group of groupedPlaceholders; track group.group) {
+              <h4>{{ group.label }}</h4>
+              <div class="chips">
+                @for (tile of group.tiles; track tile.token) {
+                  <button
+                    type="button"
+                    class="chip"
+                    draggable="true"
+                    [matTooltip]="tile.token"
+                    (dragstart)="onChipDragStart($event, tile)"
+                    (click)="insertPlaceholder(tile)"
+                  >
+                    {{ tile.label }}
+                  </button>
+                }
+              </div>
+            }
+          </aside>
+
+          <div class="editor-area" (dragover)="onEditorDragOver($event)" (drop)="onEditorDrop($event)">
+            @if (sourceMode) {
+              <textarea
+                class="source-area"
+                spellcheck="false"
+                [(ngModel)]="sourceHtml"
+                [ngModelOptions]="{ standalone: true }"
+              ></textarea>
+            } @else {
+              <form [formGroup]="form">
+                <quill-editor
+                  formControlName="bodyHtml"
+                  [modules]="quillModules"
+                  (onEditorCreated)="onEditorCreated($event)"
+                ></quill-editor>
+              </form>
+            }
+          </div>
+        </div>
       </div>
     </mat-tab>
     <mat-tab label="Vorschau">
