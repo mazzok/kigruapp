@@ -21,6 +21,12 @@ export const routes: Routes = [
       import('./stunden/stunden.component').then(m => m.StundenComponent),
   },
   {
+    path: 'eltern',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./eltern/eltern.component').then(m => m.ElternComponent),
+  },
+  {
     path: 'administration',
     canActivate: [authGuard, adminGuard],
     children: [
