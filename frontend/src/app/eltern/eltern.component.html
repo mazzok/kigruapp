@@ -1,0 +1,75 @@
+<div class="eltern-page">
+  <h2>Eltern in unseren Gruppen</h2>
+
+  @if (failed) {
+    <div class="eltern-error">
+      <p>Die Übersicht konnte nicht geladen werden.</p>
+      <button mat-stroked-button type="button" (click)="load()">Erneut laden</button>
+    </div>
+  } @else if (!loading && groups.length === 0) {
+    <p class="eltern-empty">
+      Eure Kinder sind im laufenden Semester keiner Gruppe zugeteilt.
+    </p>
+  } @else if (groups.length > 0) {
+    <mat-form-field appearance="outline" class="eltern-group-select">
+      <mat-label>Gruppe</mat-label>
+      <mat-select [ngModel]="selectedGroupId" (ngModelChange)="selectGroup($event)">
+        @for (group of groups; track group.groupInstanceId) {
+          <mat-option [value]="group.groupInstanceId">{{ group.groupName }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <div class="eltern-table-scroll">
+      <table class="eltern-table">
+        <thead>
+          <tr>
+            <th>Kind(er)</th>
+            <th>Eltern</th>
+            <th>E-Mail</th>
+            <th>Telefon</th>
+            <th>Adresse</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (family of selectedGroup?.families ?? []; track family.familyId) {
+            <tr [class.own-family]="family.isOwnFamily">
+              <td>
+                @for (child of family.children; track child) {
+                  <div>{{ child }}</div>
+                }
+                @if (family.isOwnFamily) {
+                  <div class="own-family-hint">(meine Familie)</div>
+                }
+              </td>
+              <td>
+                @for (parent of family.parents; track $index) {
+                  <div>{{ parentName(parent) }}</div>
+                }
+              </td>
+              <td>
+                @for (parent of family.parents; track $index) {
+                  <div>
+                    @if (parent.email) {
+                      <a [href]="'mailto:' + parent.email">{{ parent.email }}</a>
+                    }
+                  </div>
+                }
+              </td>
+              <td>
+                @for (parent of family.parents; track $index) {
+                  <div>
+                    @if (parent.phone) {
+                      <a [href]="'tel:' + parent.phone">{{ parent.phone }}</a>
+                    }
+                  </div>
+                }
+              </td>
+              <td>{{ family.address }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
