@@ -96,6 +96,61 @@
           <tr mat-header-row *matHeaderRowDef="dutyColumns"></tr>
           <tr mat-row *matRowDef="let row; columns: dutyColumns;"></tr>
         </table>
+
+        <h3>Kochdienst — Erinnerungen</h3>
+
+        @if (!reminderSettingsActive) {
+          <p class="hint">Erinnerungen sind deaktiviert. Waehle ein Mailkonto und eine Vorlage, damit Eltern beim Anlegen eines Kochdienstes eine Erinnerung aktivieren koennen.</p>
+        }
+
+        <form [formGroup]="reminderForm" (ngSubmit)="saveReminderSettings()" class="add-form">
+          <div class="row">
+            <mat-form-field appearance="outline">
+              <mat-label>Mailkonto</mat-label>
+              <mat-select formControlName="senderAccountId">
+                <mat-option [value]="null">— keine —</mat-option>
+                @for (acc of mailAccounts; track acc.id) {
+                  <mat-option [value]="acc.id">{{ acc.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Mail-Vorlage</mat-label>
+              <mat-select formControlName="templateId">
+                <mat-option [value]="null">— keine —</mat-option>
+                @for (tpl of mailTemplates; track tpl.id) {
+                  <mat-option [value]="tpl.id">{{ tpl.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Betreff</mat-label>
+              <input matInput formControlName="subject">
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Versandzeit</mat-label>
+              <input matInput type="time" formControlName="sendTime">
+            </mat-form-field>
+
+            <button mat-raised-button color="primary" type="submit" [disabled]="!reminderForm.valid">
+              Speichern
+            </button>
+          </div>
+        </form>
+
+        <p class="hint">
+          Verfuegbare Platzhalter in der Vorlage:
+          <code>&#123;&#123;duty.date&#125;&#125;</code>,
+          <code>&#123;&#123;duty.groups&#125;&#125;</code>,
+          <code>&#123;&#123;duty.description&#125;&#125;</code>,
+          <code>&#123;&#123;duty.daysBefore&#125;&#125;</code>,
+          <code>&#123;&#123;duty.personName&#125;&#125;</code>,
+          <code>&#123;&#123;person.firstName&#125;&#125;</code>,
+          <code>&#123;&#123;person.lastName&#125;&#125;</code>
+        </p>
       </div>
     </mat-tab>
 

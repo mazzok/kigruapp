@@ -23,6 +23,12 @@ import { CurrencyService } from '../../shared/services/currency.service';
 import { KostenDefinitionService } from '../../shared/services/kosten-definition.service';
 import { RequiredHoursService } from '../../shared/services/required-hours.service';
 import { AliquotConfigService } from '../../shared/services/aliquot-config.service';
+import { CookingReminderSettingsService } from '../../shared/services/cooking-reminder-settings.service';
+import { MailAccountService } from '../../shared/services/mail-account.service';
+import { MailTemplateService } from '../../shared/services/mail-template.service';
+import { NotificationService } from '../../shared/services/notification.service';
+import { MailAccount } from '../../shared/models/mail-account.model';
+import { MailTemplate } from '../../shared/models/mail-template.model';
 import { OrganisationDTO, DutyEntryDTO } from '../../shared/models/organisation.model';
 import { FieldDefinition } from '../../shared/models/field-definition.model';
 import { FieldInstanceDTO } from '../../shared/models/field-instance.model';
@@ -134,6 +140,17 @@ export class OrganisationComponent implements OnInit {
   stundenMode: AliquotMode = 'NONE';
   kostenMode: AliquotMode = 'NONE';
 
+  // Kochdienst-Erinnerungen
+  mailAccounts: MailAccount[] = [];
+  mailTemplates: MailTemplate[] = [];
+  reminderSettingsActive = false;
+  reminderForm = new FormGroup({
+    senderAccountId: new FormControl<string | null>(null),
+    templateId: new FormControl<string | null>(null),
+    subject: new FormControl<string>(''),
+    sendTime: new FormControl<string>('07:00', Validators.required),
+  });
+
   constructor(
     private orgService: OrganisationService,
     private fieldDefService: FieldDefinitionService,
@@ -143,6 +160,10 @@ export class OrganisationComponent implements OnInit {
     private kostenDefinitionService: KostenDefinitionService,
     private requiredHoursService: RequiredHoursService,
     private aliquotConfigService: AliquotConfigService,
+    private cookingReminderSettingsService: CookingReminderSettingsService,
+    private mailAccountService: MailAccountService,
+    private mailTemplateService: MailTemplateService,
+    private notificationService: NotificationService,
     private dialog: MatDialog,
   ) {}
 
@@ -154,6 +175,7 @@ export class OrganisationComponent implements OnInit {
     this.loadCurrencies();
     this.loadKostenDefinitions();
     this.loadRhSemesters();
+    this.loadReminderSettings();
   }
 
   // --- Groups ---
@@ -663,6 +685,45 @@ export class OrganisationComponent implements OnInit {
     }).subscribe({
       next: () => { this.rhError = null; },
       error: () => { this.rhError = 'Speichern fehlgeschlagen'; },
+    });
+  }
+
+  // --- Kochdienst-Erinnerungen ---
+
+  loadReminderSettings(): void {
+    this.mailAccountService.list().subscribe((accounts) => {
+      this.mailAccounts = accounts.filter((a) => a.enabled);
+    });
+    this.mailTemplateService.list().subscribe((templates) => {
+      this.mailTemplates = templates;
+    });
+    this.cookingReminderSettingsService.get().subscribe((settings) => {
+      this.reminderSettingsActive = settings.active;
+      this.reminderForm.patchValue({
+        senderAccountId: settings.senderAccountId,
+        templateId: settings.templateId,
+        subject: settings.subject ?? '',
+        sendTime: settings.sendTime,
+      });
+    });
+  }
+
+  saveReminderSettings(): void {
+    const value = this.reminderForm.value;
+    this.cookingReminderSettingsService.save({
+      senderAccountId: value.senderAccountId ?? null,
+      templateId: value.templateId ?? null,
+      subject: value.subject ?? null,
+      sendTime: value.sendTime ?? '07:00',
+      active: false,
+    }).subscribe({
+      next: (saved) => {
+        this.reminderSettingsActive = saved.active;
+        this.notificationService.success('Erinnerungs-Einstellungen gespeichert');
+      },
+      error: (err) => {
+        this.notificationService.error(this.notificationService.extractError(err));
+      },
     });
   }
 }

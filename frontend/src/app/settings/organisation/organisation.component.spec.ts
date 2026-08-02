@@ -17,6 +17,10 @@ import { RequiredHoursService } from '../../shared/services/required-hours.servi
 import { RequiredHours } from '../../shared/models/required-hours.model';
 import { AliquotConfigService } from '../../shared/services/aliquot-config.service';
 import { AliquotConfig } from '../../shared/models/aliquot-config.model';
+import { CookingReminderSettingsService } from '../../shared/services/cooking-reminder-settings.service';
+import { MailAccountService } from '../../shared/services/mail-account.service';
+import { MailTemplateService } from '../../shared/services/mail-template.service';
+import { NotificationService } from '../../shared/services/notification.service';
 
 class FakeOrganisationService {
   updateCalls: { id: string; body: unknown }[] = [];
@@ -134,6 +138,35 @@ class FakeKostenDefinitionService {
   }
 }
 
+class FakeCookingReminderSettingsService {
+  get() {
+    return of({ senderAccountId: null, templateId: null, subject: null, sendTime: '07:00', active: false });
+  }
+  save(settings: unknown) {
+    return of(settings);
+  }
+}
+
+class FakeMailAccountService {
+  list() {
+    return of([]);
+  }
+}
+
+class FakeMailTemplateService {
+  list() {
+    return of([]);
+  }
+}
+
+class FakeNotificationService {
+  success(_message: string): void {}
+  error(_message: string): void {}
+  extractError(_err: unknown): string {
+    return 'Speichern fehlgeschlagen';
+  }
+}
+
 function makeComponent(overrides: {
   orgService?: FakeOrganisationService;
   fieldDefService?: FakeFieldDefinitionService;
@@ -152,6 +185,10 @@ function makeComponent(overrides: {
   const kostenDefinitionService = overrides.kostenDefinitionService ?? new FakeKostenDefinitionService();
   const requiredHoursService = overrides.requiredHoursService ?? new FakeRequiredHoursService();
   const aliquotConfigService = overrides.aliquotConfigService ?? new FakeAliquotConfigService();
+  const cookingReminderSettingsService = new FakeCookingReminderSettingsService();
+  const mailAccountService = new FakeMailAccountService();
+  const mailTemplateService = new FakeMailTemplateService();
+  const notificationService = new FakeNotificationService();
   const fakeDialog = { open: () => ({ afterClosed: () => of(null) }) } as unknown as MatDialog;
 
   return new OrganisationComponent(
@@ -163,6 +200,10 @@ function makeComponent(overrides: {
     kostenDefinitionService as unknown as KostenDefinitionService,
     requiredHoursService as unknown as RequiredHoursService,
     aliquotConfigService as unknown as AliquotConfigService,
+    cookingReminderSettingsService as unknown as CookingReminderSettingsService,
+    mailAccountService as unknown as MailAccountService,
+    mailTemplateService as unknown as MailTemplateService,
+    notificationService as unknown as NotificationService,
     fakeDialog,
   );
 }
