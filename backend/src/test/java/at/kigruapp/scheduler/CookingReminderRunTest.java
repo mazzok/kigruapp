@@ -255,6 +255,29 @@ class CookingReminderRunTest {
         assertEquals(CookingReminderStatus.NO_RECIPIENTS, log.status);
     }
 
+    /**
+     * Echte Nebenlaeufigkeit laesst sich in diesem Test nicht sauber
+     * provozieren; stattdessen wird der Guard direkt geprueft, indem der
+     * Running-Zustand ueber den Testhook gesetzt wird, bevor runFor
+     * aufgerufen wird. Ein zweiter, "ueberlappender" Lauf darf dann nichts
+     * versenden und nichts loggen.
+     */
+    @Test
+    void ueberlappenderLaufWirdUebersprungen() {
+        Person anna = persistParent("Anna", "anna@example.org");
+        persistDuty(anna, "2026-09-15", true, 3);
+
+        scheduler.markRunningForTest();
+        try {
+            scheduler.runFor(LocalDate.of(2026, 9, 12));
+
+            assertEquals(0, greenMail.getReceivedMessages().length);
+            assertEquals(0, CookingReminder.count());
+        } finally {
+            scheduler.clearRunningForTest();
+        }
+    }
+
     @Test
     void ohneKonfigurationPassiertNichts() {
         CookingReminderSettings.deleteAll();

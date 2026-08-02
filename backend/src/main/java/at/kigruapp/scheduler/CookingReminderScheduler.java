@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Täglicher Versand der Kochdienst-Erinnerungen. Der Lauf ist rein
@@ -67,6 +68,24 @@ public class CookingReminderScheduler {
     @Inject
     MailService mailService;
 
+    /** In-memory guard against overlapping runs (only one daily job, unlike MailJobScheduler). */
+    private final AtomicBoolean running = new AtomicBoolean(false);
+
+    /**
+     * Test-only hook: marks a run as currently in progress, so the overlap
+     * guard can be exercised without real concurrency. Package-private —
+     * called via the CDI proxy so it correctly mutates the actual bean
+     * instance's state (unlike direct field access on a proxy).
+     */
+    void markRunningForTest() {
+        running.set(true);
+    }
+
+    /** Test-only hook: clears the guard set by {@link #markRunningForTest()}. */
+    void clearRunningForTest() {
+        running.set(false);
+    }
+
     /** Ein fälliger Kochdienst samt der für die Mail nötigen Daten. */
     record DueDuty(ObjectId dutyId, ObjectId familyId, String dutyDate, String dueDate,
                    String description, int daysBefore, List<String> groupIds) {}
@@ -100,30 +119,38 @@ public class CookingReminderScheduler {
     }
 
     public void runFor(LocalDate today) {
-        CookingReminderSettings settings = CookingReminderSettings.findSingleton();
-        if (settings == null || settings.senderAccountId == null || settings.templateId == null) {
+        if (!running.compareAndSet(false, true)) {
+            Log.warnf("Kochdienst-Erinnerung: Lauf fuer %s uebersprungen, vorheriger Lauf noch aktiv", today);
             return;
         }
-
-        List<DueDuty> due = findDueDuties(today);
-        if (due.isEmpty()) {
-            return;
-        }
-
-        if (!CookingReminderSettingsResource.isActive(settings)) {
-            String reason = inactiveReason(settings);
-            Log.warnf("Kochdienst-Erinnerung: %s, %d faellige Erinnerung(en) entfallen", reason, due.size());
-            for (DueDuty duty : due) {
-                writeLogSafely(duty, CookingReminderStatus.ACCOUNT_UNAVAILABLE, 0, reason);
+        try {
+            CookingReminderSettings settings = CookingReminderSettings.findSingleton();
+            if (settings == null || settings.senderAccountId == null || settings.templateId == null) {
+                return;
             }
-            return;
-        }
 
-        MailAccount account = CookingReminderSettingsResource.findAccount(settings.senderAccountId);
-        MailTemplate template = CookingReminderSettingsResource.findTemplate(settings.templateId);
+            List<DueDuty> due = findDueDuties(today);
+            if (due.isEmpty()) {
+                return;
+            }
 
-        for (DueDuty duty : due) {
-            sendOne(duty, account, template, settings.subject);
+            if (!CookingReminderSettingsResource.isActive(settings)) {
+                String reason = inactiveReason(settings);
+                Log.warnf("Kochdienst-Erinnerung: %s, %d faellige Erinnerung(en) entfallen", reason, due.size());
+                for (DueDuty duty : due) {
+                    writeLogSafely(duty, CookingReminderStatus.ACCOUNT_UNAVAILABLE, 0, reason);
+                }
+                return;
+            }
+
+            MailAccount account = CookingReminderSettingsResource.findAccount(settings.senderAccountId);
+            MailTemplate template = CookingReminderSettingsResource.findTemplate(settings.templateId);
+
+            for (DueDuty duty : due) {
+                sendOne(duty, account, template, settings.subject);
+            }
+        } finally {
+            running.set(false);
         }
     }
 
@@ -166,7 +193,7 @@ public class CookingReminderScheduler {
                     successCount++;
                 } catch (Exception e) {
                     lastError = e.getMessage();
-                    Log.errorf(e, "Kochdienst-Erinnerung an %s fehlgeschlagen: %s", recipient.email(), e.getMessage());
+                    Log.errorf(e, "Kochdienst-Erinnerung fuer %s an einen Empfaenger fehlgeschlagen: %s", duty.dutyId(), e.getMessage());
                 }
             }
 

@@ -142,7 +142,7 @@
         </form>
 
         <p class="hint">
-          Verfuegbare Platzhalter in der Vorlage:
+          Verfuegbare Platzhalter in der Mail-Vorlage (wirken nur dort, nicht im Betreff-Feld oben):
           @for (token of reminderPlaceholders; track token; let last = $last) {
             <code>{{ token }}</code>@if (!last) {, }
           }
