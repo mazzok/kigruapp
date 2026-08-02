@@ -1,8 +1,15 @@
 package at.kigruapp.resource;
 
 import at.kigruapp.entity.LandingPage;
+import at.kigruapp.entity.Person;
+import at.kigruapp.security.CurrentUserService;
+import at.kigruapp.service.landing.LandingPlaceholder;
+import at.kigruapp.service.landing.LandingTokenProvider;
+import jakarta.enterprise.inject.Instance;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
@@ -12,6 +19,10 @@ import org.owasp.html.HtmlPolicyBuilder;
 import org.owasp.html.PolicyFactory;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Inhalt der Startseite. GET ist für alle angemeldeten Nutzer freigeschaltet
@@ -56,7 +67,37 @@ public class LandingPageResource {
         return WEB_HTML_POLICY.sanitize(bodyHtml).replaceAll("<!--\\s*-->", "");
     }
 
+    @Inject
+    Instance<LandingTokenProvider> tokenProviders;
+
+    @Inject
+    CurrentUserService currentUserService;
+
     public record LandingPageDto(String bodyHtml, Instant updatedAt) {}
+
+    @GET
+    @Path("/placeholders")
+    public List<LandingPlaceholder> placeholders() {
+        List<LandingPlaceholder> tiles = new ArrayList<>();
+        for (LandingTokenProvider provider : tokenProviders) {
+            tiles.addAll(provider.placeholders());
+        }
+        return tiles;
+    }
+
+    @GET
+    @Path("/context")
+    public Map<String, String> context() {
+        Person person = currentUserService.getCurrentPerson();
+        if (person == null) {
+            throw new ForbiddenException();
+        }
+        Map<String, String> values = new HashMap<>();
+        for (LandingTokenProvider provider : tokenProviders) {
+            values.putAll(provider.values(person));
+        }
+        return values;
+    }
 
     @GET
     public LandingPageDto get() {
