@@ -1,4 +1,6 @@
+import { SecurityContext } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { DomSanitizer } from '@angular/platform-browser';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { of } from 'rxjs';
 import { LandingPageEditorComponent } from './landing-page-editor.component';
@@ -147,5 +149,36 @@ describe('LandingPageEditorComponent', () => {
     component.onEditorDrop(event);
 
     expect(insertEmbed).not.toHaveBeenCalled();
+  });
+
+  it('lädt die Kontextwerte des angemeldeten Nutzers', () => {
+    expect(service.context).toHaveBeenCalled();
+    expect(component.context['{{person.firstName}}']).toBe('Anna');
+  });
+
+  /**
+   * Löst previewHtml zurück in einen String auf. Bewusst auf Komponentenebene
+   * geprüft statt über den gerenderten Tab: Angular Material hängt den Body des
+   * zweiten Tabs im Headless-Browser nicht ins DOM, und ob es das tut, ist
+   * Framework-Verhalten — geprüft werden soll hier die Renderlogik.
+   */
+  function renderedPreview(): string {
+    const sanitizer = TestBed.inject(DomSanitizer);
+    return sanitizer.sanitize(SecurityContext.HTML, component.previewHtml) ?? '';
+  }
+
+  it('rendert die Vorschau mit den echten Werten', () => {
+    component.refreshPreview();
+
+    expect(renderedPreview()).toContain('Hallo Anna');
+  });
+
+  it('rendert die Vorschau aus dem Quelltext, wenn dieser aktiv ist', () => {
+    component.toggleSourceMode();
+    component.sourceHtml = '<p>Quelltext {{person.firstName}}</p>';
+
+    component.refreshPreview();
+
+    expect(renderedPreview()).toContain('Quelltext Anna');
   });
 });

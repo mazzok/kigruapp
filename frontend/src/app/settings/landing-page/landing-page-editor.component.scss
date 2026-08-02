@@ -89,6 +89,30 @@
   resize: vertical;
 }
 
+.preview-box {
+  border: 1px solid #e2e2e6;
+  border-radius: 4px;
+  padding: 1rem;
+  min-height: 12rem;
+  background: #fff;
+
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  td,
+  th {
+    border: 1px solid #e2e2e6;
+    padding: 0.35rem 0.5rem;
+  }
+}
+
 // Gleiche Pillen-Darstellung wie im Mail-Editor — beide nutzen denselben Blot.
 ::ng-deep .mail-token {
   background: #eef0fb;

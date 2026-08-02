@@ -7,7 +7,7 @@
     </button>
   </div>
 
-  <mat-tab-group>
+  <mat-tab-group (selectedTabChange)="refreshPreview()">
     <mat-tab label="Bearbeiten">
       <div class="tab-body">
         <div class="mode-bar">
@@ -61,7 +61,8 @@
     </mat-tab>
     <mat-tab label="Vorschau">
       <div class="tab-body">
-        <p class="hint">Die Vorschau folgt in einem späteren Schritt.</p>
+        <p class="hint">So sieht die Startseite mit Ihren eigenen Werten aus.</p>
+        <div class="preview-box" [innerHTML]="previewHtml"></div>
       </div>
     </mat-tab>
   </mat-tab-group>

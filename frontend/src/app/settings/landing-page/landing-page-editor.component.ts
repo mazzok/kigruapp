@@ -5,12 +5,18 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import Quill from 'quill';
 import { QuillModule } from 'ngx-quill';
 import { LandingPageService } from '../../shared/services/landing-page.service';
 import { NotificationService } from '../../shared/services/notification.service';
-import { LandingPlaceholder } from '../../shared/models/landing-page.model';
-import { pillSpan, pillsToTokens, tokensToPills } from '../../shared/landing-token.util';
+import { LandingContext, LandingPlaceholder } from '../../shared/models/landing-page.model';
+import {
+  pillSpan,
+  pillsToTokens,
+  renderWithContext,
+  tokensToPills,
+} from '../../shared/landing-token.util';
 import { WEB_QUILL_TOOLBAR, configureQuillForWebOutput } from './quill-web.config';
 
 const DRAG_MIME = 'application/x-landing-token';
@@ -47,6 +53,8 @@ export class LandingPageEditorComponent implements OnInit {
   quillInstance: any = null;
   sourceMode = false;
   sourceHtml = '';
+  context: LandingContext = {};
+  previewHtml: SafeHtml;
 
   form = new FormGroup({
     bodyHtml: new FormControl(''),
@@ -55,8 +63,10 @@ export class LandingPageEditorComponent implements OnInit {
   constructor(
     private landingPageService: LandingPageService,
     private notify: NotificationService,
+    private sanitizer: DomSanitizer,
   ) {
     configureQuillForWebOutput();
+    this.previewHtml = this.sanitizer.bypassSecurityTrustHtml('');
   }
 
   ngOnInit(): void {
@@ -67,6 +77,23 @@ export class LandingPageEditorComponent implements OnInit {
       this.groupedPlaceholders = this.groupTiles(tiles);
       this.loadContent();
     });
+
+    // Fällt der Kontext aus, bleibt die Vorschau nutzbar — renderWithContext
+    // setzt für fehlende Werte einen Gedankenstrich.
+    this.landingPageService.context().subscribe({
+      next: (values) => (this.context = values),
+      error: () => (this.context = {}),
+    });
+  }
+
+  /** Baut die Vorschau aus dem aktuell bearbeiteten Inhalt neu auf. */
+  refreshPreview(): void {
+    const stored = this.sourceMode
+      ? this.sourceHtml
+      : pillsToTokens(this.form.value.bodyHtml ?? '');
+    this.previewHtml = this.sanitizer.bypassSecurityTrustHtml(
+      renderWithContext(stored, this.context),
+    );
   }
 
   private loadContent(): void {
