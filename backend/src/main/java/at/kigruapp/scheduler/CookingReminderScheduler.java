@@ -76,7 +76,7 @@ public class CookingReminderScheduler {
             String reason = inactiveReason(settings);
             Log.warnf("Kochdienst-Erinnerung: %s, %d faellige Erinnerung(en) entfallen", reason, due.size());
             for (DueDuty duty : due) {
-                writeLog(duty, CookingReminderStatus.ACCOUNT_UNAVAILABLE, 0, reason);
+                writeLogSafely(duty, CookingReminderStatus.ACCOUNT_UNAVAILABLE, 0, reason);
             }
             return;
         }
@@ -104,14 +104,17 @@ public class CookingReminderScheduler {
 
     /**
      * Ein Fehler bei einem Kochdienst darf die übrigen nicht verhindern, daher
-     * wird pro Kochdienst gefangen und geloggt.
+     * wird pro Kochdienst gefangen und geloggt. Das gilt auch für den
+     * Log-Insert selbst — {@link #writeLogSafely} stellt sicher, dass ein
+     * defekter Insert (z. B. Mongo nicht erreichbar) nur diesen einen
+     * Kochdienst betrifft und nicht die runFor-Schleife verlässt.
      */
     private void sendOne(DueDuty duty, MailAccount account, MailTemplate template, String subject) {
         try {
             List<RecipientResolverService.ResolvedRecipient> recipients =
                     recipientResolverService.resolveFamilyRecipients(duty.familyId());
             if (recipients.isEmpty()) {
-                writeLog(duty, CookingReminderStatus.NO_RECIPIENTS, 0, null);
+                writeLogSafely(duty, CookingReminderStatus.NO_RECIPIENTS, 0, null);
                 return;
             }
 
@@ -130,15 +133,15 @@ public class CookingReminderScheduler {
             }
 
             if (successCount == recipients.size()) {
-                writeLog(duty, CookingReminderStatus.SENT, successCount, null);
+                writeLogSafely(duty, CookingReminderStatus.SENT, successCount, null);
             } else {
-                writeLog(duty, CookingReminderStatus.FAILED, successCount,
+                writeLogSafely(duty, CookingReminderStatus.FAILED, successCount,
                         (recipients.size() - successCount) + " von " + recipients.size()
                                 + " fehlgeschlagen; letzter Fehler: " + lastError);
             }
         } catch (Exception e) {
             Log.errorf(e, "Kochdienst-Erinnerung fuer %s fehlgeschlagen: %s", duty.dutyId(), e.getMessage());
-            writeLog(duty, CookingReminderStatus.FAILED, 0, e.getMessage());
+            writeLogSafely(duty, CookingReminderStatus.FAILED, 0, e.getMessage());
         }
     }
 
@@ -153,11 +156,29 @@ public class CookingReminderScheduler {
     }
 
     /**
+     * Wrapper um {@link #writeLog}, der jede Exception — auch den bewussten
+     * Rethrow bei einem echten Schreibfehler — an dieser Stelle abfängt.
+     * Ohne diese Absicherung würde ein defekter Insert für einen einzigen
+     * Kochdienst die komplette runFor-Schleife verlassen und die übrigen
+     * fälligen Kochdienste unbearbeitet lassen.
+     */
+    private void writeLogSafely(DueDuty duty, CookingReminderStatus status, int recipientCount, String error) {
+        try {
+            writeLog(duty, status, recipientCount, error);
+        } catch (Exception e) {
+            Log.errorf(e, "Kochdienst-Erinnerung: Log-Eintrag fuer %s/%s konnte nicht geschrieben werden, Kochdienst wird uebersprungen",
+                    duty.dutyId(), duty.dueDate());
+        }
+    }
+
+    /**
      * Der Log-Eintrag ist zugleich die Idempotenz-Sperre. Verliert dieser
      * Insert gegen einen parallelen Lauf (Unique-Index), ist die Erinnerung
      * bereits verbucht und der Fehler wird verschluckt. Jeder andere
      * Schreibfehler (Mongo weg, Validierung) muss dagegen sichtbar bleiben —
      * sonst gilt ein bereits versendeter Lauf am Folgetag wieder als fällig.
+     * Nur über {@link #writeLogSafely} aufrufen, damit ein solcher Fehler
+     * nicht die runFor-Schleife verlässt.
      */
     private void writeLog(DueDuty duty, CookingReminderStatus status, int recipientCount, String error) {
         CookingReminder reminder = new CookingReminder();

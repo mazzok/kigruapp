@@ -298,4 +298,39 @@ class CookingReminderRunTest {
         assertTrue(body.contains("Adlergruppe, Fuchsgruppe"),
                 "Beide Gruppenlabels im Body erwartet, war: " + body);
     }
+
+    /**
+     * Regression: ein defekter Log-Insert (echter Schreibfehler, nicht der
+     * Duplicate-Key-Fall) darf nur den betroffenen Kochdienst treffen und
+     * nicht die runFor-Schleife verlassen. Ein echter Mongo-Schreibfehler
+     * lässt sich im Test nicht sinnvoll provozieren (der Testcontainer läuft
+     * durchgehend); stattdessen wird hier der bereits vorhandene
+     * Teilausfall-Pfad über einen fehlschlagenden Mailversand geprüft: bei
+     * zwei fälligen Kochdiensten scheitert der Versand für den einen
+     * (syntaktisch ungültige Empfängeradresse), der zweite wird trotzdem
+     * zugestellt und beide werden korrekt geloggt.
+     */
+    @Test
+    void fehlgeschlagenerVersandBeiEinemKochdienstVerhindertNichtDenAnderen() throws Exception {
+        familyId = new ObjectId();
+        Person anna = persistParent("Anna", "anna@example.org");
+        ObjectId dutyIdOk = persistDuty(anna, "2026-09-15", true, 3);
+
+        familyId = new ObjectId();
+        Person peter = persistParent("Peter", "invalid address@example.org");
+        ObjectId dutyIdFailing = persistDuty(peter, "2026-09-15", true, 3);
+
+        scheduler.runFor(LocalDate.of(2026, 9, 12));
+
+        assertTrue(greenMail.waitForIncomingEmail(5000, 1));
+        assertEquals(1, greenMail.getReceivedMessages().length);
+
+        CookingReminder logOk = CookingReminder.find("dutyId", dutyIdOk).firstResult();
+        assertNotNull(logOk);
+        assertEquals(CookingReminderStatus.SENT, logOk.status);
+
+        CookingReminder logFailing = CookingReminder.find("dutyId", dutyIdFailing).firstResult();
+        assertNotNull(logFailing);
+        assertEquals(CookingReminderStatus.FAILED, logFailing.status);
+    }
 }
