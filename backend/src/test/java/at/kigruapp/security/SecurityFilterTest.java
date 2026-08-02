@@ -353,4 +353,42 @@ class SecurityFilterTest {
 
         assertForbidden();
     }
+
+    // Eltern-Uebersicht: lesend fuer alle angemeldeten Eltern
+    @Test
+    void getParentDirectory_nonAdmin_allowed() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/parent-directory", "GET");
+        Person person = new Person();
+        when(currentUserService.getCurrentPerson()).thenReturn(person);
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        filter.filter(ctx);
+
+        assertPassThrough();
+    }
+
+    @Test
+    void getParentDirectory_withoutPerson_forbidden() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/parent-directory", "GET");
+        when(currentUserService.getCurrentPerson()).thenReturn(null);
+
+        filter.filter(ctx);
+
+        assertForbidden();
+    }
+
+    @Test
+    void postParentDirectory_nonAdmin_forbidden() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/parent-directory", "POST");
+        Person person = new Person();
+        when(currentUserService.getCurrentPerson()).thenReturn(person);
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        filter.filter(ctx);
+
+        assertForbidden();
+    }
 }

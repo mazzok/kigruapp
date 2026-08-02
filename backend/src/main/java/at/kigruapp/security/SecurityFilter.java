@@ -102,6 +102,10 @@ public class SecurityFilter implements ContainerRequestFilter {
         if (path.matches("/api/v1/hour-entries/[^/]+") && isWriteMethod(method)) return true;
         // Hinweis: GET /api/v1/hour-entries und /summary sind NICHT whitelisted -> admin-only.
 
+        // Eltern-Übersicht: Kontakte der eigenen Gruppen, lesend für alle angemeldeten Eltern.
+        // Welche Gruppen sichtbar sind, entscheidet ausschließlich der Resource-Code.
+        if (path.equals("/api/v1/parent-directory") && "GET".equals(method)) return true;
+
         // Default: admin-only (safe default — deny non-admins for anything not explicitly whitelisted above)
         return false;
     }
