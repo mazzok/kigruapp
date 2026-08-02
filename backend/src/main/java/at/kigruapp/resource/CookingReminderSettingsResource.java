@@ -25,6 +25,9 @@ import java.util.regex.Pattern;
 @Consumes(MediaType.APPLICATION_JSON)
 public class CookingReminderSettingsResource {
 
+    @jakarta.inject.Inject
+    at.kigruapp.scheduler.CookingReminderScheduler cookingReminderScheduler;
+
     static final String DEFAULT_SEND_TIME = "07:00";
 
     private static final Pattern SEND_TIME_PATTERN = Pattern.compile("^([01]\\d|2[0-3]):[0-5]\\d$");
@@ -107,6 +110,8 @@ public class CookingReminderSettingsResource {
         settings.sendTime = sendTime;
         settings.updatedAt = Instant.now();
         settings.persistOrUpdate();
+
+        cookingReminderScheduler.reschedule();
 
         return toDto(settings);
     }

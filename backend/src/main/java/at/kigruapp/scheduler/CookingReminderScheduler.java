@@ -16,6 +16,7 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
 import com.mongodb.ErrorCategory;
 import io.quarkus.logging.Log;
+import io.quarkus.scheduler.Scheduler;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.bson.Document;
@@ -24,6 +25,8 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -40,10 +43,17 @@ import java.util.Map;
 @ApplicationScoped
 public class CookingReminderScheduler {
 
+    public static final String JOB_ID = "cooking-reminder-daily";
+
+    private static final String TIMEZONE = "Europe/Vienna";
+
     private static final DateTimeFormatter DISPLAY_DATE = DateTimeFormatter.ofPattern("dd.MM.yyyy");
 
     @Inject
     MongoClient mongoClient;
+
+    @Inject
+    Scheduler scheduler;
 
     @ConfigProperty(name = "quarkus.mongodb.database")
     String databaseName;
@@ -60,6 +70,34 @@ public class CookingReminderScheduler {
     /** Ein fälliger Kochdienst samt der für die Mail nötigen Daten. */
     record DueDuty(ObjectId dutyId, ObjectId familyId, String dutyDate, String dueDate,
                    String description, int daysBefore, List<String> groupIds) {}
+
+    /** "18:30" -> "0 30 18 * * ?". Unlesbare oder fehlende Zeiten fallen auf 07:00 zurück. */
+    public static String toCron(String sendTime) {
+        LocalTime time = LocalTime.of(7, 0);
+        if (sendTime != null) {
+            try {
+                time = LocalTime.parse(sendTime);
+            } catch (DateTimeParseException ignored) {
+                // Fallback bleibt 07:00
+            }
+        }
+        return "0 " + time.getMinute() + " " + time.getHour() + " * * ?";
+    }
+
+    /** Registriert den täglichen Lauf neu. Idempotent — hebt eine bestehende Registrierung vorher auf. */
+    public void reschedule() {
+        CookingReminderSettings settings = CookingReminderSettings.findSingleton();
+        String cron = toCron(settings == null ? null : settings.sendTime);
+        if (scheduler.getScheduledJob(JOB_ID) != null) {
+            scheduler.unscheduleJob(JOB_ID);
+        }
+        scheduler.newJob(JOB_ID)
+                .setCron(cron)
+                .setTimeZone(TIMEZONE)
+                .setTask(ctx -> runFor(LocalDate.now(ZoneId.of(TIMEZONE))))
+                .schedule();
+        Log.infof("Kochdienst-Erinnerung: taeglicher Lauf registriert (%s, %s)", cron, TIMEZONE);
+    }
 
     public void runFor(LocalDate today) {
         CookingReminderSettings settings = CookingReminderSettings.findSingleton();
