@@ -121,5 +121,10 @@ export const routes: Routes = [
       },
     ],
   },
-  { path: '', redirectTo: 'cooking', pathMatch: 'full' },
+  {
+    path: '',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./landing/landing.component').then(m => m.LandingComponent),
+  },
 ];

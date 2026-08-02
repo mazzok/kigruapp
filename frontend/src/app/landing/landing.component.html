@@ -1,0 +1,13 @@
+<div class="landing">
+  @if (loading) {
+    <mat-spinner diameter="32"></mat-spinner>
+  } @else if (isEmpty) {
+    <div class="empty-state">
+      <mat-icon>article</mat-icon>
+      <p>Noch keine Startseite gestaltet.</p>
+      <p class="hint">Ein Administrator kann sie unter Einstellungen → Startseite anlegen.</p>
+    </div>
+  } @else {
+    <div class="content" [innerHTML]="renderedHtml"></div>
+  }
+</div>
