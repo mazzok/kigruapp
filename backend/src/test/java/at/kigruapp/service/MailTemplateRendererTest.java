@@ -44,4 +44,46 @@ class MailTemplateRendererTest {
         String result = renderer.render("<p>{{person.notes}}</p>", Map.of("notes", "<script>alert(1)</script>"));
         assertEquals("<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>", result);
     }
+
+    @Test
+    void ersetztDutyTokens() {
+        String result = renderer.render(
+                "<p>Am {{duty.date}} kochst du fuer {{duty.groups}}.</p>",
+                Map.of(),
+                Map.of("date", "15.09.2026", "groups", "Rot, Blau"));
+
+        assertEquals("<p>Am 15.09.2026 kochst du fuer Rot, Blau.</p>", result);
+    }
+
+    @Test
+    void mischtPersonUndDutyTokens() {
+        String result = renderer.render(
+                "<p>Hallo {{person.firstName}}, dein Kochdienst ist am {{duty.date}}.</p>",
+                Map.of("firstName", "Anna"),
+                Map.of("date", "15.09.2026"));
+
+        assertEquals("<p>Hallo Anna, dein Kochdienst ist am 15.09.2026.</p>", result);
+    }
+
+    @Test
+    void unbekanntesDutyTokenWirdGeleert() {
+        String result = renderer.render("<p>{{duty.unbekannt}}</p>", Map.of(), Map.of());
+
+        assertEquals("<p></p>", result);
+    }
+
+    @Test
+    void escaptDutyWerte() {
+        String result = renderer.render("<p>{{duty.description}}</p>", Map.of(),
+                Map.of("description", "<script>x</script>"));
+
+        assertEquals("<p>&lt;script&gt;x&lt;/script&gt;</p>", result);
+    }
+
+    @Test
+    void alteSignaturVerhaeltSichUnveraendert() {
+        String result = renderer.render("<p>Hallo {{person.firstName}}</p>", Map.of("firstName", "Anna"));
+
+        assertEquals("<p>Hallo Anna</p>", result);
+    }
 }

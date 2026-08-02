@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
 @ApplicationScoped
 public class MailTemplateRenderer {
 
-    private static final Pattern TOKEN_PATTERN = Pattern.compile("\\{\\{person\\.([a-zA-Z0-9_]+)}}");
+    private static final Pattern TOKEN_PATTERN = Pattern.compile("\\{\\{(person|duty)\\.([a-zA-Z0-9_]+)}}");
 
     /**
      * The OWASP HTML sanitizer applied on save neutralizes template-injection
@@ -24,6 +24,16 @@ public class MailTemplateRenderer {
     private static final Pattern EMPTY_COMMENT = Pattern.compile("<!--\\s*-->");
 
     public String render(String bodyHtml, Map<String, String> properties) {
+        return render(bodyHtml, properties, Map.of());
+    }
+
+    /**
+     * Wie {@link #render(String, Map)}, löst zusätzlich {@code {{duty.<feld>}}}
+     * aus der zweiten Map auf. Beide Namespaces teilen sich Escaping und die
+     * Leerkommentar-Reparatur.
+     */
+    public String render(String bodyHtml, Map<String, String> personProperties,
+                         Map<String, String> dutyProperties) {
         if (bodyHtml == null) {
             return null;
         }
@@ -31,8 +41,10 @@ public class MailTemplateRenderer {
         Matcher matcher = TOKEN_PATTERN.matcher(normalized);
         StringBuilder result = new StringBuilder();
         while (matcher.find()) {
-            String fieldName = matcher.group(1);
-            String value = properties != null ? properties.get(fieldName) : null;
+            String namespace = matcher.group(1);
+            String fieldName = matcher.group(2);
+            Map<String, String> source = "duty".equals(namespace) ? dutyProperties : personProperties;
+            String value = source != null ? source.get(fieldName) : null;
             String replacement = value != null ? escapeHtml(value) : "";
             matcher.appendReplacement(result, Matcher.quoteReplacement(replacement));
         }
