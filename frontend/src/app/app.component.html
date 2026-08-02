@@ -12,6 +12,10 @@
         <mat-icon matListItemIcon>schedule</mat-icon>
         <span matListItemTitle>Unsere Stunden</span>
       </a>
+      <a mat-list-item routerLink="/eltern" routerLinkActive="active">
+        <mat-icon matListItemIcon>contacts</mat-icon>
+        <span matListItemTitle>Eltern</span>
+      </a>
       @if (currentUser.isAdmin) {
         <div class="admin-section">
           <button type="button" class="admin-section-toggle" (click)="toggleAdminSection()" [attr.aria-expanded]="adminSectionExpanded">
