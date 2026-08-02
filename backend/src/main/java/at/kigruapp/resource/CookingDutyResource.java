@@ -100,6 +100,10 @@ public class CookingDutyResource {
                 dto.groups = groups;
                 dto.description = valueDoc.getString("description");
                 dto.foodProperties = foodProps;
+                Object reminderEnabledObj = valueDoc.get("reminderEnabled");
+                dto.reminderEnabled = reminderEnabledObj instanceof Boolean b && b;
+                Object daysObj = valueDoc.get("reminderDaysBefore");
+                dto.reminderDaysBefore = daysObj instanceof Number n ? n.intValue() : null;
                 result.add(dto);
             }
         }
