@@ -7,18 +7,17 @@ import at.kigruapp.entity.FieldInstance;
 import at.kigruapp.entity.FieldRef;
 import at.kigruapp.entity.Organisation;
 import at.kigruapp.entity.Person;
-import at.kigruapp.entity.Semester;
 import at.kigruapp.entity.SemesterAssignment;
 import at.kigruapp.security.CurrentUserService;
 import at.kigruapp.security.KeycloakUserService;
 import at.kigruapp.service.JsonSchemaValidatorService;
+import at.kigruapp.service.PersonLookupService;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import io.quarkus.panache.common.Sort;
 import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -50,6 +49,9 @@ public class PersonResource {
     @Inject
     JsonSchemaValidatorService schemaValidator;
 
+    @Inject
+    PersonLookupService personLookup;
+
     private MongoCollection<Document> getFieldInstancesCollection() {
         return mongoClient.getDatabase(databaseName).getCollection("field_instances");
     }
@@ -62,11 +64,7 @@ public class PersonResource {
         if (semesterIdParam != null && !semesterIdParam.isBlank()) {
             return new ObjectId(semesterIdParam);
         }
-        List<Semester> latest = Semester.listAll(Sort.descending("createdAt"));
-        if (latest.isEmpty()) {
-            return null;
-        }
-        return latest.get(0).id;
+        return personLookup.resolveNewestSemesterId();
     }
 
     private ObjectId requireSemesterId(String semesterIdParam) {
@@ -630,18 +628,7 @@ public class PersonResource {
     }
 
     private boolean isChild(Person person) {
-        if (person.basicProperties == null) return false;
-        MongoCollection<Document> instColl = getFieldInstancesCollection();
-        for (FieldRef ref : person.basicProperties) {
-            FieldDefinition def = FieldDefinition.findById(ref.definitionId);
-            if (def != null && "personType".equals(def.fieldName)) {
-                Document inst = instColl.find(new Document("_id", ref.fieldInstanceId)).first();
-                if (inst != null && "CHILD".equals(inst.get("value"))) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        return personLookup.isChild(person);
     }
 
     private ChildDTO toChildDTO(Person person, ObjectId semesterId) {
