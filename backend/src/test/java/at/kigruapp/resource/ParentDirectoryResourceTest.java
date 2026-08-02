@@ -172,4 +172,12 @@ class ParentDirectoryResourceTest {
             .body("semesterId", nullValue())
             .body("groups.size()", is(0));
     }
+
+    @Test
+    void returnsForbiddenWithoutAnyPerson() {
+        // Kein Person-Dokument persistiert: CurrentUserService kann niemanden
+        // aufloesen, der Endpoint muss mit 403 antworten statt NPE/500.
+        given().when().get("/api/v1/parent-directory")
+            .then().statusCode(403);
+    }
 }
