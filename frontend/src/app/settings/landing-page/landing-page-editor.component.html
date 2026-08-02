@@ -1,0 +1,28 @@
+<div class="editor-page">
+  <div class="header">
+    <h2>Startseite</h2>
+    <button mat-flat-button color="primary" (click)="save()">
+      <mat-icon>save</mat-icon>
+      Speichern
+    </button>
+  </div>
+
+  <mat-tab-group>
+    <mat-tab label="Bearbeiten">
+      <div class="tab-body">
+        <form [formGroup]="form">
+          <quill-editor
+            formControlName="bodyHtml"
+            [modules]="quillModules"
+            (onEditorCreated)="onEditorCreated($event)"
+          ></quill-editor>
+        </form>
+      </div>
+    </mat-tab>
+    <mat-tab label="Vorschau">
+      <div class="tab-body">
+        <p class="hint">Die Vorschau folgt in einem späteren Schritt.</p>
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+</div>

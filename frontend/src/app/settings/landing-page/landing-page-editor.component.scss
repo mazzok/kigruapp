@@ -1,0 +1,32 @@
+.editor-page {
+  padding: 1rem;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.tab-body {
+  padding-top: 1rem;
+}
+
+.hint {
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 0.85rem;
+}
+
+// Gleiche Pillen-Darstellung wie im Mail-Editor — beide nutzen denselben Blot.
+::ng-deep .mail-token {
+  background: #eef0fb;
+  color: #3f51b5;
+  border: 1px solid #c9cff2;
+  border-radius: 12px;
+  padding: 0.05rem 0.5rem;
+  font-size: 0.85em;
+  font-weight: 600;
+  white-space: nowrap;
+}

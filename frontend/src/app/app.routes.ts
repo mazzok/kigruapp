@@ -119,6 +119,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./settings/mail/mail.component').then(m => m.MailComponent),
       },
+      {
+        path: 'landing-page',
+        loadComponent: () =>
+          import('./settings/landing-page/landing-page-editor.component').then(
+            m => m.LandingPageEditorComponent
+          ),
+      },
     ],
   },
   {
