@@ -80,11 +80,8 @@ public class ParentDirectoryService {
         }
 
         Map<ObjectId, Person> childrenById = new LinkedHashMap<>();
-        for (ObjectId childId : allChildIds) {
-            Person child = Person.findById(childId);
-            if (child != null) {
-                childrenById.put(childId, child);
-            }
+        for (Person child : Person.<Person>list("_id in ?1", new ArrayList<>(allChildIds))) {
+            childrenById.put(child.id, child);
         }
 
         Set<ObjectId> familyIds = new LinkedHashSet<>();
@@ -120,14 +117,14 @@ public class ParentDirectoryService {
                 if (child == null || child.familyId == null) continue;
                 String name = childProperties.getOrDefault(child.id, Map.of()).get("firstName");
                 childNamesByFamily.computeIfAbsent(child.familyId, k -> new ArrayList<>())
-                        .add(name != null ? name : "");
+                        .add(name);
             }
 
             List<ParentDirectoryDTO.FamilyEntry> families = new ArrayList<>();
             for (Map.Entry<ObjectId, List<String>> famEntry : childNamesByFamily.entrySet()) {
                 ObjectId familyId = famEntry.getKey();
                 List<String> childNames = new ArrayList<>(famEntry.getValue());
-                childNames.sort(Comparator.naturalOrder());
+                childNames.sort(Comparator.nullsFirst(Comparator.naturalOrder()));
 
                 List<ParentDirectoryDTO.ParentEntry> parents = new ArrayList<>();
                 for (Person parent : parentsByFamily.getOrDefault(familyId, List.of())) {
@@ -145,10 +142,12 @@ public class ParentDirectoryService {
                         formatAddress(Family.<Family>findById(familyId))));
             }
 
-            // Eigene Familie zuerst, danach nach dem ersten Kindernamen.
+            // Eigene Familie zuerst, danach nach dem ersten Kindernamen (fehlende Namen zuletzt).
             families.sort(Comparator
                     .comparing(ParentDirectoryDTO.FamilyEntry::isOwnFamily).reversed()
-                    .thenComparing(f -> f.children().isEmpty() ? "" : f.children().get(0)));
+                    .thenComparing(
+                            (ParentDirectoryDTO.FamilyEntry f) -> f.children().isEmpty() ? null : f.children().get(0),
+                            Comparator.nullsLast(Comparator.naturalOrder())));
 
             groups.add(new ParentDirectoryDTO.GroupEntry(
                     groupInstanceId.toHexString(), resolveGroupName(groupInstanceId), families));

@@ -205,6 +205,28 @@ class ParentDirectoryServiceTest {
     }
 
     @Test
+    void childWithoutFirstNameYieldsNullInChildrenListWithoutThrowing() {
+        ObjectId ownFamily = persistFamily("Muster", "Hauptstrasse 1", "1010", "Wien");
+        Person ownChild = persistPerson(ownFamily, "CHILD", "Lena", "Muster", null, null);
+
+        ObjectId otherFamily = persistFamily("Sommer", "Gasse 7", "1020", "Wien");
+        Person namedChild = persistPerson(otherFamily, "CHILD", "Tim", "Sommer", null, null);
+        Person unnamedChild = persistPerson(otherFamily, "CHILD", null, "Sommer", null, null);
+
+        ObjectId kaefer = persistGroup("Kaefergruppe");
+        assign(ownChild.id, kaefer, semesterId);
+        assign(namedChild.id, kaefer, semesterId);
+        assign(unnamedChild.id, kaefer, semesterId);
+
+        ParentDirectoryDTO result = service.buildForFamily(ownFamily);
+
+        List<String> children = result.groups().get(0).families().get(1).children();
+        assertEquals(2, children.size());
+        assertTrue(children.contains(null));
+        assertTrue(children.contains("Tim"));
+    }
+
+    @Test
     void parentWithoutEmailIsListedWithNullEmail() {
         ObjectId ownFamily = persistFamily("Muster", "Hauptstrasse 1", "1010", "Wien");
         Person ownChild = persistPerson(ownFamily, "CHILD", "Lena", "Muster", null, null);
