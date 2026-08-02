@@ -150,6 +150,15 @@ export class OrganisationComponent implements OnInit {
     subject: new FormControl<string>(''),
     sendTime: new FormControl<string>('07:00', Validators.required),
   });
+  readonly reminderPlaceholders = [
+    '{{duty.date}}',
+    '{{duty.groups}}',
+    '{{duty.description}}',
+    '{{duty.daysBefore}}',
+    '{{duty.personName}}',
+    '{{person.firstName}}',
+    '{{person.lastName}}',
+  ];
 
   constructor(
     private orgService: OrganisationService,

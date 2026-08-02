@@ -143,13 +143,9 @@
 
         <p class="hint">
           Verfuegbare Platzhalter in der Vorlage:
-          <code>&#123;&#123;duty.date&#125;&#125;</code>,
-          <code>&#123;&#123;duty.groups&#125;&#125;</code>,
-          <code>&#123;&#123;duty.description&#125;&#125;</code>,
-          <code>&#123;&#123;duty.daysBefore&#125;&#125;</code>,
-          <code>&#123;&#123;duty.personName&#125;&#125;</code>,
-          <code>&#123;&#123;person.firstName&#125;&#125;</code>,
-          <code>&#123;&#123;person.lastName&#125;&#125;</code>
+          @for (token of reminderPlaceholders; track token; let last = $last) {
+            <code>{{ token }}</code>@if (!last) {, }
+          }
         </p>
       </div>
     </mat-tab>
