@@ -173,6 +173,33 @@ public class RecipientResolverService {
         return result;
     }
 
+    /**
+     * Alle Eltern einer Familie mit hinterlegter E-Mail-Adresse, samt
+     * aufgelösten Person-Properties. Für die Kochdienst-Erinnerung: erinnert
+     * wird die ganze Familie, nicht nur die eingetragene Person.
+     */
+    public List<ResolvedRecipient> resolveFamilyRecipients(ObjectId familyId) {
+        if (familyId == null) {
+            return List.of();
+        }
+        Map<ObjectId, Person> deduped = new LinkedHashMap<>();
+        for (Person candidate : Person.findByFamilyId(familyId)) {
+            if (isParent(candidate) && hasNonBlankEmail(candidate)) {
+                deduped.putIfAbsent(candidate.id, candidate);
+            }
+        }
+        List<Person> parents = new ArrayList<>(deduped.values());
+        Map<ObjectId, Map<String, String>> propertiesByPersonId = personPropertyResolver.resolve(parents);
+
+        List<ResolvedRecipient> result = new ArrayList<>();
+        for (Person parent : parents) {
+            String email = resolveEmail(parent);
+            if (email == null) continue;
+            result.add(new ResolvedRecipient(email, propertiesByPersonId.getOrDefault(parent.id, Map.of())));
+        }
+        return result;
+    }
+
     /** Mirrors PersonResource's private isChild check, for personType == PARENT. */
     boolean isParent(Person person) {
         if (person.basicProperties == null) return false;

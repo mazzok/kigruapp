@@ -254,4 +254,52 @@ class RecipientResolverServiceTest {
 
         assertTrue(resolver.resolve(job, new ObjectId()).isEmpty());
     }
+
+    @Test
+    void resolveFamilyRecipients_liefertBeideElternDerFamilie() {
+        ObjectId familyId = new ObjectId();
+        persistPerson(familyId, "PARENT", "anna@example.org");
+        persistPerson(familyId, "PARENT", "bernd@example.org");
+        persistPerson(new ObjectId(), "PARENT", "fremd@example.org");
+
+        List<RecipientResolverService.ResolvedRecipient> recipients =
+                resolver.resolveFamilyRecipients(familyId);
+
+        assertEquals(2, recipients.size());
+        assertTrue(recipients.stream().anyMatch(r -> r.email().equals("anna@example.org")));
+        assertTrue(recipients.stream().anyMatch(r -> r.email().equals("bernd@example.org")));
+    }
+
+    @Test
+    void resolveFamilyRecipients_ueberspringtElternOhneEmail() {
+        ObjectId familyId = new ObjectId();
+        persistPerson(familyId, "PARENT", "anna@example.org");
+        persistPerson(familyId, "PARENT", null);
+
+        List<RecipientResolverService.ResolvedRecipient> recipients =
+                resolver.resolveFamilyRecipients(familyId);
+
+        assertEquals(1, recipients.size());
+        assertEquals("anna@example.org", recipients.get(0).email());
+    }
+
+    @Test
+    void resolveFamilyRecipients_liefertPersonProperties() {
+        FieldDefinition firstNameDef = persistDefinition("firstName");
+        ObjectId familyId = new ObjectId();
+        Person anna = persistPerson(familyId, "PARENT", "anna@example.org");
+        anna.basicProperties = new java.util.ArrayList<>(anna.basicProperties);
+        anna.basicProperties.add(new FieldRef(firstNameDef.id, persistFieldInstance(firstNameDef.id, "Anna")));
+        anna.update();
+
+        List<RecipientResolverService.ResolvedRecipient> recipients =
+                resolver.resolveFamilyRecipients(familyId);
+
+        assertEquals("Anna", recipients.get(0).properties().get("firstName"));
+    }
+
+    @Test
+    void resolveFamilyRecipients_leerBeiNull() {
+        assertTrue(resolver.resolveFamilyRecipients(null).isEmpty());
+    }
 }
