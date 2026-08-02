@@ -20,6 +20,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Baut das Eltern-Verzeichnis auf: ausgehend von den eigenen Kindern werden die
@@ -48,12 +49,9 @@ public class ParentDirectoryService {
             return new ParentDirectoryDTO(semesterId != null ? semesterId.toHexString() : null, List.of());
         }
 
-        List<ObjectId> ownChildIds = new ArrayList<>();
-        for (Person person : Person.findByFamilyId(ownFamilyId)) {
-            if (personLookup.isChild(person)) {
-                ownChildIds.add(person.id);
-            }
-        }
+        List<Person> ownFamilyMembers = Person.findByFamilyId(ownFamilyId);
+        Set<ObjectId> ownChildIdSet = personLookup.filterByPersonType(ownFamilyMembers, "CHILD");
+        List<ObjectId> ownChildIds = new ArrayList<>(ownChildIdSet);
         if (ownChildIds.isEmpty()) {
             return new ParentDirectoryDTO(semesterId.toHexString(), List.of());
         }
@@ -91,12 +89,21 @@ public class ParentDirectoryService {
             }
         }
 
+        List<Person> allFamilyMembers = familyIds.isEmpty()
+                ? List.of()
+                : Person.<Person>list("familyId in ?1", new ArrayList<>(familyIds));
+        Map<ObjectId, List<Person>> membersByFamily = new LinkedHashMap<>();
+        for (Person member : allFamilyMembers) {
+            membersByFamily.computeIfAbsent(member.familyId, k -> new ArrayList<>()).add(member);
+        }
+        Set<ObjectId> parentIds = personLookup.filterByPersonType(allFamilyMembers, "PARENT");
+
         Map<ObjectId, List<Person>> parentsByFamily = new LinkedHashMap<>();
         List<Person> allParents = new ArrayList<>();
         for (ObjectId familyId : familyIds) {
             List<Person> parents = new ArrayList<>();
-            for (Person candidate : Person.findByFamilyId(familyId)) {
-                if (personLookup.isParent(candidate)) {
+            for (Person candidate : membersByFamily.getOrDefault(familyId, List.of())) {
+                if (parentIds.contains(candidate.id)) {
                     parents.add(candidate);
                 }
             }
@@ -106,6 +113,13 @@ public class ParentDirectoryService {
         Map<ObjectId, Map<String, String>> parentProperties = personPropertyResolver.resolve(allParents);
         Map<ObjectId, Map<String, String>> childProperties =
                 personPropertyResolver.resolve(new ArrayList<>(childrenById.values()));
+
+        Map<ObjectId, Family> familiesById = familyIds.isEmpty()
+                ? Map.of()
+                : Family.<Family>list("_id in ?1", new ArrayList<>(familyIds)).stream()
+                        .collect(Collectors.toMap(f -> f.id, f -> f));
+
+        Map<ObjectId, String> groupNames = resolveGroupNames(ownGroupIds);
 
         List<ParentDirectoryDTO.GroupEntry> groups = new ArrayList<>();
         for (Map.Entry<ObjectId, List<ObjectId>> entry : childIdsByGroup.entrySet()) {
@@ -139,7 +153,7 @@ public class ParentDirectoryService {
                         familyId.equals(ownFamilyId),
                         childNames,
                         parents,
-                        formatAddress(Family.<Family>findById(familyId))));
+                        formatAddress(familiesById.get(familyId))));
             }
 
             // Eigene Familie zuerst, danach nach dem ersten Kindernamen (fehlende Namen zuletzt).
@@ -150,7 +164,7 @@ public class ParentDirectoryService {
                             Comparator.nullsLast(Comparator.naturalOrder())));
 
             groups.add(new ParentDirectoryDTO.GroupEntry(
-                    groupInstanceId.toHexString(), resolveGroupName(groupInstanceId), families));
+                    groupInstanceId.toHexString(), groupNames.get(groupInstanceId), families));
         }
 
         groups.sort(Comparator.comparing(g -> g.groupName() != null ? g.groupName() : ""));
@@ -166,13 +180,17 @@ public class ParentDirectoryService {
                 extraFilter));
     }
 
-    private String resolveGroupName(ObjectId groupInstanceId) {
-        Document instance = mongoClient.getDatabase(databaseName)
-                .getCollection("field_instances")
-                .find(Filters.eq("_id", groupInstanceId))
-                .first();
-        Object value = instance != null ? instance.get("value") : null;
-        return value != null ? value.toString() : null;
+    /** Ein Query statt einer Abfrage pro Gruppe: liefert null-Namen fuer geloeschte field_instances. */
+    private Map<ObjectId, String> resolveGroupNames(Set<ObjectId> groupInstanceIds) {
+        Map<ObjectId, String> names = new LinkedHashMap<>();
+        if (groupInstanceIds.isEmpty()) return names;
+        MongoCollection<Document> instances = mongoClient.getDatabase(databaseName)
+                .getCollection("field_instances");
+        for (Document instance : instances.find(Filters.in("_id", groupInstanceIds))) {
+            Object value = instance.get("value");
+            names.put(instance.getObjectId("_id"), value != null ? value.toString() : null);
+        }
+        return names;
     }
 
     /** "Strasse, PLZ Ort" — fehlende Teile werden weggelassen, leeres Ergebnis wird null. */

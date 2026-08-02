@@ -294,6 +294,25 @@ class ParentDirectoryServiceTest {
     }
 
     @Test
+    void groupWithDeletedFieldInstanceRendersWithNullNameWithoutThrowing() {
+        ObjectId ownFamily = persistFamily("Muster", "Hauptstrasse 1", "1010", "Wien");
+        Person ownChild = persistPerson(ownFamily, "CHILD", "Lena", "Muster", null, null);
+
+        ObjectId kaefer = persistGroup("Kaefergruppe");
+        assign(ownChild.id, kaefer, semesterId);
+
+        // Die field_instance der Gruppe wird geloescht, die Zuweisung bleibt bestehen.
+        mongoClient.getDatabase(databaseName).getCollection("field_instances")
+                .deleteOne(new Document("_id", kaefer));
+
+        ParentDirectoryDTO result = service.buildForFamily(ownFamily);
+
+        assertEquals(1, result.groups().size());
+        assertNull(result.groups().get(0).groupName());
+        assertEquals(1, result.groups().get(0).families().size());
+    }
+
+    @Test
     void groupsAreSortedByName() {
         ObjectId ownFamily = persistFamily("Muster", "Hauptstrasse 1", "1010", "Wien");
         Person childA = persistPerson(ownFamily, "CHILD", "Lena", "Muster", null, null);
