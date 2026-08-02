@@ -16,6 +16,8 @@ import { CookingDutyService } from './services/cooking-duty.service';
 import { PersonService } from '../shared/services/person.service';
 import { FieldInstanceService } from '../shared/services/field-instance.service';
 import { CurrentUserService } from '../core/services/current-user.service';
+import { CookingReminderSettingsService } from '../shared/services/cooking-reminder-settings.service';
+import { FieldDefinitionService } from '../settings/custom-fields/services/field-definition.service';
 import { FieldDefinition } from '../shared/models/field-definition.model';
 import { CookingDutyDTO } from '../shared/models/organisation.model';
 import { PersonDTO, SectionInput } from '../shared/models/person.model';
@@ -55,6 +57,8 @@ export class CookingComponent implements OnInit {
   // Cooking duty FieldDefinition ID
   private cookingDutyDefId = '';
 
+  reminderAvailable = false;
+
   constructor(
     private orgService: OrganisationService,
     private cookingDutyService: CookingDutyService,
@@ -64,6 +68,8 @@ export class CookingComponent implements OnInit {
     private dialog: MatDialog,
     private closurePeriodService: ClosurePeriodService,
     private holidayService: HolidayService,
+    private cookingReminderSettingsService: CookingReminderSettingsService,
+    private fieldDefinitionService: FieldDefinitionService,
   ) {}
 
   /** ISO-Tage des angezeigten Monats, an denen der Kindergarten geschlossen hat. */
@@ -133,6 +139,14 @@ export class CookingComponent implements OnInit {
         this.familyParents = persons.filter(p => !!p.id) as unknown as PersonDTO[];
       });
     }
+
+    this.cookingReminderSettingsService.get().subscribe((settings) => {
+      this.reminderAvailable = settings.active;
+    });
+
+    this.fieldDefinitionService.list().subscribe((defs) => {
+      this.cookingDutyDefId = defs.find((d) => d.fieldName === 'cookingDuty')?.id ?? '';
+    });
   }
 
   loadDuties(): void {
@@ -225,6 +239,7 @@ export class CookingComponent implements OnInit {
       existingDuty,
       canEdit,
       closedDates: [...this.closedDates],
+      reminderAvailable: this.reminderAvailable,
     };
 
     const dialogRef = this.dialog.open(CookingDutyDialogComponent, {
@@ -253,6 +268,8 @@ export class CookingComponent implements OnInit {
       groups: result.groups,
       description: result.description,
       foodProperties: result.foodProperties,
+      reminderEnabled: result.reminderEnabled,
+      ...(result.reminderEnabled ? { reminderDaysBefore: result.reminderDaysBefore } : {}),
     };
 
     this.fieldInstanceService.create(this.cookingDutyDefId, value).subscribe(() => {
@@ -266,6 +283,8 @@ export class CookingComponent implements OnInit {
       groups: result.groups,
       description: result.description,
       foodProperties: result.foodProperties,
+      reminderEnabled: result.reminderEnabled,
+      ...(result.reminderEnabled ? { reminderDaysBefore: result.reminderDaysBefore } : {}),
     };
 
     this.fieldInstanceService.update(existing.id, {
