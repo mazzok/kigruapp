@@ -72,6 +72,42 @@ describe('CookingDutyDialogComponent — Erinnerung', () => {
     expect(component.form.get('reminderDaysBefore')!.valid).toBeTrue();
   });
 
+  it('gibt die Vorlaufzeit-Validierung nach dem Abhaken frei', async () => {
+    await createComponent(baseData);
+    component.form.patchValue({ reminderEnabled: true, reminderDaysBefore: 99 });
+    expect(component.form.get('reminderDaysBefore')!.valid).toBeFalse();
+
+    component.form.patchValue({ reminderEnabled: false });
+    expect(component.form.get('reminderDaysBefore')!.valid).toBeTrue();
+
+    const inTenDays = new Date();
+    inTenDays.setDate(inTenDays.getDate() + 10);
+    component.form.patchValue({ date: inTenDays, person: 'p1', group_g1: true });
+    expect(component.form.valid).toBeTrue();
+
+    component.save();
+
+    const dialogRef = TestBed.inject(MatDialogRef) as unknown as jasmine.SpyObj<MatDialogRef<CookingDutyDialogComponent>>;
+    const result = dialogRef.close.calls.mostRecent().args[0];
+    expect(result.reminderEnabled).toBeFalse();
+    expect(result.reminderDaysBefore).toBeNull();
+  });
+
+  it('erzwingt die Grenzen 1 und 14 weiterhin, solange die Erinnerung angehakt bleibt', async () => {
+    await createComponent(baseData);
+    component.form.patchValue({ reminderEnabled: true });
+
+    component.form.patchValue({ reminderDaysBefore: 0 });
+    expect(component.form.get('reminderDaysBefore')!.valid).toBeFalse();
+    expect(component.form.valid).toBeFalse();
+
+    component.form.patchValue({ reminderDaysBefore: 15 });
+    expect(component.form.get('reminderDaysBefore')!.valid).toBeFalse();
+
+    component.form.patchValue({ reminderDaysBefore: 1 });
+    expect(component.form.get('reminderDaysBefore')!.valid).toBeTrue();
+  });
+
   it('berechnet das Erinnerungsdatum aus Dienstdatum und Vorlaufzeit', async () => {
     await createComponent(baseData);
     const inTwentyDays = new Date();

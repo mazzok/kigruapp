@@ -106,8 +106,18 @@ export class CookingDutyDialogComponent implements OnInit {
     this.form.addControl('reminderEnabled', new FormControl(duty?.reminderEnabled ?? false));
     this.form.addControl('reminderDaysBefore', new FormControl(
       duty?.reminderDaysBefore ?? 3,
-      [Validators.required, Validators.min(1), Validators.max(14)],
+      duty?.reminderEnabled ? [Validators.required, Validators.min(1), Validators.max(14)] : [],
     ));
+
+    // Die Vorlaufzeit ist nur relevant, solange die Erinnerung aktiv ist —
+    // sonst bleibt das (dann unsichtbare) Feld ein stummer Blocker fuer save().
+    this.form.get('reminderEnabled')?.valueChanges.subscribe((enabled: boolean) => {
+      const daysControl = this.form.get('reminderDaysBefore');
+      daysControl?.setValidators(
+        enabled ? [Validators.required, Validators.min(1), Validators.max(14)] : [],
+      );
+      daysControl?.updateValueAndValidity({ emitEvent: false });
+    });
 
     this.updateReminderPreview();
     this.form.valueChanges.subscribe(() => this.updateReminderPreview());
