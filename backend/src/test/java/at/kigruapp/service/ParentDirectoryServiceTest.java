@@ -489,4 +489,61 @@ class ParentDirectoryServiceTest {
         assertNull(child.entryDate());
         assertNull(child.exitDate());
     }
+
+    private void assignSection(ObjectId personId, String section, ObjectId definitionId, ObjectId instanceId) {
+        mongoClient.getDatabase(databaseName).getCollection("semester_assignments")
+                .insertOne(new Document("_id", new ObjectId())
+                        .append("personId", personId)
+                        .append("semesterId", semesterId)
+                        .append("section", section)
+                        .append("definitionId", definitionId)
+                        .append("fieldInstanceId", instanceId));
+    }
+
+    @Test
+    void teamAndRoleComeFromTheCurrentSemester() {
+        ObjectId ownFamily = persistFamily("Muster", "Hauptstrasse 1", "1010", "Wien");
+        Person ownChild = persistPerson(ownFamily, "CHILD", "Lena", "Muster", null, null);
+        Person parent = persistPerson(ownFamily, "PARENT", "Anna", "Muster", null, null);
+
+        ObjectId kaefer = persistGroup("Kaefergruppe");
+        assign(ownChild.id, kaefer, semesterId);
+
+        ObjectId teamDefId = persistDefinition("parent-team");
+        ObjectId roleDefId = persistDefinition("parent-team-role");
+        ObjectId gartenTeam = persistInstance(teamDefId, "Gartenteam");
+        ObjectId kassier = persistInstance(roleDefId, "Kassier");
+
+        assignSection(parent.id, "team", teamDefId, gartenTeam);
+        assignSection(parent.id, "role", roleDefId, kassier);
+
+        attributeService.save(List.of("team", "role"));
+
+        Map<String, String> values = service.buildForFamily(ownFamily)
+                .groups().get(0).families().get(0).parents().get(0).values();
+
+        assertEquals("Gartenteam", values.get("team"));
+        assertEquals("Kassier", values.get("role"));
+    }
+
+    @Test
+    void severalTeamsAreJoinedIntoOneValue() {
+        ObjectId ownFamily = persistFamily("Muster", "Hauptstrasse 1", "1010", "Wien");
+        Person ownChild = persistPerson(ownFamily, "CHILD", "Lena", "Muster", null, null);
+        Person parent = persistPerson(ownFamily, "PARENT", "Anna", "Muster", null, null);
+
+        ObjectId kaefer = persistGroup("Kaefergruppe");
+        assign(ownChild.id, kaefer, semesterId);
+
+        ObjectId teamDefId = persistDefinition("parent-team");
+        assignSection(parent.id, "team", teamDefId, persistInstance(teamDefId, "Gartenteam"));
+        assignSection(parent.id, "team", teamDefId, persistInstance(teamDefId, "Festteam"));
+
+        attributeService.save(List.of("team"));
+
+        String team = service.buildForFamily(ownFamily)
+                .groups().get(0).families().get(0).parents().get(0).values().get("team");
+
+        assertEquals("Gartenteam, Festteam", team);
+    }
 }

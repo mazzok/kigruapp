@@ -14,6 +14,7 @@ import org.bson.types.ObjectId;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -131,6 +132,14 @@ public class ParentDirectoryService {
         Map<ObjectId, Map<String, String>> childProperties =
                 personPropertyResolver.resolve(new ArrayList<>(childrenById.values()));
 
+        List<ObjectId> parentIdList = allParents.stream().map(p -> p.id).toList();
+        Map<ObjectId, String> teamLabels = visible.contains(ParentDirectoryAttributeService.TEAM)
+                ? resolveSectionLabels(semesterId, "team", parentIdList)
+                : Map.of();
+        Map<ObjectId, String> roleLabels = visible.contains(ParentDirectoryAttributeService.ROLE)
+                ? resolveSectionLabels(semesterId, "role", parentIdList)
+                : Map.of();
+
         Set<ObjectId> selectedCustomDefinitionIds = attributeService.customDefinitionIds().stream()
                 .filter(id -> visible.contains("custom:" + id.toHexString()))
                 .collect(Collectors.toCollection(LinkedHashSet::new));
@@ -183,6 +192,8 @@ public class ParentDirectoryService {
                             customProperties.getOrDefault(parent.id, Map.of()).entrySet()) {
                         putIfVisible(values, visible, custom.getKey(), custom.getValue());
                     }
+                    putIfVisible(values, visible, ParentDirectoryAttributeService.TEAM, teamLabels.get(parent.id));
+                    putIfVisible(values, visible, ParentDirectoryAttributeService.ROLE, roleLabels.get(parent.id));
                     parents.add(new ParentDirectoryDTO.ParentEntry(values));
                 }
 
@@ -216,6 +227,44 @@ public class ParentDirectoryService {
         if (value != null && visible.contains(key)) {
             target.put(key, value);
         }
+    }
+
+    /**
+     * Team- bzw. Rollenzuweisungen der Eltern im laufenden Semester, als
+     * Anzeigetext je Person. Mehrfachzuweisungen werden verbunden; die
+     * Reihenfolge folgt der Reihenfolge in semester_assignments.
+     */
+    private Map<ObjectId, String> resolveSectionLabels(
+            ObjectId semesterId, String section, Collection<ObjectId> personIds) {
+        Map<ObjectId, List<ObjectId>> instancesByPerson = new LinkedHashMap<>();
+        if (personIds.isEmpty()) return Map.of();
+
+        MongoCollection<Document> collection = mongoClient.getDatabase(databaseName)
+                .getCollection("semester_assignments");
+        Set<ObjectId> allInstanceIds = new LinkedHashSet<>();
+        for (Document doc : collection.find(Filters.and(
+                Filters.eq("section", section),
+                Filters.eq("semesterId", semesterId),
+                Filters.in("personId", personIds)))) {
+            SemesterAssignment sa = SemesterAssignment.fromDocument(doc);
+            if (sa.personId == null || sa.fieldInstanceId == null) continue;
+            instancesByPerson.computeIfAbsent(sa.personId, k -> new ArrayList<>()).add(sa.fieldInstanceId);
+            allInstanceIds.add(sa.fieldInstanceId);
+        }
+        if (allInstanceIds.isEmpty()) return Map.of();
+
+        Map<ObjectId, String> labels = labelResolver.resolveLabels(allInstanceIds);
+        Map<ObjectId, String> result = new LinkedHashMap<>();
+        for (Map.Entry<ObjectId, List<ObjectId>> entry : instancesByPerson.entrySet()) {
+            String joined = entry.getValue().stream()
+                    .map(labels::get)
+                    .filter(java.util.Objects::nonNull)
+                    .collect(Collectors.joining(", "));
+            if (!joined.isEmpty()) {
+                result.put(entry.getKey(), joined);
+            }
+        }
+        return result;
     }
 
     private Iterable<Document> groupAssignments(ObjectId semesterId, org.bson.conversions.Bson extraFilter) {
