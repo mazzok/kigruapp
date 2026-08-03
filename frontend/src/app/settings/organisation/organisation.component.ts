@@ -31,6 +31,7 @@ import { KostenDefinition } from '../../shared/models/kosten-definition.model';
 import { AliquotMode } from '../../shared/models/aliquot-config.model';
 import { parseHhmm, formatMinutes } from '../../shared/util/time-format.util';
 import { familyMonthlyMinutes } from './required-hours-preview.util';
+import { ParentDirectoryAttributesComponent } from './parent-directory-attributes/parent-directory-attributes.component';
 
 @Component({
   selector: 'app-organisation',
@@ -40,6 +41,7 @@ import { familyMonthlyMinutes } from './required-hours-preview.util';
     MatTabsModule, MatTableModule, MatFormFieldModule,
     MatInputModule, MatButtonModule, MatIconModule,
     MatExpansionModule, MatDialogModule, MatDatepickerModule, MatSelectModule, MatTooltipModule, IconPickerDialogComponent,
+    ParentDirectoryAttributesComponent,
   ],
   templateUrl: './organisation.component.html',
   styleUrl: './organisation.component.scss',

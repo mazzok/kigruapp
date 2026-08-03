@@ -1,0 +1,50 @@
+<section class="attribute-settings">
+  <h3>Sichtbare Eltern-Attribute</h3>
+  <p class="hint">
+    Diese Auswahl bestimmt, was Eltern in der Uebersicht "Eltern in unseren Gruppen" sehen.
+    Sie gilt fuer alle Gruppen und Semester.
+  </p>
+
+  <div class="attribute-group">
+    <h4>Kind</h4>
+    @for (attribute of childAttributes; track attribute.key) {
+      <mat-checkbox
+        [id]="'attr-' + attribute.key"
+        [checked]="attribute.selected"
+        [disabled]="attribute.locked"
+        (change)="toggle(attribute, $event.checked)">
+        {{ attribute.label }}
+      </mat-checkbox>
+    }
+  </div>
+
+  <div class="attribute-group">
+    <h4>Eltern</h4>
+    @for (attribute of parentAttributes; track attribute.key) {
+      <mat-checkbox
+        [id]="'attr-' + attribute.key"
+        [checked]="attribute.selected"
+        [disabled]="attribute.locked"
+        (change)="toggle(attribute, $event.checked)">
+        {{ attribute.label }}
+      </mat-checkbox>
+    }
+  </div>
+
+  <div class="attribute-group">
+    <h4>Familie</h4>
+    @for (attribute of familyAttributes; track attribute.key) {
+      <mat-checkbox
+        [id]="'attr-' + attribute.key"
+        [checked]="attribute.selected"
+        [disabled]="attribute.locked"
+        (change)="toggle(attribute, $event.checked)">
+        {{ attribute.label }}
+      </mat-checkbox>
+    }
+  </div>
+
+  <button mat-raised-button color="primary" type="button" [disabled]="saving" (click)="save()">
+    Speichern
+  </button>
+</section>
