@@ -39,8 +39,6 @@ export const SAMPLE_VALUES: Record<string, string> = {
   phone: '+43 660 1234567',
   dateOfBirth: '15.03.2015',
   gender: 'weiblich',
-  entryDate: '01.09.2023',
-  exitDate: '31.08.2025',
   notes: 'Allergien beachten',
 };
 

@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
 public class MailTemplateResource {
 
     private static final Set<String> SCALAR_PERSON_FIELD_ALLOWLIST = Set.of(
-            "firstName", "lastName", "email", "phone", "dateOfBirth", "gender", "entryDate", "exitDate", "notes"
+            "firstName", "lastName", "email", "phone", "dateOfBirth", "gender", "notes"
     );
 
     /**

@@ -87,4 +87,19 @@ class PersonPropertyResolverTest {
         assertEquals("Anna", result.get(p2.id).get("firstName"));
         assertFalse(result.get(p2.id).containsKey("email"), "missing property is simply absent, not null-valued");
     }
+
+    @Test
+    void enrollmentDatesAreNoLongerPersonProperties() {
+        FieldDefinition entryDef = persistDefinition("entryDate");
+
+        Person person = new Person();
+        person.basicProperties.add(new FieldRef(entryDef.id, persistFieldInstance(entryDef.id, "2026-09-01")));
+        person.createdAt = java.time.Instant.now();
+        person.updatedAt = person.createdAt;
+        person.persist();
+
+        Map<String, String> props = resolver.resolve(List.of(person)).getOrDefault(person.id, Map.of());
+
+        assertFalse(props.containsKey("entryDate"));
+    }
 }

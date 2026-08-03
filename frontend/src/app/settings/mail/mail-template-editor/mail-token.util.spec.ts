@@ -63,7 +63,7 @@ describe('mail-token.util', () => {
   });
 
   it('SAMPLE_VALUES covers every allowlisted field', () => {
-    ['firstName','lastName','email','phone','dateOfBirth','gender','entryDate','exitDate','notes']
+    ['firstName','lastName','email','phone','dateOfBirth','gender','notes']
       .forEach((f) => expect(SAMPLE_VALUES[f]).toBeTruthy());
   });
 });

@@ -87,16 +87,6 @@ public class FieldDefinitionSeedMigration {
                 new Document("type", "string").append("enum", List.of("male", "female", "diverse")),
                 false, null);
 
-        seedDef(defs, now, "entryDate",
-                Map.of("de", "Eintrittsdatum", "en", "Entry Date"),
-                new Document("type", "string").append("format", "date"),
-                false, null);
-
-        seedDef(defs, now, "exitDate",
-                Map.of("de", "Austrittsdatum", "en", "Exit Date"),
-                new Document("type", "string").append("format", "date"),
-                false, null);
-
         seedDef(defs, now, "notes",
                 Map.of("de", "Notizen", "en", "Notes"),
                 new Document("type", "string"),
