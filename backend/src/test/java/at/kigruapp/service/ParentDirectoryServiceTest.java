@@ -439,4 +439,54 @@ class ParentDirectoryServiceTest {
         assertEquals("Nuesse",
                 result.groups().get(0).families().get(0).parents().get(0).values().get(key));
     }
+
+    @Test
+    void childDatesComeFromTheGroupAssignment() {
+        ObjectId ownFamily = persistFamily("Muster", "Hauptstrasse 1", "1010", "Wien");
+        Person ownChild = persistPerson(ownFamily, "CHILD", "Lena", "Muster", null, null);
+
+        ObjectId kaefer = persistGroup("Kaefergruppe");
+        mongoClient.getDatabase(databaseName).getCollection("semester_assignments")
+                .insertOne(new Document("_id", new ObjectId())
+                        .append("personId", ownChild.id)
+                        .append("semesterId", semesterId)
+                        .append("section", "group")
+                        .append("definitionId", groupDefId)
+                        .append("fieldInstanceId", kaefer)
+                        .append("entryDate", "2026-09-01")
+                        .append("exitDate", "2027-01-31"));
+
+        attributeService.save(List.of("childEntryDate", "childExitDate"));
+
+        ParentDirectoryDTO.ChildEntry child =
+                service.buildForFamily(ownFamily).groups().get(0).families().get(0).children().get(0);
+
+        assertEquals("2026-09-01", child.entryDate());
+        assertEquals("2027-01-31", child.exitDate());
+    }
+
+    @Test
+    void childDatesAreOmittedWhenNotSelected() {
+        ObjectId ownFamily = persistFamily("Muster", "Hauptstrasse 1", "1010", "Wien");
+        Person ownChild = persistPerson(ownFamily, "CHILD", "Lena", "Muster", null, null);
+
+        ObjectId kaefer = persistGroup("Kaefergruppe");
+        mongoClient.getDatabase(databaseName).getCollection("semester_assignments")
+                .insertOne(new Document("_id", new ObjectId())
+                        .append("personId", ownChild.id)
+                        .append("semesterId", semesterId)
+                        .append("section", "group")
+                        .append("definitionId", groupDefId)
+                        .append("fieldInstanceId", kaefer)
+                        .append("entryDate", "2026-09-01")
+                        .append("exitDate", "2027-01-31"));
+
+        attributeService.save(List.of("firstName"));
+
+        ParentDirectoryDTO.ChildEntry child =
+                service.buildForFamily(ownFamily).groups().get(0).families().get(0).children().get(0);
+
+        assertNull(child.entryDate());
+        assertNull(child.exitDate());
+    }
 }

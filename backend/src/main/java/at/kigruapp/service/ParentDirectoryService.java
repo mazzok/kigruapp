@@ -80,6 +80,8 @@ public class ParentDirectoryService {
         }
 
         // Alle Kinder dieser Gruppen, gruppiert nach Gruppe.
+        record ChildDates(String entryDate, String exitDate) {}
+        Map<String, ChildDates> datesByChildAndGroup = new LinkedHashMap<>();
         Map<ObjectId, List<ObjectId>> childIdsByGroup = new LinkedHashMap<>();
         Set<ObjectId> allChildIds = new LinkedHashSet<>();
         for (Document doc : groupAssignments(semesterId, Filters.in("fieldInstanceId", ownGroupIds))) {
@@ -87,6 +89,9 @@ public class ParentDirectoryService {
             if (sa.personId == null || sa.fieldInstanceId == null) continue;
             childIdsByGroup.computeIfAbsent(sa.fieldInstanceId, k -> new ArrayList<>()).add(sa.personId);
             allChildIds.add(sa.personId);
+            datesByChildAndGroup.put(
+                    sa.personId.toHexString() + "/" + sa.fieldInstanceId.toHexString(),
+                    new ChildDates(doc.getString("entryDate"), doc.getString("exitDate")));
         }
 
         Map<ObjectId, Person> childrenById = new LinkedHashMap<>();
@@ -144,12 +149,19 @@ public class ParentDirectoryService {
             ObjectId groupInstanceId = entry.getKey();
 
             Map<ObjectId, List<ParentDirectoryDTO.ChildEntry>> childEntriesByFamily = new LinkedHashMap<>();
+            boolean showEntry = visible.contains(ParentDirectoryAttributeService.CHILD_ENTRY_DATE);
+            boolean showExit = visible.contains(ParentDirectoryAttributeService.CHILD_EXIT_DATE);
             for (ObjectId childId : entry.getValue()) {
                 Person child = childrenById.get(childId);
                 if (child == null || child.familyId == null) continue;
                 String name = childProperties.getOrDefault(child.id, Map.of()).get("firstName");
+                ChildDates dates = datesByChildAndGroup.get(
+                        childId.toHexString() + "/" + groupInstanceId.toHexString());
                 childEntriesByFamily.computeIfAbsent(child.familyId, k -> new ArrayList<>())
-                        .add(new ParentDirectoryDTO.ChildEntry(name, null, null));
+                        .add(new ParentDirectoryDTO.ChildEntry(
+                                name,
+                                showEntry && dates != null ? dates.entryDate() : null,
+                                showExit && dates != null ? dates.exitDate() : null));
             }
 
             List<ParentDirectoryDTO.FamilyEntry> families = new ArrayList<>();
