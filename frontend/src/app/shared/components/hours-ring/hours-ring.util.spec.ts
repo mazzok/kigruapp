@@ -4,13 +4,15 @@ import { buildRingState, currentYearMonth } from './hours-ring.util';
 /** 6-Monats-Semester 09/2026–02/2027, Soll 5:00 h je Monat = 30:00 h. */
 function ourHours(overrides: Partial<OurHours> = {}): OurHours {
   const months = ['2026-09', '2026-10', '2026-11', '2026-12', '2027-01', '2027-02']
-    .map((month) => ({ month, sollMinutes: 300, istMinutes: 0 }));
+    .map((month) => ({ month, sollMinutes: 300, istMinutes: 0, children: [] }));
   return {
     familyId: 'fam-1',
     familyMonthlyMinutes: 300,
     monthsInSemester: 6,
     sollMinutes: 1800,
     istMinutes: 0,
+    allGroups: true,
+    children: [],
     months,
     entries: [],
     ...overrides,
@@ -87,7 +89,7 @@ describe('buildRingState', () => {
 
   it('ignores month rows after the end of the semester for the Soll due so far', () => {
     const our = ourHours({ istMinutes: 900 });
-    our.months.push({ month: '2027-03', sollMinutes: 0, istMinutes: 120 });
+    our.months.push({ month: '2027-03', sollMinutes: 0, istMinutes: 120, children: [] });
 
     const state = buildRingState(our, '2027-03')!;
 
@@ -133,12 +135,12 @@ describe('buildRingState', () => {
   it('uses only the months carrying Soll as denominator on an aliquoted semester', () => {
     const our = ourHours({ istMinutes: 360 });
     our.months = [
-      { month: '2026-09', sollMinutes: 0, istMinutes: 0 },
-      { month: '2026-10', sollMinutes: 0, istMinutes: 0 },
-      { month: '2026-11', sollMinutes: 0, istMinutes: 0 },
-      { month: '2026-12', sollMinutes: 300, istMinutes: 0 },
-      { month: '2027-01', sollMinutes: 300, istMinutes: 0 },
-      { month: '2027-02', sollMinutes: 300, istMinutes: 360 },
+      { month: '2026-09', sollMinutes: 0, istMinutes: 0, children: [] },
+      { month: '2026-10', sollMinutes: 0, istMinutes: 0, children: [] },
+      { month: '2026-11', sollMinutes: 0, istMinutes: 0, children: [] },
+      { month: '2026-12', sollMinutes: 300, istMinutes: 0, children: [] },
+      { month: '2027-01', sollMinutes: 300, istMinutes: 0, children: [] },
+      { month: '2027-02', sollMinutes: 300, istMinutes: 360, children: [] },
     ];
     our.sollMinutes = 900;
     our.monthsInSemester = 6;

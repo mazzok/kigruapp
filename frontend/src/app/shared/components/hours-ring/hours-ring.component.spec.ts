@@ -10,13 +10,15 @@ import { OurHours } from '../../models/hour-entry.model';
 
 function ourHours(overrides: Partial<OurHours> = {}): OurHours {
   const months = ['2026-09', '2026-10', '2026-11', '2026-12', '2027-01', '2027-02']
-    .map((month) => ({ month, sollMinutes: 300, istMinutes: 0 }));
+    .map((month) => ({ month, sollMinutes: 300, istMinutes: 0, children: [] }));
   return {
     familyId: 'fam-1',
     familyMonthlyMinutes: 300,
     monthsInSemester: 6,
     sollMinutes: 1800,
     istMinutes: 750,
+    allGroups: true,
+    children: [],
     months,
     entries: [],
     ...overrides,

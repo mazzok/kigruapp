@@ -24,9 +24,11 @@ describe('StundenComponent', () => {
   ];
   const ourHours: OurHours = {
     familyId: 'f1', familyMonthlyMinutes: 480, monthsInSemester: 6, sollMinutes: 2880, istMinutes: 120,
+    allGroups: true,
+    children: [],
     months: [
-      { month: '2026-09', sollMinutes: 480, istMinutes: 0 },
-      { month: '2026-10', sollMinutes: 480, istMinutes: 120 },
+      { month: '2026-09', sollMinutes: 480, istMinutes: 0, children: [] },
+      { month: '2026-10', sollMinutes: 480, istMinutes: 120, children: [] },
     ],
     entries: [{ id: 'e1', personId: 'p1', personName: 'Anna', roleLabel: 'Kochen', date: '2026-10-05', minutes: 120, comment: '' }],
   };

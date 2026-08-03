@@ -10,7 +10,9 @@ const ourHours: OurHours = {
   monthsInSemester: 6,
   sollMinutes: 1800,
   istMinutes: 750,
-  months: [{ month: '2026-09', sollMinutes: 300, istMinutes: 750 }],
+  allGroups: true,
+  children: [],
+  months: [{ month: '2026-09', sollMinutes: 300, istMinutes: 750, children: [] }],
   entries: [],
 };
 
