@@ -1,0 +1,40 @@
+<h2 mat-dialog-title>{{ data.entry ? 'Eintrag bearbeiten' : 'Neuer Eintrag' }}</h2>
+
+<form [formGroup]="form" (ngSubmit)="save()">
+  <mat-dialog-content class="entry-form">
+    <mat-form-field appearance="outline">
+      <mat-label>Tätigkeit / Rolle</mat-label>
+      <mat-select formControlName="roleKey">
+        @if (extraOption) { <mat-option [value]="extraOption.key">{{ extraOption.label }}</mat-option> }
+        @for (option of data.options; track option.fieldInstanceId) {
+          <mat-option [value]="roleKey(option)">{{ option.label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Datum</mat-label>
+      <input matInput [matDatepicker]="picker" formControlName="date" />
+      <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+      <mat-datepicker #picker></mat-datepicker>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Dauer (HH:MM)</mat-label>
+      <input matInput formControlName="time" placeholder="01:30" />
+      @if (form.controls.time.hasError('time')) {
+        <mat-error>Format HH:MM, größer als 00:00</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Kommentar</mat-label>
+      <textarea matInput formControlName="comment" rows="3"></textarea>
+    </mat-form-field>
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end">
+    <button mat-button type="button" mat-dialog-close>Abbrechen</button>
+    <button mat-flat-button color="primary" type="submit">Speichern</button>
+  </mat-dialog-actions>
+</form>

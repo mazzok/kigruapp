@@ -1,0 +1,25 @@
+.entries-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.entries-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.month-filter { width: 140px; }
+
+.entries {
+  width: 100%;
+  border-collapse: collapse;
+
+  th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid rgba(0, 0, 0, 0.06); }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.65; }
+}
+
+.empty-hint { opacity: 0.7; }

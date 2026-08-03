@@ -1,0 +1,49 @@
+<div class="entries-head">
+  <b>Alle Einträge</b>
+  <span class="entries-actions">
+    <mat-form-field appearance="outline" class="month-filter" subscriptSizing="dynamic">
+      <mat-label>Monat</mat-label>
+      <mat-select [(ngModel)]="selectedMonth">
+        <mat-option value="">alle</mat-option>
+        @for (month of months; track month) {
+          <mat-option [value]="month">{{ formatMonthLabel(month) }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <button mat-flat-button color="primary" type="button" (click)="create.emit()">
+      <mat-icon>add</mat-icon> Neuer Eintrag
+    </button>
+  </span>
+</div>
+
+<table class="entries">
+  <tr>
+    <th>Datum</th><th>Tätigkeit</th><th>Person</th><th>Dauer</th><th></th>
+  </tr>
+  @for (entry of visible; track entry.id) {
+    <tr class="entry-row">
+      <td>{{ formatIsoDateDe(entry.date) }}</td>
+      <td>{{ entry.roleLabel }}</td>
+      <td>{{ entry.personName }}</td>
+      <td>{{ formatMinutes(entry.minutes) }}</td>
+      <td>
+        @if (isOwn(entry)) {
+          <span class="entry-actions">
+            <button mat-icon-button class="action-edit" type="button"
+                    aria-label="Bearbeiten" (click)="edit.emit(entry)">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button mat-icon-button class="action-delete" type="button"
+                    aria-label="Löschen" (click)="remove.emit(entry)">
+              <mat-icon>delete_outline</mat-icon>
+            </button>
+          </span>
+        }
+      </td>
+    </tr>
+  }
+</table>
+
+@if (visible.length === 0) {
+  <p class="empty-hint">Noch keine Einträge.</p>
+}
