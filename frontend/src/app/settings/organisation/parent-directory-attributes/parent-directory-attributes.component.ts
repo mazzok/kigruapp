@@ -1,7 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatButtonModule } from '@angular/material/button';
 import { NotificationService } from '../../../shared/services/notification.service';
 import {
   ParentDirectoryAttribute,
@@ -15,7 +14,7 @@ import {
 @Component({
   selector: 'app-parent-directory-attributes',
   standalone: true,
-  imports: [CommonModule, MatCheckboxModule, MatButtonModule],
+  imports: [CommonModule, MatCheckboxModule],
   templateUrl: './parent-directory-attributes.component.html',
   styleUrl: './parent-directory-attributes.component.scss',
 })
@@ -54,6 +53,7 @@ export class ParentDirectoryAttributesComponent implements OnInit {
   toggle(attribute: ParentDirectoryAttribute, selected: boolean): void {
     if (attribute.locked) return;
     attribute.selected = selected;
+    this.save();
   }
 
   save(): void {

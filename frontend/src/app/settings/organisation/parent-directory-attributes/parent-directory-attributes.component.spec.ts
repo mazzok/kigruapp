@@ -63,11 +63,10 @@ describe('ParentDirectoryAttributesComponent', () => {
     expect(locked?.checked).toBe(true);
   });
 
-  it('speichert die ausgewaehlten Schluessel', async () => {
+  it('speichert sofort beim Umschalten, ohne separaten Speichern-Button', async () => {
     await setup();
 
     component.toggle(component.parentAttributes[1], true);
-    component.save();
 
     expect(service.save).toHaveBeenCalledWith(['childName', 'firstName', 'team', 'address']);
     expect(notify.success).toHaveBeenCalled();
@@ -77,7 +76,7 @@ describe('ParentDirectoryAttributesComponent', () => {
     await setup();
     service.save.and.returnValue(throwError(() => new Error('kaputt')));
 
-    component.save();
+    component.toggle(component.parentAttributes[1], true);
 
     expect(notify.error).toHaveBeenCalledWith('Fehler');
   });

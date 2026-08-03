@@ -2,7 +2,7 @@
   <h3>Sichtbare Eltern-Attribute</h3>
   <p class="hint">
     Diese Auswahl bestimmt, was Eltern in der Uebersicht "Eltern in unseren Gruppen" sehen.
-    Sie gilt fuer alle Gruppen und Semester.
+    Sie gilt fuer alle Gruppen und Semester. Aenderungen werden sofort gespeichert.
   </p>
 
   <div class="attribute-group">
@@ -44,7 +44,7 @@
     }
   </div>
 
-  <button mat-raised-button color="primary" type="button" [disabled]="saving" (click)="save()">
-    Speichern
-  </button>
+  @if (saving) {
+    <p class="saving-indicator">Speichert …</p>
+  }
 </section>
