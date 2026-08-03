@@ -4,6 +4,7 @@ import at.kigruapp.dto.ParentDirectoryDTO;
 import at.kigruapp.entity.Family;
 import at.kigruapp.entity.FieldDefinition;
 import at.kigruapp.entity.FieldRef;
+import at.kigruapp.entity.ParentDirectorySettings;
 import at.kigruapp.entity.Person;
 import at.kigruapp.entity.Semester;
 import com.mongodb.client.MongoClient;
@@ -28,6 +29,9 @@ class ParentDirectoryServiceTest {
     ParentDirectoryService service;
 
     @Inject
+    ParentDirectoryAttributeService attributeService;
+
+    @Inject
     MongoClient mongoClient;
 
     @ConfigProperty(name = "quarkus.mongodb.database")
@@ -47,6 +51,7 @@ class ParentDirectoryServiceTest {
         Family.deleteAll();
         Semester.deleteAll();
         FieldDefinition.deleteAll();
+        ParentDirectorySettings.deleteAll();
         mongoClient.getDatabase(databaseName).getCollection("field_instances").drop();
         mongoClient.getDatabase(databaseName).getCollection("semester_assignments").drop();
 
@@ -153,14 +158,18 @@ class ParentDirectoryServiceTest {
 
         ParentDirectoryDTO.FamilyEntry own = group.families().get(0);
         assertTrue(own.isOwnFamily());
-        assertEquals(List.of("Lena"), own.children());
+        assertEquals(List.of("Lena"), childNames(own));
         assertEquals("Hauptstrasse 1, 1010 Wien", own.address());
-        assertEquals("anna@x.at", own.parents().get(0).email());
+        assertEquals("anna@x.at", own.parents().get(0).values().get("email"));
 
         ParentDirectoryDTO.FamilyEntry other = group.families().get(1);
         assertFalse(other.isOwnFamily());
-        assertEquals(List.of("Tim"), other.children());
-        assertEquals("Clara", other.parents().get(0).firstName());
+        assertEquals(List.of("Tim"), childNames(other));
+        assertEquals("Clara", other.parents().get(0).values().get("firstName"));
+    }
+
+    private List<String> childNames(ParentDirectoryDTO.FamilyEntry family) {
+        return family.children().stream().map(ParentDirectoryDTO.ChildEntry::name).toList();
     }
 
     @Test
@@ -181,7 +190,7 @@ class ParentDirectoryServiceTest {
 
         List<ParentDirectoryDTO.FamilyEntry> families = result.groups().get(0).families();
         assertEquals(2, families.size());
-        assertEquals(List.of("Nina", "Tim"), families.get(1).children());
+        assertEquals(List.of("Nina", "Tim"), childNames(families.get(1)));
     }
 
     @Test
@@ -201,7 +210,7 @@ class ParentDirectoryServiceTest {
 
         ParentDirectoryDTO result = service.buildForFamily(ownFamily);
 
-        assertEquals(List.of("Tim"), result.groups().get(0).families().get(1).children());
+        assertEquals(List.of("Tim"), childNames(result.groups().get(0).families().get(1)));
     }
 
     @Test
@@ -220,7 +229,7 @@ class ParentDirectoryServiceTest {
 
         ParentDirectoryDTO result = service.buildForFamily(ownFamily);
 
-        List<String> children = result.groups().get(0).families().get(1).children();
+        List<String> children = childNames(result.groups().get(0).families().get(1));
         assertEquals(2, children.size());
         assertTrue(children.contains(null));
         assertTrue(children.contains("Tim"));
@@ -241,8 +250,8 @@ class ParentDirectoryServiceTest {
 
         ParentDirectoryDTO.FamilyEntry other = service.buildForFamily(ownFamily).groups().get(0).families().get(1);
         assertEquals(1, other.parents().size());
-        assertNull(other.parents().get(0).email());
-        assertNull(other.parents().get(0).phone());
+        assertNull(other.parents().get(0).values().get("email"));
+        assertNull(other.parents().get(0).values().get("phone"));
         assertNull(other.address());
     }
 
@@ -367,5 +376,67 @@ class ParentDirectoryServiceTest {
 
         assertEquals(List.of("Ameisengruppe", "Zebragruppe"),
                 result.groups().stream().map(ParentDirectoryDTO.GroupEntry::groupName).toList());
+    }
+
+    @Test
+    void onlyVisibleAttributesAreDelivered() {
+        ObjectId ownFamily = persistFamily("Muster", "Hauptstrasse 1", "1010", "Wien");
+        Person ownChild = persistPerson(ownFamily, "CHILD", "Lena", "Muster", null, null);
+        persistPerson(ownFamily, "PARENT", "Anna", "Muster", "anna@x.at", "0660 111");
+
+        ObjectId kaefer = persistGroup("Kaefergruppe");
+        assign(ownChild.id, kaefer, semesterId);
+
+        attributeService.save(List.of("firstName"));
+
+        ParentDirectoryDTO result = service.buildForFamily(ownFamily);
+
+        Map<String, String> values = result.groups().get(0).families().get(0).parents().get(0).values();
+        assertEquals(Map.of("firstName", "Anna"), values);
+        assertNull(result.groups().get(0).families().get(0).address());
+        assertEquals(List.of("childName", "firstName"),
+                result.columns().stream().map(ParentDirectoryDTO.ColumnEntry::key).toList());
+    }
+
+    @Test
+    void addressIsDeliveredOnlyWhenSelected() {
+        ObjectId ownFamily = persistFamily("Muster", "Hauptstrasse 1", "1010", "Wien");
+        Person ownChild = persistPerson(ownFamily, "CHILD", "Lena", "Muster", null, null);
+
+        ObjectId kaefer = persistGroup("Kaefergruppe");
+        assign(ownChild.id, kaefer, semesterId);
+
+        attributeService.save(List.of("address"));
+
+        ParentDirectoryDTO result = service.buildForFamily(ownFamily);
+
+        assertEquals("Hauptstrasse 1, 1010 Wien", result.groups().get(0).families().get(0).address());
+    }
+
+    @Test
+    void customFieldOfParentIsDeliveredWhenSelected() {
+        ObjectId ownFamily = persistFamily("Muster", "Hauptstrasse 1", "1010", "Wien");
+        Person ownChild = persistPerson(ownFamily, "CHILD", "Lena", "Muster", null, null);
+        Person parent = persistPerson(ownFamily, "PARENT", "Anna", "Muster", null, null);
+
+        FieldDefinition allergies = new FieldDefinition();
+        allergies.fieldName = "allergies";
+        allergies.label = Map.of("de", "Allergien");
+        allergies.createdAt = Instant.now();
+        allergies.persist();
+
+        parent.customProperties.add(new FieldRef(allergies.id, persistInstance(allergies.id, "Nuesse")));
+        parent.update();
+
+        ObjectId kaefer = persistGroup("Kaefergruppe");
+        assign(ownChild.id, kaefer, semesterId);
+
+        String key = "custom:" + allergies.id.toHexString();
+        attributeService.save(List.of(key));
+
+        ParentDirectoryDTO result = service.buildForFamily(ownFamily);
+
+        assertEquals("Nuesse",
+                result.groups().get(0).families().get(0).parents().get(0).values().get(key));
     }
 }

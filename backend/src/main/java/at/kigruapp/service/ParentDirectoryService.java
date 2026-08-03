@@ -46,17 +46,26 @@ public class ParentDirectoryService {
     @Inject
     FieldInstanceLabelResolver labelResolver;
 
+    @Inject
+    ParentDirectoryAttributeService attributeService;
+
     public ParentDirectoryDTO buildForFamily(ObjectId ownFamilyId) {
         ObjectId semesterId = personLookup.resolveNewestSemesterId();
+        List<ParentDirectoryDTO.ColumnEntry> columns = attributeService.visibleCatalog().stream()
+                .map(e -> new ParentDirectoryDTO.ColumnEntry(e.key(), e.label(), e.scope()))
+                .toList();
+        Set<String> visible = attributeService.visibleKeys();
+
         if (ownFamilyId == null || semesterId == null) {
-            return new ParentDirectoryDTO(semesterId != null ? semesterId.toHexString() : null, List.of());
+            return new ParentDirectoryDTO(
+                    semesterId != null ? semesterId.toHexString() : null, columns, List.of());
         }
 
         List<Person> ownFamilyMembers = Person.findByFamilyId(ownFamilyId);
         Set<ObjectId> ownChildIdSet = personLookup.filterByPersonType(ownFamilyMembers, "CHILD");
         List<ObjectId> ownChildIds = new ArrayList<>(ownChildIdSet);
         if (ownChildIds.isEmpty()) {
-            return new ParentDirectoryDTO(semesterId.toHexString(), List.of());
+            return new ParentDirectoryDTO(semesterId.toHexString(), columns, List.of());
         }
 
         Set<ObjectId> ownGroupIds = new LinkedHashSet<>();
@@ -67,7 +76,7 @@ public class ParentDirectoryService {
             }
         }
         if (ownGroupIds.isEmpty()) {
-            return new ParentDirectoryDTO(semesterId.toHexString(), List.of());
+            return new ParentDirectoryDTO(semesterId.toHexString(), columns, List.of());
         }
 
         // Alle Kinder dieser Gruppen, gruppiert nach Gruppe.
@@ -117,6 +126,12 @@ public class ParentDirectoryService {
         Map<ObjectId, Map<String, String>> childProperties =
                 personPropertyResolver.resolve(new ArrayList<>(childrenById.values()));
 
+        Set<ObjectId> selectedCustomDefinitionIds = attributeService.customDefinitionIds().stream()
+                .filter(id -> visible.contains("custom:" + id.toHexString()))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<ObjectId, Map<String, String>> customProperties =
+                personPropertyResolver.resolveCustom(allParents, selectedCustomDefinitionIds);
+
         Map<ObjectId, Family> familiesById = familyIds.isEmpty()
                 ? Map.of()
                 : Family.<Family>list("_id in ?1", new ArrayList<>(familyIds)).stream()
@@ -128,42 +143,53 @@ public class ParentDirectoryService {
         for (Map.Entry<ObjectId, List<ObjectId>> entry : childIdsByGroup.entrySet()) {
             ObjectId groupInstanceId = entry.getKey();
 
-            Map<ObjectId, List<String>> childNamesByFamily = new LinkedHashMap<>();
+            Map<ObjectId, List<ParentDirectoryDTO.ChildEntry>> childEntriesByFamily = new LinkedHashMap<>();
             for (ObjectId childId : entry.getValue()) {
                 Person child = childrenById.get(childId);
                 if (child == null || child.familyId == null) continue;
                 String name = childProperties.getOrDefault(child.id, Map.of()).get("firstName");
-                childNamesByFamily.computeIfAbsent(child.familyId, k -> new ArrayList<>())
-                        .add(name);
+                childEntriesByFamily.computeIfAbsent(child.familyId, k -> new ArrayList<>())
+                        .add(new ParentDirectoryDTO.ChildEntry(name, null, null));
             }
 
             List<ParentDirectoryDTO.FamilyEntry> families = new ArrayList<>();
-            for (Map.Entry<ObjectId, List<String>> famEntry : childNamesByFamily.entrySet()) {
+            for (Map.Entry<ObjectId, List<ParentDirectoryDTO.ChildEntry>> famEntry : childEntriesByFamily.entrySet()) {
                 ObjectId familyId = famEntry.getKey();
-                List<String> childNames = new ArrayList<>(famEntry.getValue());
-                childNames.sort(Comparator.nullsFirst(Comparator.naturalOrder()));
+                List<ParentDirectoryDTO.ChildEntry> childEntries = new ArrayList<>(famEntry.getValue());
+                childEntries.sort(Comparator.comparing(ParentDirectoryDTO.ChildEntry::name,
+                        Comparator.nullsFirst(Comparator.naturalOrder())));
 
                 List<ParentDirectoryDTO.ParentEntry> parents = new ArrayList<>();
                 for (Person parent : parentsByFamily.getOrDefault(familyId, List.of())) {
                     Map<String, String> props = parentProperties.getOrDefault(parent.id, Map.of());
-                    parents.add(new ParentDirectoryDTO.ParentEntry(
-                            props.get("firstName"), props.get("lastName"),
-                            props.get("email"), props.get("phone")));
+                    Map<String, String> values = new LinkedHashMap<>();
+                    putIfVisible(values, visible, ParentDirectoryAttributeService.FIRST_NAME, props.get("firstName"));
+                    putIfVisible(values, visible, ParentDirectoryAttributeService.LAST_NAME, props.get("lastName"));
+                    putIfVisible(values, visible, ParentDirectoryAttributeService.EMAIL, props.get("email"));
+                    putIfVisible(values, visible, ParentDirectoryAttributeService.PHONE, props.get("phone"));
+                    for (Map.Entry<String, String> custom :
+                            customProperties.getOrDefault(parent.id, Map.of()).entrySet()) {
+                        putIfVisible(values, visible, custom.getKey(), custom.getValue());
+                    }
+                    parents.add(new ParentDirectoryDTO.ParentEntry(values));
                 }
 
                 families.add(new ParentDirectoryDTO.FamilyEntry(
                         familyId.toHexString(),
                         familyId.equals(ownFamilyId),
-                        childNames,
+                        childEntries,
                         parents,
-                        formatAddress(familiesById.get(familyId))));
+                        visible.contains(ParentDirectoryAttributeService.ADDRESS)
+                                ? formatAddress(familiesById.get(familyId))
+                                : null));
             }
 
             // Eigene Familie zuerst, danach nach dem ersten Kindernamen (fehlende Namen zuletzt).
             families.sort(Comparator
                     .comparing(ParentDirectoryDTO.FamilyEntry::isOwnFamily).reversed()
                     .thenComparing(
-                            (ParentDirectoryDTO.FamilyEntry f) -> f.children().isEmpty() ? null : f.children().get(0),
+                            (ParentDirectoryDTO.FamilyEntry f) ->
+                                    f.children().isEmpty() ? null : f.children().get(0).name(),
                             Comparator.nullsLast(Comparator.naturalOrder())));
 
             groups.add(new ParentDirectoryDTO.GroupEntry(
@@ -171,7 +197,13 @@ public class ParentDirectoryService {
         }
 
         groups.sort(Comparator.comparing(g -> g.groupName() != null ? g.groupName() : ""));
-        return new ParentDirectoryDTO(semesterId.toHexString(), groups);
+        return new ParentDirectoryDTO(semesterId.toHexString(), columns, groups);
+    }
+
+    private void putIfVisible(Map<String, String> target, Set<String> visible, String key, String value) {
+        if (value != null && visible.contains(key)) {
+            target.put(key, value);
+        }
     }
 
     private Iterable<Document> groupAssignments(ObjectId semesterId, org.bson.conversions.Bson extraFilter) {

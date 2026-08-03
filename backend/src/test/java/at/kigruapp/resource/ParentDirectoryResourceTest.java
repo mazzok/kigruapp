@@ -3,6 +3,7 @@ package at.kigruapp.resource;
 import at.kigruapp.entity.Family;
 import at.kigruapp.entity.FieldDefinition;
 import at.kigruapp.entity.FieldRef;
+import at.kigruapp.entity.ParentDirectorySettings;
 import at.kigruapp.entity.Person;
 import at.kigruapp.entity.Semester;
 import com.mongodb.client.MongoClient;
@@ -41,6 +42,7 @@ class ParentDirectoryResourceTest {
         Family.deleteAll();
         Semester.deleteAll();
         FieldDefinition.deleteAll();
+        ParentDirectorySettings.deleteAll();
         mongoClient.getDatabase(databaseName).getCollection("field_instances").drop();
         mongoClient.getDatabase(databaseName).getCollection("semester_assignments").drop();
 
@@ -127,11 +129,11 @@ class ParentDirectoryResourceTest {
             .body("groups[0].groupName", is("Kaefergruppe"))
             .body("groups[0].families.size()", is(2))
             .body("groups[0].families[0].isOwnFamily", is(true))
-            .body("groups[0].families[0].children", contains("Lena"))
+            .body("groups[0].families[0].children[0].name", is("Lena"))
             .body("groups[0].families[0].address", is("Hauptstrasse 1, 1010 Wien"))
             .body("groups[0].families[1].isOwnFamily", is(false))
-            .body("groups[0].families[1].parents[0].firstName", is("Clara"))
-            .body("groups[0].families[1].parents[0].email", is("clara@y.at"));
+            .body("groups[0].families[1].parents[0].values.firstName", is("Clara"))
+            .body("groups[0].families[1].parents[0].values.email", is("clara@y.at"));
     }
 
     @Test

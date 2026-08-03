@@ -86,4 +86,55 @@ public class PersonPropertyResolver {
         }
         return result;
     }
+
+    /**
+     * Wie {@link #resolve}, aber fuer benutzerdefinierte Felder: liefert je Person
+     * eine Map "custom:<definitionIdHex>" -> Wert, beschraenkt auf die uebergebenen
+     * Definitionen. Zwei Abfragen unabhaengig von der Personenzahl.
+     */
+    public Map<ObjectId, Map<String, String>> resolveCustom(List<Person> persons, Set<ObjectId> definitionIds) {
+        Map<ObjectId, Map<String, String>> result = new HashMap<>();
+        if (persons == null || persons.isEmpty() || definitionIds == null || definitionIds.isEmpty()) {
+            return result;
+        }
+
+        Map<ObjectId, Map<ObjectId, String>> perPersonInstanceToKey = new HashMap<>();
+        Set<ObjectId> allInstanceIds = new HashSet<>();
+        for (Person person : persons) {
+            Map<ObjectId, String> instanceToKey = new HashMap<>();
+            if (person.customProperties != null) {
+                for (FieldRef ref : person.customProperties) {
+                    if (definitionIds.contains(ref.definitionId)) {
+                        instanceToKey.put(ref.fieldInstanceId, "custom:" + ref.definitionId.toHexString());
+                        allInstanceIds.add(ref.fieldInstanceId);
+                    }
+                }
+            }
+            perPersonInstanceToKey.put(person.id, instanceToKey);
+        }
+
+        Map<ObjectId, String> instanceIdToValue = new HashMap<>();
+        if (!allInstanceIds.isEmpty()) {
+            MongoCollection<Document> col = mongoClient.getDatabase(databaseName).getCollection("field_instances");
+            for (Document doc : col.find(Filters.in("_id", allInstanceIds))) {
+                Object value = doc.get("value");
+                if (value != null) {
+                    instanceIdToValue.put(doc.getObjectId("_id"), value.toString());
+                }
+            }
+        }
+
+        for (Person person : persons) {
+            Map<String, String> properties = new HashMap<>();
+            for (Map.Entry<ObjectId, String> e :
+                    perPersonInstanceToKey.getOrDefault(person.id, Map.of()).entrySet()) {
+                String value = instanceIdToValue.get(e.getKey());
+                if (value != null) {
+                    properties.put(e.getValue(), value);
+                }
+            }
+            result.put(person.id, properties);
+        }
+        return result;
+    }
 }
