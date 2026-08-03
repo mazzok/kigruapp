@@ -2,6 +2,7 @@ package at.kigruapp.resource;
 
 import at.kigruapp.dto.RequiredHoursDto;
 import at.kigruapp.entity.RequiredHours;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import org.bson.types.ObjectId;
@@ -13,6 +14,9 @@ import java.util.List;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class RequiredHoursResource {
+
+    @Inject
+    at.kigruapp.service.GroupCatalogService groupCatalog;
 
     @GET
     public RequiredHoursDto get(@QueryParam("semesterId") String semesterIdParam) {
@@ -32,6 +36,20 @@ public class RequiredHoursResource {
             cfg.semesterId = semesterId;
         }
         cfg.defaultMinutesPerMonth = in.defaultMinutesPerMonth;
+        cfg.allGroups = in.allGroups;
+        cfg.order = RequiredHours.LEAST_EXPENSIVE_FIRST.equals(in.order)
+                ? RequiredHours.LEAST_EXPENSIVE_FIRST : RequiredHours.MOST_EXPENSIVE_FIRST;
+        // Beim Umschalten auf "für alle Gruppen" bleiben die Gruppenwerte erhalten,
+        // damit ein versehentlicher Klick die Eingaben nicht vernichtet.
+        if (!in.allGroups) {
+            cfg.groupRates = new ArrayList<>();
+            for (RequiredHoursDto.GroupRateDto g : in.groupRates) {
+                RequiredHours.GroupRate rate = new RequiredHours.GroupRate();
+                rate.groupInstanceId = new ObjectId(g.groupInstanceId);
+                rate.minutesPerMonth = g.minutesPerMonth;
+                cfg.groupRates.add(rate);
+            }
+        }
         cfg.tiers = new ArrayList<>();
         for (RequiredHoursDto.TierDto t : in.tiers) {
             RequiredHours.Tier tier = new RequiredHours.Tier();
@@ -63,10 +81,29 @@ public class RequiredHoursResource {
             if (t.fromChild <= prevFrom) {
                 throw new BadRequestException("fromChild muss eindeutig und aufsteigend sein");
             }
-            if (t.percent < 0) {
-                throw new BadRequestException("percent darf nicht negativ sein");
+            if (t.percent < 0 || t.percent > 100) {
+                throw new BadRequestException("percent muss zwischen 0 und 100 liegen");
             }
             prevFrom = t.fromChild;
+        }
+        if (!in.allGroups) {
+            List<RequiredHoursDto.GroupRateDto> rates =
+                    in.groupRates == null ? List.of() : in.groupRates;
+            java.util.Map<String, Integer> byGroup = new java.util.HashMap<>();
+            for (RequiredHoursDto.GroupRateDto g : rates) {
+                if (g.groupInstanceId == null || !ObjectId.isValid(g.groupInstanceId)) {
+                    throw new BadRequestException("groupInstanceId ungültig");
+                }
+                if (g.minutesPerMonth <= 0) {
+                    throw new BadRequestException("Stunden je Gruppe müssen größer als 0 sein");
+                }
+                byGroup.put(g.groupInstanceId, g.minutesPerMonth);
+            }
+            for (at.kigruapp.service.GroupCatalogService.GroupInfo group : groupCatalog.listGroups()) {
+                if (!byGroup.containsKey(group.id().toHexString())) {
+                    throw new BadRequestException("Stunden fehlen für Gruppe " + group.label());
+                }
+            }
         }
     }
 
@@ -74,8 +111,19 @@ public class RequiredHoursResource {
         RequiredHoursDto dto = new RequiredHoursDto();
         dto.semesterId = semesterId.toHexString();
         dto.tiers = new ArrayList<>();
+        dto.groupRates = new ArrayList<>();
         if (cfg != null) {
             dto.defaultMinutesPerMonth = cfg.defaultMinutesPerMonth;
+            dto.allGroups = cfg.allGroups;
+            dto.order = cfg.order == null ? RequiredHours.MOST_EXPENSIVE_FIRST : cfg.order;
+            if (cfg.groupRates != null) {
+                for (RequiredHours.GroupRate g : cfg.groupRates) {
+                    RequiredHoursDto.GroupRateDto gd = new RequiredHoursDto.GroupRateDto();
+                    gd.groupInstanceId = g.groupInstanceId == null ? null : g.groupInstanceId.toHexString();
+                    gd.minutesPerMonth = g.minutesPerMonth;
+                    dto.groupRates.add(gd);
+                }
+            }
             if (cfg.tiers != null) {
                 for (RequiredHours.Tier t : cfg.tiers) {
                     RequiredHoursDto.TierDto td = new RequiredHoursDto.TierDto();
