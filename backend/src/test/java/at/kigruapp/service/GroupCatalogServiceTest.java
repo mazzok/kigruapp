@@ -80,4 +80,23 @@ class GroupCatalogServiceTest {
 
         assertEquals(2, service.listGroups().size());
     }
+
+    @Test
+    void skipsUnconfiguredInstancesWithBooleanPlaceholders() {
+        var db = mongoClient.getDatabase(databaseName);
+        // Add an instance with Boolean value (migration placeholder from GroupInstanceMigration)
+        db.getCollection("field_instances").insertOne(new Document("_id", new ObjectId())
+                .append("definitionId", definitionId)
+                .append("value", true));
+
+        // Should still return only the 2 properly configured groups
+        List<GroupCatalogService.GroupInfo> groups = service.listGroups();
+        assertEquals(2, groups.size());
+        assertEquals("Bärengruppe", groups.get(0).label());
+        assertEquals("Käfergruppe", groups.get(1).label());
+
+        // Map should also exclude the unconfigured instance
+        Map<ObjectId, GroupCatalogService.GroupInfo> byId = service.byId();
+        assertEquals(2, byId.size());
+    }
 }

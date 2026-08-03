@@ -46,17 +46,16 @@ public class GroupCatalogService {
         for (Document instance : db.getCollection("field_instances")
                 .find(Filters.in("definitionId", definitionIds))) {
             Object value = instance.get("value");
-            String label = null;
-            String color = null;
-            if (value instanceof Document valueDoc) {
-                label = valueDoc.getString("label");
-                color = valueDoc.getString("color");
-            } else if (value instanceof String stringValue) {
-                label = stringValue;
+            if (!(value instanceof Document valueDoc)) {
+                continue;
+            }
+            String label = valueDoc.getString("label");
+            String color = valueDoc.getString("color");
+            if (label == null || label.isBlank()) {
+                continue;
             }
             ObjectId id = instance.getObjectId("_id");
-            groups.add(new GroupInfo(id, label == null || label.isBlank()
-                    ? id.toHexString() : label, color));
+            groups.add(new GroupInfo(id, label, color));
         }
         groups.sort(Comparator.comparing(GroupInfo::label));
         return groups;
