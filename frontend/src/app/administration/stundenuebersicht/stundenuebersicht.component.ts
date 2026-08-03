@@ -93,7 +93,12 @@ export class StundenuebersichtComponent implements OnInit {
   }
 
   balanceTooltip(f: FamilyHoursSummary): string {
-    return `${f.childCount} Kinder · ${formatMinutes(f.familyMonthlyMinutes)}/Monat × ${f.monthsInSemester} Monate ` +
+    // familyMonthlyMinutes ist 0, wenn kein Monat alle Kinder voll enthält
+    // (unterjähriger Ein-/Austritt) — dann bleibt der Satzteil weg.
+    const monthly = f.familyMonthlyMinutes > 0
+      ? ` · ${formatMinutes(f.familyMonthlyMinutes)}/Monat × ${f.monthsInSemester} Monate`
+      : '';
+    return `${f.childCount} Kinder${monthly} ` +
       `= ${formatMinutes(f.sollMinutes)} Soll; Ist ${formatMinutes(f.istMinutes)}`;
   }
 

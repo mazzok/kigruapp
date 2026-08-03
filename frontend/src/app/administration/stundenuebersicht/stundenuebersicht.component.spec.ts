@@ -85,6 +85,19 @@ describe('StundenuebersichtComponent', () => {
     expect(tooltip).toContain('6 Monate');
   });
 
+  it('nennt den Monatswert nur, wenn es einen vollen Monat gibt', () => {
+    const withMonthly = component.balanceTooltip({
+      ...families[0], childCount: 2, familyMonthlyMinutes: 705, monthsInSemester: 8, sollMinutes: 5640,
+    });
+    expect(withMonthly).toContain('11:45');
+
+    const withoutMonthly = component.balanceTooltip({
+      ...families[0], childCount: 2, familyMonthlyMinutes: 0, monthsInSemester: 8, sollMinutes: 5000,
+    });
+    expect(withoutMonthly).not.toContain('/Monat');
+    expect(withoutMonthly).toContain('2 Kinder');
+  });
+
   it('formats a member total as HH:MM', () => {
     expect(component.formatMinutes(component.families[0].members[0].totalMinutes)).toBe('01:30');
   });
