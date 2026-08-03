@@ -1,5 +1,5 @@
-import { OurHours } from '../../models/hour-entry.model';
-import { buildRingState, currentYearMonth } from './hours-ring.util';
+import { OurHours, OurHoursMonthRow } from '../../models/hour-entry.model';
+import { buildRingState, currentYearMonth, ringLevel } from './hours-ring.util';
 
 /** 6-Monats-Semester 09/2026–02/2027, Soll 5:00 h je Monat = 30:00 h. */
 function ourHours(overrides: Partial<OurHours> = {}): OurHours {
@@ -16,6 +16,18 @@ function ourHours(overrides: Partial<OurHours> = {}): OurHours {
     months,
     entries: [],
     ...overrides,
+  };
+}
+
+function month(m: string, sollMinutes: number, istMinutes: number): OurHoursMonthRow {
+  return { month: m, sollMinutes, istMinutes, children: [] };
+}
+
+function our(partial: Partial<OurHours>): OurHours {
+  return {
+    familyId: 'f1', familyMonthlyMinutes: 600, monthsInSemester: 8,
+    sollMinutes: 4800, istMinutes: 0, allGroups: true, children: [],
+    months: [], entries: [], ...partial,
   };
 }
 
@@ -194,5 +206,68 @@ describe('buildRingState', () => {
     const state = buildRingState(ourHours({ istMinutes: 600 }), '2026-11')!;
 
     expect(state.ariaLabel).toContain('geleistet, im Rückstand');
+  });
+
+  describe('Farbstufen', () => {
+    it('ordnet jeden Erfüllungsgrad der richtigen Stufe zu', () => {
+      expect(ringLevel(0)).toBe('level1');
+      expect(ringLevel(19)).toBe('level1');
+      expect(ringLevel(20)).toBe('level2');
+      expect(ringLevel(39)).toBe('level2');
+      expect(ringLevel(40)).toBe('level3');
+      expect(ringLevel(59)).toBe('level3');
+      expect(ringLevel(60)).toBe('level4');
+      expect(ringLevel(79)).toBe('level4');
+      expect(ringLevel(80)).toBe('level5');
+      expect(ringLevel(100)).toBe('level5');
+    });
+
+    it('misst den Erfüllungsgrad am bis heute fälligen Soll', () => {
+      const state = buildRingState(our({
+        sollMinutes: 4800,
+        istMinutes: 600,
+        months: [
+          month('2026-09', 600, 300),
+          month('2026-10', 600, 300),
+          month('2026-11', 600, 0),
+        ],
+      }), '2026-10');
+
+      // fällig bis Oktober: 1200, geleistet 600 -> 50 %
+      expect(state!.fulfillmentPercent).toBe(50);
+      expect(state!.level).toBe('level3');
+    });
+
+    it('zeigt vor dem ersten fälligen Monat die grüne Stufe', () => {
+      const state = buildRingState(our({
+        sollMinutes: 4800,
+        istMinutes: 0,
+        months: [month('2026-11', 600, 0)],
+      }), '2026-10');
+
+      expect(state!.fulfillmentPercent).toBe(100);
+      expect(state!.level).toBe('level5');
+    });
+
+    it('kappt den Erfüllungsgrad bei 100', () => {
+      const state = buildRingState(our({
+        sollMinutes: 4800,
+        istMinutes: 2000,
+        months: [month('2026-09', 600, 2000)],
+      }), '2026-10');
+
+      expect(state!.fulfillmentPercent).toBe(100);
+    });
+
+    it('erklärt die Farbe im Tooltip', () => {
+      const state = buildRingState(our({
+        sollMinutes: 4800,
+        istMinutes: 600,
+        months: [month('2026-09', 600, 300), month('2026-10', 600, 300)],
+      }), '2026-10');
+
+      expect(state!.tooltip).toContain('Farbe: 50 % des bis heute Fälligen geleistet');
+      expect(state!.tooltip).toContain('ab 80 % grün');
+    });
   });
 });

@@ -71,12 +71,20 @@ describe('HoursRingComponent', () => {
     expect(host.querySelector('.hours-ring-goal')!.textContent).toContain('von 30:00 h');
   });
 
-  it('marks the arc with the calculated status', () => {
+  it('marks the arc with the calculated level', () => {
     subject.next(ourHours({ istMinutes: 1800 }));
     fixture.detectChanges();
 
     const arc = fixture.nativeElement.querySelector('.ring-arc') as SVGElement;
-    expect(arc.classList).toContain('status-done');
+    expect(arc.classList).toContain('level-level5');
+  });
+
+  it('marks the arc with level3 when fulfillment is 50%', () => {
+    subject.next(ourHours({ istMinutes: 900 }));
+    fixture.detectChanges();
+
+    const arc = fixture.nativeElement.querySelector('.ring-arc') as SVGElement;
+    expect(arc.classList).toContain('level-level3');
   });
 
   it('links to the hours page and exposes an aria label', () => {

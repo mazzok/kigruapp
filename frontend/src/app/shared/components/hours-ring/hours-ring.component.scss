@@ -30,18 +30,11 @@
   transition: stroke-dashoffset 0.4s ease-out;
   animation: hours-ring-in 0.8s ease-out;
 
-  &.status-done,
-  &.status-onTrack {
-    stroke: #66bb6a;
-  }
-
-  &.status-slightlyBehind {
-    stroke: #ffca28;
-  }
-
-  &.status-behind {
-    stroke: #ef5350;
-  }
+  &.level-level1 { stroke: #b71c1c; }
+  &.level-level2 { stroke: #e64a19; }
+  &.level-level3 { stroke: #f57c00; }
+  &.level-level4 { stroke: #fbc02d; }
+  &.level-level5 { stroke: #43a047; }
 }
 
 @keyframes hours-ring-in {

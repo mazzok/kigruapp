@@ -2,6 +2,7 @@ import { OurHours } from '../../models/hour-entry.model';
 import { formatMinutes } from '../../util/time-format.util';
 
 export type RingStatus = 'done' | 'onTrack' | 'slightlyBehind' | 'behind';
+export type RingLevel = 'level1' | 'level2' | 'level3' | 'level4' | 'level5';
 
 export interface RingState {
   /** Ringfüllung in Prozent, bei 100 gekappt. */
@@ -18,6 +19,8 @@ export interface RingState {
   totalMonths: number;
   monthlySollMinutes: number;
   avgDoneMinutes: number;
+  fulfillmentPercent: number;
+  level: RingLevel;
   tooltip: string;
   ariaLabel: string;
 }
@@ -28,6 +31,15 @@ const STATUS_TEXT: Record<RingStatus, string> = {
   slightlyBehind: 'leicht im Rückstand',
   behind: 'im Rückstand',
 };
+
+/** Fünf Stufen à 20 Prozentpunkte: level1 dunkelrot bis level5 grün. */
+export function ringLevel(fulfillmentPercent: number): RingLevel {
+  if (fulfillmentPercent < 20) return 'level1';
+  if (fulfillmentPercent < 40) return 'level2';
+  if (fulfillmentPercent < 60) return 'level3';
+  if (fulfillmentPercent < 80) return 'level4';
+  return 'level5';
+}
 
 /** Aktueller Monat als "YYYY-MM" (lokale Zeit). */
 export function currentYearMonth(now: Date): string {
@@ -52,6 +64,12 @@ export function buildRingState(our: OurHours | null, today: string): RingState |
   const istMinutes = our.istMinutes;
   const sollMinutes = our.sollMinutes;
   const deltaMinutes = istMinutes - sollToDateMinutes;
+
+  // Vor dem ersten fälligen Monat ist nichts offen — dann gilt der Ring als erfüllt.
+  const fulfillmentPercent = sollToDateMinutes <= 0
+    ? 100
+    : Math.min(100, Math.round((istMinutes / sollToDateMinutes) * 100));
+  const level = ringLevel(fulfillmentPercent);
   // Abgeleitet statt familyMonthlyMinutes: Bei aliquotierten Semestern (unterjähriger
   // Ein- oder Austritt) liefert das Backend für Monate, die die Familie nicht schuldet,
   // sollMinutes = 0. Nur die Monate mit Soll zu zählen hält monatlichesSoll, den
@@ -59,6 +77,7 @@ export function buildRingState(our: OurHours | null, today: string): RingState |
   // familyMonthlyMinutes bleibt weiterhin bewusst ungenutzt.
   const monthlySollMinutes = totalMonths > 0 ? Math.round(sollMinutes / totalMonths) : sollMinutes;
   const avgDoneMinutes = elapsedMonths > 0 ? Math.round(istMinutes / elapsedMonths) : 0;
+
 
   const realPercent = Math.round((istMinutes / sollMinutes) * 100);
   const ringPercent = Math.min(100, realPercent);
@@ -86,6 +105,7 @@ export function buildRingState(our: OurHours | null, today: string): RingState |
     `Fällig bis heute: ${formatMinutes(sollToDateMinutes)} h (${elapsedMonths} von ${totalMonths} Monaten)`,
     balanceLine,
     `Ø geleistet: ${formatMinutes(avgDoneMinutes)} h/Monat · benötigt ${formatMinutes(monthlySollMinutes)} h/Monat`,
+    `Farbe: ${fulfillmentPercent} % des bis heute Fälligen geleistet — ab 80 % grün, darunter gelb bis rot.`,
   ].join('\n');
 
   const ariaLabel = `Stunden der Familie: ${formatMinutes(istMinutes)} h von `
@@ -95,6 +115,7 @@ export function buildRingState(our: OurHours | null, today: string): RingState |
     ringPercent, realPercent, status,
     istMinutes, sollMinutes, sollToDateMinutes, deltaMinutes,
     elapsedMonths, totalMonths, monthlySollMinutes, avgDoneMinutes,
+    fulfillmentPercent, level,
     tooltip, ariaLabel,
   };
 }
