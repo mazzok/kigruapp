@@ -2,6 +2,7 @@ package at.kigruapp.service;
 
 import at.kigruapp.dto.ParentDirectoryDTO;
 import at.kigruapp.entity.Family;
+import at.kigruapp.entity.FieldDefinition;
 import at.kigruapp.entity.Person;
 import at.kigruapp.entity.SemesterAssignment;
 import com.mongodb.client.MongoClient;
@@ -180,17 +181,59 @@ public class ParentDirectoryService {
                 extraFilter));
     }
 
-    /** Ein Query statt einer Abfrage pro Gruppe: liefert null-Namen fuer geloeschte field_instances. */
+    /**
+     * Ein Query statt einer Abfrage pro Gruppe: liefert null-Namen fuer geloeschte field_instances.
+     * Der Anzeigename einer Gruppe steckt in value.label; ist er nicht gesetzt (z. B. bei
+     * migrierten Instanzen mit value=true), wird auf das Label bzw. den fieldName der
+     * FieldDefinition zurueckgefallen — dieselbe Reihenfolge wie im Mail-Job-Editor.
+     */
     private Map<ObjectId, String> resolveGroupNames(Set<ObjectId> groupInstanceIds) {
         Map<ObjectId, String> names = new LinkedHashMap<>();
         if (groupInstanceIds.isEmpty()) return names;
         MongoCollection<Document> instances = mongoClient.getDatabase(databaseName)
                 .getCollection("field_instances");
+
+        Map<ObjectId, ObjectId> definitionByInstance = new LinkedHashMap<>();
         for (Document instance : instances.find(Filters.in("_id", groupInstanceIds))) {
-            Object value = instance.get("value");
-            names.put(instance.getObjectId("_id"), value != null ? value.toString() : null);
+            ObjectId instanceId = instance.getObjectId("_id");
+            names.put(instanceId, labelFromValue(instance.get("value")));
+            ObjectId definitionId = instance.getObjectId("definitionId");
+            if (definitionId != null) {
+                definitionByInstance.put(instanceId, definitionId);
+            }
+        }
+
+        Set<ObjectId> missingDefinitionIds = new LinkedHashSet<>();
+        for (Map.Entry<ObjectId, ObjectId> entry : definitionByInstance.entrySet()) {
+            if (names.get(entry.getKey()) == null) {
+                missingDefinitionIds.add(entry.getValue());
+            }
+        }
+        if (missingDefinitionIds.isEmpty()) return names;
+
+        Map<ObjectId, String> definitionNames = new LinkedHashMap<>();
+        for (FieldDefinition def : FieldDefinition.<FieldDefinition>list(
+                "_id in ?1", new ArrayList<>(missingDefinitionIds))) {
+            String label = def.label != null ? trimToNull(def.label.get("de")) : null;
+            definitionNames.put(def.id, label != null ? label : trimToNull(def.fieldName));
+        }
+        for (Map.Entry<ObjectId, ObjectId> entry : definitionByInstance.entrySet()) {
+            if (names.get(entry.getKey()) == null) {
+                names.put(entry.getKey(), definitionNames.get(entry.getValue()));
+            }
         }
         return names;
+    }
+
+    /** Anzeigename aus field_instances.value: value.label bzw. der skalare Wert, sonst null. */
+    private String labelFromValue(Object value) {
+        if (value instanceof Document valueDoc) {
+            return trimToNull(valueDoc.getString("label"));
+        }
+        if (value instanceof String stringValue) {
+            return trimToNull(stringValue);
+        }
+        return null;
     }
 
     /** "Strasse, PLZ Ort" — fehlende Teile werden weggelassen, leeres Ergebnis wird null. */

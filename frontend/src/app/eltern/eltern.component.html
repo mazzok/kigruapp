@@ -38,9 +38,6 @@
                 @for (child of family.children; track $index) {
                   <div>{{ child }}</div>
                 }
-                @if (family.isOwnFamily) {
-                  <div class="own-family-hint">(meine Familie)</div>
-                }
               </td>
               <td>
                 @for (parent of family.parents; track $index) {

@@ -313,6 +313,46 @@ class ParentDirectoryServiceTest {
     }
 
     @Test
+    void groupNameComesFromValueLabelWhenValueIsAnObject() {
+        ObjectId ownFamily = persistFamily("Muster", "Hauptstrasse 1", "1010", "Wien");
+        Person ownChild = persistPerson(ownFamily, "CHILD", "Lena", "Muster", null, null);
+
+        ObjectId groupInstance = new ObjectId();
+        mongoClient.getDatabase(databaseName).getCollection("field_instances")
+                .insertOne(new Document("_id", groupInstance)
+                        .append("definitionId", groupDefId)
+                        .append("value", new Document("label", "Kaefergruppe").append("color", "#f00")));
+        assign(ownChild.id, groupInstance, semesterId);
+
+        ParentDirectoryDTO result = service.buildForFamily(ownFamily);
+
+        assertEquals("Kaefergruppe", result.groups().get(0).groupName());
+    }
+
+    @Test
+    void groupNameFallsBackToDefinitionLabelWhenValueCarriesNoLabel() {
+        ObjectId ownFamily = persistFamily("Muster", "Hauptstrasse 1", "1010", "Wien");
+        Person ownChild = persistPerson(ownFamily, "CHILD", "Lena", "Muster", null, null);
+
+        FieldDefinition def = new FieldDefinition();
+        def.fieldName = "group";
+        def.label = Map.of("de", "Baerengruppe");
+        def.createdAt = Instant.now();
+        def.persist();
+
+        ObjectId groupInstance = new ObjectId();
+        mongoClient.getDatabase(databaseName).getCollection("field_instances")
+                .insertOne(new Document("_id", groupInstance)
+                        .append("definitionId", def.id)
+                        .append("value", true));
+        assign(ownChild.id, groupInstance, semesterId);
+
+        ParentDirectoryDTO result = service.buildForFamily(ownFamily);
+
+        assertEquals("Baerengruppe", result.groups().get(0).groupName());
+    }
+
+    @Test
     void groupsAreSortedByName() {
         ObjectId ownFamily = persistFamily("Muster", "Hauptstrasse 1", "1010", "Wien");
         Person childA = persistPerson(ownFamily, "CHILD", "Lena", "Muster", null, null);

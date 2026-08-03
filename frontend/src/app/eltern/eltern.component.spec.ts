@@ -94,10 +94,11 @@ describe('ElternComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Tim');
   });
 
-  it('markiert die eigene Familie', async () => {
+  it('markiert die eigene Familie farblich statt mit Text', async () => {
     await setup();
 
-    expect(fixture.nativeElement.textContent).toContain('(meine Familie)');
+    expect(fixture.nativeElement.querySelectorAll('tr.own-family').length).toBe(1);
+    expect(fixture.nativeElement.textContent).not.toContain('meine Familie');
   });
 
   it('zeigt einen Hinweis, wenn keine Gruppen vorhanden sind', async () => {
