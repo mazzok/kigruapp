@@ -48,6 +48,10 @@ describe('HoursRingComponent', () => {
     fixture.detectChanges();
   });
 
+  afterEach(() => {
+    jasmine.clock().uninstall();
+  });
+
   it('renders nothing without a summary', () => {
     expect(fixture.componentInstance.state).toBeNull();
     expect(fixture.nativeElement.querySelector('.hours-ring')).toBeNull();
@@ -80,6 +84,11 @@ describe('HoursRingComponent', () => {
   });
 
   it('marks the arc with level3 when fulfillment is 50%', () => {
+    jasmine.clock().install();
+    jasmine.clock().mockDate(new Date(2027, 1, 15)); // Feb 2027, within fixture months; 50% = istMinutes 900 due sollToDateMinutes 1800
+    fixture = TestBed.createComponent(HoursRingComponent);
+    fixture.detectChanges();
+
     subject.next(ourHours({ istMinutes: 900 }));
     fixture.detectChanges();
 

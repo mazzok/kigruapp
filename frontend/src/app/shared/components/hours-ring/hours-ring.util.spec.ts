@@ -177,7 +177,8 @@ describe('buildRingState', () => {
       'Geleistet: 12:30 h\n' +
       'Fällig bis heute: 15:00 h (3 von 6 Monaten)\n' +
       'Rückstand: 02:30 h\n' +
-      'Ø geleistet: 04:10 h/Monat · benötigt 05:00 h/Monat',
+      'Ø geleistet: 04:10 h/Monat · benötigt 05:00 h/Monat\n' +
+      'Farbe: 83 % des bis heute Fälligen geleistet — ab 80 % grün, darunter gelb bis rot.',
     );
   });
 
