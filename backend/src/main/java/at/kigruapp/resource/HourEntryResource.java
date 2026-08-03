@@ -14,6 +14,7 @@ import at.kigruapp.entity.RequiredHours;
 import at.kigruapp.entity.Semester;
 import at.kigruapp.security.CurrentUserService;
 import at.kigruapp.service.AliquotMode;
+import at.kigruapp.service.GroupCatalogService;
 import at.kigruapp.service.HoursBalanceService;
 import at.kigruapp.service.PersonPropertyResolver;
 import com.mongodb.client.MongoClient;
@@ -70,6 +71,9 @@ public class HourEntryResource {
     HoursBalanceService hoursBalanceService;
 
     @Inject
+    GroupCatalogService groupCatalog;
+
+    @Inject
     at.kigruapp.service.FieldInstanceLabelResolver labelResolver;
 
     private MongoCollection<Document> semesterAssignments() {
@@ -99,6 +103,7 @@ public class HourEntryResource {
             pl.childId = pid.toHexString();
             pl.entryDate = d.getString("entryDate");
             pl.exitDate = d.getString("exitDate");
+            pl.groupInstanceId = d.getObjectId("fieldInstanceId");
             placements.add(pl);
         }
         return placements;
@@ -195,12 +200,12 @@ public class HourEntryResource {
             List<Person> members = Person.findByFamilyId(family.id);
 
             int childCount = hoursBalanceService.countPlacedChildren(family.id, semesterId);
-            int familyMonthly = hoursBalanceService.familyMonthlyMinutes(cfg, childCount);
 
             // Soll über das Semester unter Anwendung des Aliquot-Modus (pro-rata bei
             // unterjährigem Ein-/Austritt); NONE reproduziert familyMonthly * months.
             List<HoursBalanceService.ChildPlacement> placements =
                     familyPlacements(members, semesterId);
+            int familyMonthly = hoursBalanceService.fullMonthMinutes(cfg, mode, semester, placements);
             int soll = hoursBalanceService.familySollMinutes(cfg, mode, semester, placements);
 
             // Ist + Personen-Einträge über alle Familienmitglieder sammeln.
@@ -273,22 +278,46 @@ public class HourEntryResource {
                 ? List.of(me)
                 : Person.findByFamilyId(me.familyId);
 
-        int childCount = me.familyId == null ? 0
-                : hoursBalanceService.countPlacedChildren(me.familyId, semesterId);
-        int familyMonthly = hoursBalanceService.familyMonthlyMinutes(cfg, childCount);
-
         // Soll je Monat unter Anwendung des Aliquot-Modus (pro-rata bei unterjährigem
         // Ein-/Austritt); NONE reproduziert familyMonthly * months.
         List<HoursBalanceService.ChildPlacement> placements = familyPlacements(members, semesterId);
-        Map<String, Integer> sollByMonth =
-                hoursBalanceService.familySollByMonth(cfg, mode, semester, placements);
+        Map<String, List<HoursBalanceService.ChildMonthShare>> sharesByMonth =
+                hoursBalanceService.familySharesByMonth(cfg, mode, semester, placements);
+        Map<String, Integer> sollByMonth = new HashMap<>();
+        sharesByMonth.forEach((month, shares) -> sollByMonth.put(month,
+                shares.stream().mapToInt(HoursBalanceService.ChildMonthShare::minutes).sum()));
 
-        dto.familyMonthlyMinutes = familyMonthly;
+        dto.allGroups = cfg == null || cfg.allGroups;
+        dto.familyMonthlyMinutes = hoursBalanceService.fullMonthMinutes(cfg, mode, semester, placements);
         dto.monthsInSemester = months;
         dto.sollMinutes = sollByMonth.values().stream().mapToInt(Integer::intValue).sum();
 
         // Namen der Mitglieder auflösen.
         Map<ObjectId, Map<String, String>> props = personPropertyResolver.resolve(members);
+
+        // Kinderzeilen: Gruppe, Basissatz und Soll je Kind über alle Monate summiert.
+        Map<ObjectId, GroupCatalogService.GroupInfo> groups = groupCatalog.byId();
+        Map<String, Integer> sollByChild = new HashMap<>();
+        for (List<HoursBalanceService.ChildMonthShare> shares : sharesByMonth.values()) {
+            for (HoursBalanceService.ChildMonthShare share : shares) {
+                sollByChild.merge(share.childId(), share.minutes(), Integer::sum);
+            }
+        }
+        for (HoursBalanceService.ChildPlacement placement : placements) {
+            OurHoursDto.ChildSoll child = new OurHoursDto.ChildSoll();
+            child.childId = placement.childId;
+            Map<String, String> pr = props.getOrDefault(new ObjectId(placement.childId), Map.of());
+            String childName = (pr.getOrDefault("firstName", "") + " " + pr.getOrDefault("lastName", "")).trim();
+            child.name = childName.isEmpty() ? placement.childId : childName;
+            GroupCatalogService.GroupInfo group = groups.get(placement.groupInstanceId);
+            child.groupLabel = group == null ? null : group.label();
+            child.groupColor = group == null ? null : group.color();
+            child.baseMinutesPerMonth = hoursBalanceService.baseRate(cfg, placement.groupInstanceId);
+            child.entryDate = placement.entryDate;
+            child.exitDate = placement.exitDate;
+            child.sollMinutes = sollByChild.getOrDefault(placement.childId, 0);
+            dto.children.add(child);
+        }
 
         // Einträge aller Mitglieder sammeln + Ist je Monat.
         Map<String, Integer> istByMonth = new HashMap<>();
@@ -327,6 +356,15 @@ public class HourEntryResource {
                 row.month = String.format("%04d-%02d", cur.getYear(), cur.getMonthValue());
                 row.sollMinutes = sollByMonth.getOrDefault(row.month, 0);
                 row.istMinutes = istByMonth.getOrDefault(row.month, 0);
+                for (HoursBalanceService.ChildMonthShare share :
+                        sharesByMonth.getOrDefault(row.month, List.of())) {
+                    OurHoursDto.ChildShare cs = new OurHoursDto.ChildShare();
+                    cs.childId = share.childId();
+                    cs.minutes = share.minutes();
+                    cs.fractionPercent = share.fractionPercent();
+                    cs.discountPercent = share.discountPercent();
+                    row.children.add(cs);
+                }
                 dto.months.add(row);
                 coveredMonths.add(row.month);
                 cur = cur.plusMonths(1);

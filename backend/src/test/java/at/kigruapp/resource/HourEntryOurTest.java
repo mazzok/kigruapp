@@ -192,6 +192,117 @@ class HourEntryOurTest {
             .body("months.find { it.month == '2026-12' }.sollMinutes", is(480));// voller Monat
     }
 
+    /** Gruppe als field_instance anlegen und ihre Id zurückgeben. */
+    private ObjectId persistGroup(String label, String color) {
+        ObjectId definitionId = new ObjectId();
+        mongoClient.getDatabase(databaseName).getCollection("field_definitions")
+                .insertOne(new Document("_id", definitionId)
+                        .append("fieldName", "group")
+                        .append("label", new Document("de", "Gruppen"))
+                        .append("outdatedAt", null));
+        ObjectId instanceId = new ObjectId();
+        mongoClient.getDatabase(databaseName).getCollection("field_instances")
+                .insertOne(new Document("_id", instanceId)
+                        .append("definitionId", definitionId)
+                        .append("value", new Document("label", label).append("color", color)));
+        return instanceId;
+    }
+
+    /** Wie placeChild, aber mit vorgegebener Gruppe. */
+    private void placeChildInGroup(ObjectId childPersonId, String semesterId, ObjectId groupInstanceId,
+                                   String entryDate, String exitDate) {
+        Document a = new Document("_id", new ObjectId())
+                .append("personId", childPersonId)
+                .append("semesterId", new ObjectId(semesterId))
+                .append("section", "group")
+                .append("definitionId", new ObjectId())
+                .append("fieldInstanceId", groupInstanceId);
+        if (entryDate != null) a.append("entryDate", entryDate);
+        if (exitDate != null) a.append("exitDate", exitDate);
+        mongoClient.getDatabase(databaseName).getCollection("semester_assignments").insertOne(a);
+    }
+
+    private void persistPerGroupConfig(String semesterId, ObjectId groupA, int minutesA,
+                                       ObjectId groupB, int minutesB, int tierPercent) {
+        RequiredHours c = new RequiredHours();
+        c.semesterId = new ObjectId(semesterId);
+        c.defaultMinutesPerMonth = 480;
+        c.allGroups = false;
+        c.order = RequiredHours.MOST_EXPENSIVE_FIRST;
+        RequiredHours.GroupRate a = new RequiredHours.GroupRate();
+        a.groupInstanceId = groupA;
+        a.minutesPerMonth = minutesA;
+        RequiredHours.GroupRate b = new RequiredHours.GroupRate();
+        b.groupInstanceId = groupB;
+        b.minutesPerMonth = minutesB;
+        c.groupRates = new java.util.ArrayList<>(java.util.List.of(a, b));
+        RequiredHours.Tier tier = new RequiredHours.Tier();
+        tier.fromChild = 2;
+        tier.percent = tierPercent;
+        c.tiers = new java.util.ArrayList<>(java.util.List.of(tier));
+        c.persist();
+    }
+
+    /** Familie mit zwei Kindern in zwei Gruppen, Sätze 480 und 300, ab 2. Kind 25 % Rabatt. */
+    private String seedTwoChildFamilyWithPerGroupRates() {
+        String semesterId = persistSemester();
+        ObjectId familyId = persistFamily();
+        Person parent = persistPerson(familyId);
+        Person childA = persistPerson(familyId);
+        Person childB = persistPerson(familyId);
+        ObjectId kaefer = persistGroup("Käfergruppe", "#43a047");
+        ObjectId baeren = persistGroup("Bärengruppe", "#fb8c00");
+        placeChildInGroup(childA.id, semesterId, kaefer, null, null);
+        placeChildInGroup(childB.id, semesterId, baeren, null, null);
+        persistPerGroupConfig(semesterId, kaefer, 480, baeren, 300, 25);
+        persistAliquot(semesterId, "NONE");
+        return semesterId;
+    }
+
+    @Test
+    void ourReturnsChildBreakdown() {
+        String semesterId = seedTwoChildFamilyWithPerGroupRates();
+
+        given().when().get("/api/v1/hour-entries/our?semesterId=" + semesterId)
+                .then().statusCode(200)
+                .body("allGroups", equalTo(false))
+                .body("children.size()", equalTo(2))
+                .body("children.groupLabel", hasItems("Käfergruppe", "Bärengruppe"))
+                .body("children.find { it.groupLabel == 'Käfergruppe' }.baseMinutesPerMonth", equalTo(480))
+                .body("children.find { it.groupLabel == 'Bärengruppe' }.baseMinutesPerMonth", equalTo(300))
+                .body("months[0].children.size()", equalTo(2));
+    }
+
+    @Test
+    void sumOfChildSollEqualsFamilySoll() {
+        String semesterId = seedTwoChildFamilyWithPerGroupRates();
+
+        var response = given().when().get("/api/v1/hour-entries/our?semesterId=" + semesterId)
+                .then().statusCode(200).extract().jsonPath();
+
+        int soll = response.getInt("sollMinutes");
+        int sumChildren = response.getList("children.sollMinutes", Integer.class)
+                .stream().mapToInt(Integer::intValue).sum();
+        org.junit.jupiter.api.Assertions.assertEquals(soll, sumChildren);
+    }
+
+    @Test
+    void sumOfMonthSharesEqualsMonthSoll() {
+        String semesterId = seedTwoChildFamilyWithPerGroupRates();
+
+        var response = given().when().get("/api/v1/hour-entries/our?semesterId=" + semesterId)
+                .then().statusCode(200).extract().jsonPath();
+
+        int months = response.getList("months").size();
+        for (int i = 0; i < months; i++) {
+            int monthSoll = response.getInt("months[" + i + "].sollMinutes");
+            int sum = response.getList("months[" + i + "].children.minutes", Integer.class)
+                    .stream().mapToInt(Integer::intValue).sum();
+            org.junit.jupiter.api.Assertions.assertEquals(monthSoll, sum,
+                    "Monat " + response.getString("months[" + i + "].month"));
+        }
+    }
+
     @Test
     void ourDefaultsToNewestSemesterWhenSemesterIdBlank() {
         ObjectId famId = persistFamily();
