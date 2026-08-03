@@ -59,22 +59,22 @@ public class HoursBalanceService {
         return placed.size();
     }
 
-    /** Minutes/month owed for the n-th child (1-based). Highest matching tier wins, else default. */
+    /** Minutes/month owed for the n-th child (1-based), Rabatt aus der höchsten passenden Staffel. */
     public int rateForChild(RequiredHours cfg, int childOrdinal) {
         if (cfg == null) {
             return 0;
         }
-        int rate = cfg.defaultMinutesPerMonth;
+        int percent = 0;
         if (cfg.tiers != null) {
             int bestFrom = 0;
             for (RequiredHours.Tier t : cfg.tiers) {
                 if (t.fromChild <= childOrdinal && t.fromChild >= bestFrom) {
                     bestFrom = t.fromChild;
-                    rate = t.minutesPerMonth;
+                    percent = t.percent;
                 }
             }
         }
-        return rate;
+        return Math.round(cfg.defaultMinutesPerMonth * (100 - percent) / 100f);
     }
 
     /** Σ rateForChild(1..childCount) — the family's per-month Soll. */

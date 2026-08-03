@@ -106,13 +106,13 @@ class HourEntryFamilySummaryTest {
         c.persist();
     }
 
-    private void persistConfig(String semesterId, int def, int tierFrom, int tierMin) {
+    private void persistConfig(String semesterId, int def, int tierFrom, int tierPercent) {
         RequiredHours c = new RequiredHours();
         c.semesterId = new ObjectId(semesterId);
         c.defaultMinutesPerMonth = def;
         RequiredHours.Tier t = new RequiredHours.Tier();
         t.fromChild = tierFrom;
-        t.minutesPerMonth = tierMin;
+        t.percent = tierPercent;
         c.tiers.add(t);
         c.persist();
     }
@@ -134,7 +134,7 @@ class HourEntryFamilySummaryTest {
     void familySummaryComputesSollAndIst() {
         adminUser();
         String semesterId = persistSemester();
-        persistConfig(semesterId, 480, 2, 360); // default 8h, ab 2. Kind 6h
+        persistConfig(semesterId, 480, 2, 25); // default 8h, ab 2. Kind 6h
 
         ObjectId famId = persistFamily("Muster");
         Person parent = persistPerson(famId);
@@ -159,7 +159,7 @@ class HourEntryFamilySummaryTest {
     void perDayAliquotReducesMidSemesterEntrantSoll() {
         adminUser();
         String semesterId = persistSemester(); // 2026-09 .. 2027-02, 6 Monate
-        persistConfig(semesterId, 480, 2, 360); // 1 Kind -> 480/Monat
+        persistConfig(semesterId, 480, 2, 25); // 1 Kind -> 480/Monat
         persistAliquot(semesterId, "PER_DAY");
 
         ObjectId famId = persistFamily("Muster");
@@ -182,7 +182,7 @@ class HourEntryFamilySummaryTest {
     void familyWithoutChildrenOrEntriesIsOmitted() {
         adminUser();
         String semesterId = persistSemester();
-        persistConfig(semesterId, 480, 2, 360);
+        persistConfig(semesterId, 480, 2, 25);
         ObjectId emptyFam = persistFamily("Leer");
         persistPerson(emptyFam); // parent only, no placement, no entries
 

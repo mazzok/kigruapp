@@ -36,7 +36,7 @@ public class RequiredHoursResource {
         for (RequiredHoursDto.TierDto t : in.tiers) {
             RequiredHours.Tier tier = new RequiredHours.Tier();
             tier.fromChild = t.fromChild;
-            tier.minutesPerMonth = t.minutesPerMonth;
+            tier.percent = t.percent;
             cfg.tiers.add(tier);
         }
         cfg.persistOrUpdate();
@@ -63,8 +63,8 @@ public class RequiredHoursResource {
             if (t.fromChild <= prevFrom) {
                 throw new BadRequestException("fromChild muss eindeutig und aufsteigend sein");
             }
-            if (t.minutesPerMonth < 0) {
-                throw new BadRequestException("minutesPerMonth darf nicht negativ sein");
+            if (t.percent < 0) {
+                throw new BadRequestException("percent darf nicht negativ sein");
             }
             prevFrom = t.fromChild;
         }
@@ -80,7 +80,7 @@ public class RequiredHoursResource {
                 for (RequiredHours.Tier t : cfg.tiers) {
                     RequiredHoursDto.TierDto td = new RequiredHoursDto.TierDto();
                     td.fromChild = t.fromChild;
-                    td.minutesPerMonth = t.minutesPerMonth;
+                    td.percent = t.percent;
                     dto.tiers.add(td);
                 }
             }

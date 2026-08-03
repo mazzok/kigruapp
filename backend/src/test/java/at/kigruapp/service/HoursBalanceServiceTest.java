@@ -28,10 +28,10 @@ class HoursBalanceServiceTest {
         return c;
     }
 
-    private RequiredHours.Tier tier(int fromChild, int minutes) {
+    private RequiredHours.Tier tier(int fromChild, int percent) {
         RequiredHours.Tier t = new RequiredHours.Tier();
         t.fromChild = fromChild;
-        t.minutesPerMonth = minutes;
+        t.percent = percent;
         return t;
     }
 
@@ -46,7 +46,7 @@ class HoursBalanceServiceTest {
 
     @Test
     void singleTierFromSecondChild() {
-        RequiredHours c = cfg(480, tier(2, 360)); // default 8h, ab 2. Kind 6h
+        RequiredHours c = cfg(480, tier(2, 25)); // default 8h, ab 2. Kind 6h (25% Rabatt)
         assertEquals(480, service.familyMonthlyMinutes(c, 1));
         assertEquals(840, service.familyMonthlyMinutes(c, 2));   // 480 + 360
         assertEquals(1200, service.familyMonthlyMinutes(c, 3));  // 480 + 360 + 360
@@ -54,7 +54,7 @@ class HoursBalanceServiceTest {
 
     @Test
     void nestedTiers_examplesFromSpec() {
-        RequiredHours c = cfg(480, tier(2, 360), tier(3, 0)); // 8h, ab 2. = 6h, ab 3. = 0h
+        RequiredHours c = cfg(480, tier(2, 25), tier(3, 100)); // 8h, ab 2. = 6h (25%), ab 3. = 0h (100%)
         assertEquals(480, service.familyMonthlyMinutes(c, 1));
         assertEquals(840, service.familyMonthlyMinutes(c, 2));  // 480 + 360
         assertEquals(840, service.familyMonthlyMinutes(c, 3));  // 480 + 360 + 0
@@ -63,7 +63,7 @@ class HoursBalanceServiceTest {
 
     @Test
     void tierFromFirstChildOverridesDefault() {
-        RequiredHours c = cfg(480, tier(1, 120)); // pure function supports fromChild=1
+        RequiredHours c = cfg(480, tier(1, 75)); // pure function supports fromChild=1 (75% Rabatt -> 120min)
         assertEquals(120, service.familyMonthlyMinutes(c, 1));
         assertEquals(240, service.familyMonthlyMinutes(c, 2));
     }
@@ -75,7 +75,7 @@ class HoursBalanceServiceTest {
 
     @Test
     void unsortedTiersHandled() {
-        RequiredHours c = cfg(480, tier(3, 0), tier(2, 360)); // deliberately out of order
+        RequiredHours c = cfg(480, tier(3, 100), tier(2, 25)); // deliberately out of order
         assertEquals(840, service.familyMonthlyMinutes(c, 3)); // 480 + 360 + 0
     }
 
@@ -114,7 +114,7 @@ class HoursBalanceServiceTest {
 
     @Test
     void soll_noneMode_equalsLegacyFormula() {
-        RequiredHours c = cfg(480, tier(2, 360)); // 8h, ab 2. Kind 6h
+        RequiredHours c = cfg(480, tier(2, 25)); // 8h, ab 2. Kind 6h (25% Rabatt)
         Semester s = sepToFeb();
         // two children, windows irrelevant under NONE
         var placements = List.of(placement("a", "2026-11-01", null), placement("b", null, null));
@@ -160,7 +160,7 @@ class HoursBalanceServiceTest {
 
     @Test
     void soll_perDay_twoConcurrentChildren_higherFractionGetsOrdinalOne() {
-        RequiredHours c = cfg(480, tier(2, 360)); // rate(1)=480, rate(2)=360
+        RequiredHours c = cfg(480, tier(2, 25)); // rate(1)=480, rate(2)=360
         Semester s = new Semester();
         s.start = Instant.parse("2026-09-01T00:00:00Z");
         s.end = Instant.parse("2026-09-30T00:00:00Z"); // single month, 30 days

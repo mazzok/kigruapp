@@ -10,6 +10,6 @@ public class RequiredHoursDto {
 
     public static class TierDto {
         public int fromChild;
-        public int minutesPerMonth;
+        public int percent;
     }
 }
