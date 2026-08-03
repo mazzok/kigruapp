@@ -2042,7 +2042,7 @@ git commit -m "feat(fe): Monatsverlauf zu Spannen zusammenfassen"
 - Consumes: `OurHours`, `OurHoursChild` (Task 7); `buildRingState`, `currentYearMonth`, `RingState` (Task 8); `summarizeMonths`, `formatMonthLabel`, `MonthSpan` (Task 9); `formatMinutes`, `formatIsoDateDe` aus `shared/util/time-format.util.ts`.
 - Produces: Selector `app-hours-breakdown`, Input `our: OurHours | null`. Kein Output.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `frontend/src/app/stunden/hours-breakdown/hours-breakdown.component.spec.ts`:
 
@@ -2147,12 +2147,12 @@ describe('HoursBreakdownComponent', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd frontend && npm test -- --watch=false --browsers=ChromeHeadless --include=**/hours-breakdown.component.spec.ts`
 Expected: FAIL — Komponente existiert nicht.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 `hours-breakdown.component.ts`:
 
@@ -2414,12 +2414,12 @@ table {
 .empty-hint { opacity: 0.7; }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd frontend && npm test -- --watch=false --browsers=ChromeHeadless --include=**/hours-breakdown.component.spec.ts`
 Expected: PASS (7 Tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/app/stunden/hours-breakdown
@@ -2445,7 +2445,7 @@ git commit -m "feat(fe): Zusammensetzung der zu leistenden Stunden als Komponent
   - `HoursEntriesComponent`: Selector `app-hours-entries`, Inputs `entries: OurHoursEntry[]`, `ownPersonId: string | null`; Outputs `edit = new EventEmitter<OurHoursEntry>()`, `remove = new EventEmitter<OurHoursEntry>()`, `create = new EventEmitter<void>()`. Interner Monatsfilter.
   - `HoursEntryDialogComponent`: `MAT_DIALOG_DATA` vom Typ `HoursEntryDialogData { entry: HourEntry | null; options: RoleOption[] }`, schließt mit `SaveHourEntryRequest | undefined`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `frontend/src/app/stunden/hours-entries/hours-entries.component.spec.ts`:
 
@@ -2593,12 +2593,12 @@ describe('HoursEntryDialogComponent', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd frontend && npm test -- --watch=false --browsers=ChromeHeadless --include=**/hours-entries.component.spec.ts --include=**/hours-entry-dialog.component.spec.ts`
 Expected: FAIL — beide Komponenten existieren nicht.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 `hours-entries.component.ts`:
 
@@ -2887,12 +2887,12 @@ export class HoursEntryDialogComponent {
 </form>
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd frontend && npm test -- --watch=false --browsers=ChromeHeadless --include=**/hours-entries.component.spec.ts --include=**/hours-entry-dialog.component.spec.ts`
 Expected: PASS (10 Tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/app/stunden/hours-entries frontend/src/app/stunden/hours-entry-dialog
@@ -2913,7 +2913,7 @@ git commit -m "feat(fe): Eintragstabelle und Bearbeitungsdialog fuer Unsere Stun
 - Consumes: `HoursBreakdownComponent` (Task 10), `HoursEntriesComponent`, `HoursEntryDialogComponent`, `HoursEntryDialogData` (Task 11), `HourEntryService`, `HoursSummaryService`, `NotificationService`, `CurrentUserService`.
 - Produces: keine öffentlichen Signaturen außer der Komponente selbst.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `stunden.component.spec.ts` ersetzen (bestehendes TestBed-Setup mit `HttpClientTestingModule` bzw. den vorhandenen Service-Stubs übernehmen):
 
@@ -3019,12 +3019,12 @@ describe('StundenComponent', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd frontend && npm test -- --watch=false --browsers=ChromeHeadless --include=**/stunden.component.spec.ts`
 Expected: FAIL — `newEntry` öffnet keinen Dialog, `deleteEntry` existiert nicht, Kindkomponenten fehlen im Template.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 `stunden.component.ts`:
 
@@ -3170,17 +3170,17 @@ export class StundenComponent implements OnInit, OnDestroy {
 h2 { margin-top: 0; }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd frontend && npm test -- --watch=false --browsers=ChromeHeadless --include=**/stunden.component.spec.ts`
 Expected: PASS
 
-- [ ] **Step 5: Volle Frontend-Suite prüfen**
+- [x] **Step 5: Volle Frontend-Suite prüfen**
 
 Run: `cd frontend && npm test -- --watch=false --browsers=ChromeHeadless`
 Expected: Nur der eine schon vorher rote Test bleibt rot; alles andere grün.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/src/app/stunden
@@ -3206,7 +3206,7 @@ git commit -m "refactor(fe): Unsere Stunden in Uebersicht, Tabelle und Dialog ze
   - `groupCombinationMinutes(rates: number[], tiers: RequiredHoursTier[], order: RequiredHoursOrder): number` — Vorschau für gruppenabhängige Sätze
   - Komponentenfelder `rhAllGroups: boolean`, `rhOrder: RequiredHoursOrder`, `rhGroupRates: { groupInstanceId: string; label: string; color: string | null; hhmm: string }[]`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `required-hours-preview.util.spec.ts` ergänzen:
 
@@ -3290,12 +3290,12 @@ git commit -m "refactor(fe): Unsere Stunden in Uebersicht, Tabelle und Dialog ze
   });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd frontend && npm test -- --watch=false --browsers=ChromeHeadless --include=**/required-hours-preview.util.spec.ts --include=**/organisation.component.spec.ts`
 Expected: FAIL — `groupCombinationMinutes`, `onRhAllGroupsChange`, `rhGroupRates` fehlen.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 `required-hours-preview.util.ts`:
 
@@ -3556,12 +3556,12 @@ Dazu in `organisation.component.scss`:
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd frontend && npm test -- --watch=false --browsers=ChromeHeadless --include=**/required-hours-preview.util.spec.ts --include=**/organisation.component.spec.ts`
 Expected: PASS
 
-- [ ] **Step 5: Volle Frontend-Suite und Produktionsbau prüfen**
+- [x] **Step 5: Volle Frontend-Suite und Produktionsbau prüfen**
 
 Run: `cd frontend && npm test -- --watch=false --browsers=ChromeHeadless`
 Expected: Nur der eine schon vorher rote Test bleibt rot.
@@ -3569,7 +3569,7 @@ Expected: Nur der eine schon vorher rote Test bleibt rot.
 Run: `cd frontend && npm run build`
 Expected: Erfolgreich.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/src/app/settings/organisation
@@ -3590,7 +3590,7 @@ git commit -m "feat(fe): Gruppensaetze und Prozent-Staffeln im Organisations-Tab
 - Consumes: `FamilyHoursSummary` (unverändertes Modell).
 - Produces: keine neuen Signaturen.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
   it('nennt den Monatswert nur, wenn es einen vollen Monat gibt', () => {
@@ -3609,12 +3609,12 @@ git commit -m "feat(fe): Gruppensaetze und Prozent-Staffeln im Organisations-Tab
 
 Der Methodenname folgt der bestehenden Methode in Zeile ~96; heißt sie anders, den vorhandenen Namen im Test verwenden.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd frontend && npm test -- --watch=false --browsers=ChromeHeadless --include=**/stundenuebersicht.component.spec.ts`
 Expected: FAIL — der Text enthält `00:00/Monat`.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```ts
     // familyMonthlyMinutes ist 0, wenn kein Monat alle Kinder voll enthält
@@ -3627,12 +3627,12 @@ Expected: FAIL — der Text enthält `00:00/Monat`.
 
 Den umgebenden Text der bestehenden Methode beibehalten und nur den Monatsteil bedingt machen.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd frontend && npm test -- --watch=false --browsers=ChromeHeadless --include=**/stundenuebersicht.component.spec.ts`
 Expected: PASS
 
-- [ ] **Step 5: Gesamtlauf beider Suiten**
+- [x] **Step 5: Gesamtlauf beider Suiten**
 
 Run: `cd backend && ./mvnw test`
 Expected: Nur die 13 vorher schon roten Tests bleiben rot.
@@ -3640,7 +3640,7 @@ Expected: Nur die 13 vorher schon roten Tests bleiben rot.
 Run: `cd frontend && npm test -- --watch=false --browsers=ChromeHeadless`
 Expected: Nur der eine vorher schon rote Test bleibt rot.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/src/app/administration/stundenuebersicht
