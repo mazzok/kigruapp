@@ -21,6 +21,12 @@ describe('ParentDirectoryService', () => {
   it('lädt das Verzeichnis von /parent-directory', () => {
     const payload: ParentDirectory = {
       semesterId: 's1',
+      columns: [
+        { key: 'childName', label: 'Vorname', scope: 'CHILD' },
+        { key: 'firstName', label: 'Vorname', scope: 'PARENT' },
+        { key: 'email', label: 'E-Mail', scope: 'PARENT' },
+        { key: 'address', label: 'Adresse', scope: 'FAMILY' },
+      ],
       groups: [
         {
           groupInstanceId: 'g1',
@@ -29,8 +35,8 @@ describe('ParentDirectoryService', () => {
             {
               familyId: 'f1',
               isOwnFamily: true,
-              children: ['Lena'],
-              parents: [{ firstName: 'Anna', lastName: 'Muster', email: 'anna@x.at', phone: null }],
+              children: [{ name: 'Lena', entryDate: null, exitDate: null }],
+              parents: [{ values: { firstName: 'Anna', email: 'anna@x.at' } }],
               address: 'Hauptstraße 1, 1010 Wien',
             },
           ],

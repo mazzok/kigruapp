@@ -1,14 +1,25 @@
+export type ParentDirectoryScope = 'CHILD' | 'PARENT' | 'FAMILY';
+
+export interface ParentDirectoryColumn {
+  key: string;
+  label: string;
+  scope: ParentDirectoryScope;
+}
+
 export interface ParentDirectoryParent {
-  firstName: string | null;
-  lastName: string | null;
-  email: string | null;
-  phone: string | null;
+  values: Record<string, string>;
+}
+
+export interface ParentDirectoryChild {
+  name: string | null;
+  entryDate: string | null;
+  exitDate: string | null;
 }
 
 export interface ParentDirectoryFamily {
   familyId: string;
   isOwnFamily: boolean;
-  children: (string | null)[];
+  children: ParentDirectoryChild[];
   parents: ParentDirectoryParent[];
   address: string | null;
 }
@@ -21,5 +32,6 @@ export interface ParentDirectoryGroup {
 
 export interface ParentDirectory {
   semesterId: string | null;
+  columns: ParentDirectoryColumn[];
   groups: ParentDirectoryGroup[];
 }
