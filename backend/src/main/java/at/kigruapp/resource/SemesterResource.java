@@ -58,7 +58,11 @@ public class SemesterResource {
         at.kigruapp.entity.RequiredHours rh = at.kigruapp.entity.RequiredHours.findBySemesterId(from);
         if (rh != null) {
             at.kigruapp.entity.RequiredHours c = new at.kigruapp.entity.RequiredHours();
-            c.semesterId = to; c.defaultMinutesPerMonth = rh.defaultMinutesPerMonth;
+            c.semesterId = to;
+            c.defaultMinutesPerMonth = rh.defaultMinutesPerMonth;
+            c.allGroups = rh.allGroups;
+            c.order = rh.order;
+            c.groupRates = new java.util.ArrayList<>(rh.groupRates == null ? java.util.List.of() : rh.groupRates);
             c.tiers = new java.util.ArrayList<>(rh.tiers == null ? java.util.List.of() : rh.tiers);
             c.persist();
         }

@@ -135,4 +135,43 @@ public class SemesterResourceTest {
                 .when().post("/api/v1/semesters").then().statusCode(201).extract().path("id");
         assertNull(RequiredHours.findBySemesterId(new ObjectId(newId)));
     }
+
+    private ObjectId seedSemester(String start, String end) {
+        Semester s = new Semester();
+        s.start = Instant.parse(start + "T00:00:00Z");
+        s.end = Instant.parse(end + "T00:00:00Z");
+        s.createdAt = Instant.now();
+        s.persist();
+        return s.id;
+    }
+
+    @Test
+    void copiesGroupRatesAndOrderToNewSemester() {
+        org.bson.types.ObjectId previous = seedSemester("2026-09-01", "2027-04-30");
+        org.bson.types.ObjectId groupId = new org.bson.types.ObjectId();
+
+        at.kigruapp.entity.RequiredHours cfg = new at.kigruapp.entity.RequiredHours();
+        cfg.semesterId = previous;
+        cfg.defaultMinutesPerMonth = 480;
+        cfg.allGroups = false;
+        cfg.order = at.kigruapp.entity.RequiredHours.LEAST_EXPENSIVE_FIRST;
+        at.kigruapp.entity.RequiredHours.GroupRate rate = new at.kigruapp.entity.RequiredHours.GroupRate();
+        rate.groupInstanceId = groupId;
+        rate.minutesPerMonth = 300;
+        cfg.groupRates = new java.util.ArrayList<>(java.util.List.of(rate));
+        cfg.persist();
+
+        String created = given().contentType("application/json")
+                .body("{\"start\":\"2027-09-01T00:00:00Z\",\"end\":\"2028-04-30T00:00:00Z\"}")
+                .when().post("/api/v1/semesters")
+                .then().statusCode(201).extract().jsonPath().getString("id");
+
+        at.kigruapp.entity.RequiredHours copied = at.kigruapp.entity.RequiredHours
+                .findBySemesterId(new org.bson.types.ObjectId(created));
+        org.junit.jupiter.api.Assertions.assertFalse(copied.allGroups);
+        org.junit.jupiter.api.Assertions.assertEquals("LEAST_EXPENSIVE_FIRST", copied.order);
+        org.junit.jupiter.api.Assertions.assertEquals(1, copied.groupRates.size());
+        org.junit.jupiter.api.Assertions.assertEquals(300, copied.groupRates.get(0).minutesPerMonth);
+        org.junit.jupiter.api.Assertions.assertEquals(groupId, copied.groupRates.get(0).groupInstanceId);
+    }
 }
