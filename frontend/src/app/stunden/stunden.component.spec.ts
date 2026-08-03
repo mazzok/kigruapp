@@ -1,164 +1,99 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
-import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { MatDialog } from '@angular/material/dialog';
+import { of, BehaviorSubject } from 'rxjs';
 import { StundenComponent } from './stunden.component';
 import { HourEntryService } from '../shared/services/hour-entry.service';
+import { HoursSummaryService } from '../shared/services/hours-summary.service';
 import { NotificationService } from '../shared/services/notification.service';
 import { CurrentUserService } from '../core/services/current-user.service';
-import { HoursSummaryService } from '../shared/services/hours-summary.service';
-import { HourEntry, OurHours, RoleOption } from '../shared/models/hour-entry.model';
+import { OurHours } from '../shared/models/hour-entry.model';
 
 describe('StundenComponent', () => {
   let fixture: ComponentFixture<StundenComponent>;
-  let component: StundenComponent;
-  let service: jasmine.SpyObj<HourEntryService>;
+  const summary = new BehaviorSubject<OurHours | null>(null);
 
-  const entry: HourEntry = {
-    id: 'e1', personId: 'p1', semesterId: 's1',
-    roleFieldInstanceId: null, roleLabel: 'Kochen',
-    date: '2026-10-05', minutes: 90, comment: 'Suppe',
+  const our: OurHours = {
+    familyId: 'f1', familyMonthlyMinutes: 480, monthsInSemester: 1,
+    sollMinutes: 480, istMinutes: 180, allGroups: true,
+    children: [{
+      childId: 'c1', name: 'Lena', groupLabel: 'Käfergruppe', groupColor: '#43a047',
+      baseMinutesPerMonth: 480, entryDate: null, exitDate: null, sollMinutes: 480,
+    }],
+    months: [{ month: '2026-10', sollMinutes: 480, istMinutes: 180, children: [
+      { childId: 'c1', minutes: 480, fractionPercent: 100, discountPercent: 0 },
+    ] }],
+    entries: [{
+      id: '1', personId: 'p1', personName: 'Martin', roleLabel: 'Garten',
+      date: '2026-10-12', minutes: 180, comment: '',
+    }],
   };
-  const options: RoleOption[] = [
-    { fieldInstanceId: 'r1', definitionId: 'd1', label: 'Gartenteam' },
-    { fieldInstanceId: null, definitionId: null, label: 'Kochen' },
-  ];
-  const ourHours: OurHours = {
-    familyId: 'f1', familyMonthlyMinutes: 480, monthsInSemester: 6, sollMinutes: 2880, istMinutes: 120,
-    allGroups: true,
-    children: [],
-    months: [
-      { month: '2026-09', sollMinutes: 480, istMinutes: 0, children: [] },
-      { month: '2026-10', sollMinutes: 480, istMinutes: 120, children: [] },
-    ],
-    entries: [{ id: 'e1', personId: 'p1', personName: 'Anna', roleLabel: 'Kochen', date: '2026-10-05', minutes: 120, comment: '' }],
+
+  const hourService = jasmine.createSpyObj('HourEntryService',
+    ['listMine', 'roleOptions', 'create', 'update', 'delete']);
+  const hoursSummary = {
+    summary$: summary.asObservable(),
+    current: null as OurHours | null,
+    reload: jasmine.createSpy('reload'),
   };
+  const dialog = jasmine.createSpyObj('MatDialog', ['open']);
 
   beforeEach(async () => {
-    service = jasmine.createSpyObj<HourEntryService>('HourEntryService',
-      ['listMine', 'roleOptions', 'create', 'update', 'delete', 'our']);
-    service.listMine.and.returnValue(of([entry]));
-    service.roleOptions.and.returnValue(of(options));
-    service.create.and.returnValue(of(entry));
-    service.update.and.returnValue(of(entry));
-    service.delete.and.returnValue(of(void 0));
-    service.our.and.returnValue(of(ourHours));
-
-    const notify = jasmine.createSpyObj<NotificationService>('NotificationService',
-      ['success', 'error', 'extractError']);
-
-    const currentUser = { currentPerson: { id: 'p1', familyId: 'f1' } } as unknown as CurrentUserService;
+    hourService.listMine.and.returnValue(of([]));
+    hourService.roleOptions.and.returnValue(of([]));
+    hourService.create.and.returnValue(of({}));
+    hourService.delete.and.returnValue(of({}));
+    hoursSummary.reload.calls.reset();
 
     await TestBed.configureTestingModule({
-      imports: [StundenComponent],
+      imports: [StundenComponent, NoopAnimationsModule],
       providers: [
-        provideNoopAnimations(),
-        { provide: HourEntryService, useValue: service },
-        { provide: NotificationService, useValue: notify },
-        { provide: CurrentUserService, useValue: currentUser },
+        { provide: HourEntryService, useValue: hourService },
+        { provide: HoursSummaryService, useValue: hoursSummary },
+        { provide: MatDialog, useValue: dialog },
+        { provide: NotificationService, useValue: jasmine.createSpyObj('NotificationService', ['success', 'error', 'extractError']) },
+        { provide: CurrentUserService, useValue: { currentPerson: { id: 'p1' } } },
       ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(StundenComponent);
-    component = fixture.componentInstance;
+    fixture.detectChanges();
+    summary.next(our);
     fixture.detectChanges();
   });
 
-  it('loads family hours and groups entries by month', () => {
-    expect(service.our).toHaveBeenCalled();
-    expect(component.our?.months.length).toBe(2);
-    expect(component.entriesForMonth('2026-10').length).toBe(1);
-    expect(component.entriesForMonth('2026-09').length).toBe(0);
+  it('zeigt Zusammensetzung und Eintragstabelle', () => {
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('app-hours-breakdown')).not.toBeNull();
+    expect(el.querySelector('app-hours-entries')).not.toBeNull();
+    expect(el.textContent).toContain('Unsere Stunden');
   });
 
-  it('marks a month negative when ist < soll', () => {
-    expect(component.monthIsNegative(component.our!.months[0])).toBeTrue(); // 0 < 480
+  it('öffnet den Dialog beim Anlegen und lädt nach dem Speichern neu', () => {
+    dialog.open.and.returnValue({ afterClosed: () => of({
+      roleFieldInstanceId: null, date: '2026-10-12', minutes: 90, comment: '',
+    }) });
+
+    fixture.componentInstance.newEntry();
+
+    expect(dialog.open).toHaveBeenCalled();
+    expect(hourService.create).toHaveBeenCalled();
+    expect(hoursSummary.reload).toHaveBeenCalled();
   });
 
-  it('marks the own entry as own and others as not own', () => {
-    expect(component.isOwn(ourHours.entries[0])).toBeTrue();
-    expect(component.isOwn({ ...ourHours.entries[0], personId: 'other' })).toBeFalse();
+  it('speichert nicht, wenn der Dialog abgebrochen wird', () => {
+    dialog.open.and.returnValue({ afterClosed: () => of(undefined) });
+    hourService.create.calls.reset();
+
+    fixture.componentInstance.newEntry();
+
+    expect(hourService.create).not.toHaveBeenCalled();
   });
 
-  it('loads the own entries on init', () => {
-    expect(service.listMine).toHaveBeenCalled();
-    expect(component.entries.length).toBe(1);
-  });
+  it('löscht einen eigenen Eintrag und lädt neu', () => {
+    fixture.componentInstance.deleteEntry(our.entries[0]);
 
-  it('renders list shorthand as DD.MM.YYYY – Rolle', () => {
-    expect(component.shorthand(entry)).toBe('05.10.2026 – Kochen');
-  });
-
-  it('opens an empty editor on newEntry()', () => {
-    component.newEntry();
-    expect(component.editing).toBeTrue();
-    expect(component.selectedId).toBeNull();
-  });
-
-  it('saves a new entry via create() with parsed minutes and iso date', () => {
-    component.newEntry();
-    component.form.setValue({ roleKey: '__kochen__', date: new Date(2026, 9, 6), time: '01:00', comment: 'x' });
-    component.save();
-    expect(service.create).toHaveBeenCalledWith({
-      roleFieldInstanceId: null, date: '2026-10-06', minutes: 60, comment: 'x',
-    });
-  });
-
-  it('does not save when the time is invalid', () => {
-    component.newEntry();
-    component.form.setValue({ roleKey: '__kochen__', date: new Date(2026, 9, 6), time: '99:99', comment: '' });
-    component.save();
-    expect(service.create).not.toHaveBeenCalled();
-  });
-
-  it('takes the family hours from the shared summary service', () => {
-    expect(component.our).toEqual(ourHours);
-  });
-
-  it('does not fetch again when the summary already has a value', () => {
-    // beforeEach already triggered one load via the initial fixture.
-    expect(service.our).toHaveBeenCalledTimes(1);
-
-    const fixture2 = TestBed.createComponent(StundenComponent);
-    fixture2.detectChanges();
-
-    expect(service.our).toHaveBeenCalledTimes(1);
-  });
-
-  it('fetches when the shared summary is still empty', () => {
-    const summary = TestBed.inject(HoursSummaryService);
-    summary.clear();
-    service.our.calls.reset();
-
-    const fixture2 = TestBed.createComponent(StundenComponent);
-    fixture2.detectChanges();
-
-    expect(service.our).toHaveBeenCalledTimes(1);
-  });
-
-  it('reloads the shared summary after saving an entry', () => {
-    const summary = TestBed.inject(HoursSummaryService);
-    const reload = spyOn(summary, 'reload').and.callThrough();
-
-    component.newEntry();
-    component.form.setValue({
-      roleKey: '__kochen__',
-      date: new Date(2026, 8, 15),
-      time: '01:30',
-      comment: '',
-    });
-    service.create.and.returnValue(of(entry));
-    component.save();
-
-    expect(reload).toHaveBeenCalled();
-  });
-
-  it('reloads the shared summary after deleting an entry', () => {
-    const summary = TestBed.inject(HoursSummaryService);
-    const reload = spyOn(summary, 'reload').and.callThrough();
-    service.delete.and.returnValue(of(undefined));
-
-    component.delete(entry);
-
-    expect(reload).toHaveBeenCalled();
+    expect(hourService.delete).toHaveBeenCalledWith('1');
+    expect(hoursSummary.reload).toHaveBeenCalled();
   });
 });
