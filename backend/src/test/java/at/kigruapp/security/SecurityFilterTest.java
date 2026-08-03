@@ -391,4 +391,44 @@ class SecurityFilterTest {
 
         assertForbidden();
     }
+
+    // Eltern-Attribute: nicht whitelisted -> admin-only, im Unterschied zu /parent-directory selbst.
+    @Test
+    void getParentDirectoryAttributes_nonAdmin_forbidden() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/parent-directory/attributes", "GET");
+        Person person = new Person();
+        when(currentUserService.getCurrentPerson()).thenReturn(person);
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        filter.filter(ctx);
+
+        assertForbidden();
+    }
+
+    @Test
+    void getParentDirectoryAttributes_admin_allowed() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/parent-directory/attributes", "GET");
+        Person person = new Person();
+        when(currentUserService.getCurrentPerson()).thenReturn(person);
+        when(currentUserService.isAdmin()).thenReturn(true);
+
+        filter.filter(ctx);
+
+        assertPassThrough();
+    }
+
+    @Test
+    void putParentDirectoryAttributes_nonAdmin_forbidden() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/parent-directory/attributes", "PUT");
+        Person person = new Person();
+        when(currentUserService.getCurrentPerson()).thenReturn(person);
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        filter.filter(ctx);
+
+        assertForbidden();
+    }
 }
