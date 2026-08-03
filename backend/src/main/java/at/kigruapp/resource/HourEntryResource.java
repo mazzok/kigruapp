@@ -69,12 +69,11 @@ public class HourEntryResource {
     @Inject
     HoursBalanceService hoursBalanceService;
 
+    @Inject
+    at.kigruapp.service.FieldInstanceLabelResolver labelResolver;
+
     private MongoCollection<Document> semesterAssignments() {
         return mongoClient.getDatabase(databaseName).getCollection("semester_assignments");
-    }
-
-    private MongoCollection<Document> fieldInstances() {
-        return mongoClient.getDatabase(databaseName).getCollection("field_instances");
     }
 
     /** Ein-Placement pro platziertem Kind der Familie (Gruppe) mit Ein-/Austrittsdatum. */
@@ -475,13 +474,8 @@ public class HourEntryResource {
             }
         }
 
-        // 2. Eine Batch-Query für alle field_instances -> Map id -> label.
-        Map<ObjectId, String> labelById = new HashMap<>();
-        if (!instanceIds.isEmpty()) {
-            for (Document inst : fieldInstances().find(Filters.in("_id", instanceIds))) {
-                labelById.put(inst.getObjectId("_id"), labelFromValue(inst.get("value")));
-            }
-        }
+        // 2. Eine Batch-Query fuer alle field_instances -> Map id -> label.
+        Map<ObjectId, String> labelById = labelResolver.resolveLabels(instanceIds);
 
         // 3. DTOs aus der Map bauen, "Kochen" zuletzt.
         List<RoleOptionDto> options = new ArrayList<>();
@@ -491,20 +485,12 @@ public class HourEntryResource {
             RoleOptionDto opt = new RoleOptionDto();
             opt.fieldInstanceId = instId == null ? null : instId.toHexString();
             opt.definitionId = defId == null ? null : defId.toHexString();
-            opt.label = instId == null ? "" : labelById.getOrDefault(instId, "");
+            String resolved = instId == null ? null : labelById.get(instId);
+            opt.label = resolved != null ? resolved : "";
             options.add(opt);
         }
         options.add(cookingOption());
         return options;
-    }
-
-    /** Leitet ein Label aus field_instances.value ab: value.label bzw. value.toString(), sonst leer. */
-    private String labelFromValue(Object value) {
-        if (value instanceof Document valueDoc) {
-            String label = valueDoc.getString("label");
-            return label != null ? label : "";
-        }
-        return value == null ? "" : value.toString();
     }
 
     static HourEntryDto toDto(HourEntry e) {
