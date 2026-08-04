@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
@@ -289,5 +290,33 @@ class MailTemplateResourceTest {
         given()
                 .when().delete("/api/v1/mail-templates/" + overview.id)
                 .then().statusCode(409);
+    }
+
+    @Test
+    void previewBlockRendersHintWhenGroupMissing() {
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"type\":\"cookingDuty\",\"groupId\":\"000000000000000000000001\",\"periodUnit\":\"week\",\"periodAmount\":2}")
+                .when().post("/api/v1/mail-templates/blocks/preview")
+                .then().statusCode(200)
+                .body("html", containsString("Gruppe nicht mehr vorhanden."));
+    }
+
+    @Test
+    void previewBlockRejectsMissingType() {
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"groupId\":\"000000000000000000000001\"}")
+                .when().post("/api/v1/mail-templates/blocks/preview")
+                .then().statusCode(400);
+    }
+
+    @Test
+    void previewBlockReturns404WhenNoRendererSupportsType() {
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"type\":\"unknownBlockType\"}")
+                .when().post("/api/v1/mail-templates/blocks/preview")
+                .then().statusCode(404);
     }
 }

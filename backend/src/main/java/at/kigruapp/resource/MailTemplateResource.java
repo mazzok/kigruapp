@@ -4,7 +4,11 @@ import at.kigruapp.entity.FieldDefinition;
 import at.kigruapp.entity.MailJob;
 import at.kigruapp.entity.MailTemplate;
 import at.kigruapp.service.CookingDutyTokens;
+import at.kigruapp.service.MailBlockRenderer;
+import com.fasterxml.jackson.databind.JsonNode;
+import io.quarkus.arc.All;
 import io.quarkus.panache.common.Sort;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -32,6 +36,10 @@ public class MailTemplateResource {
     private static final Set<String> SCALAR_PERSON_FIELD_ALLOWLIST = Set.of(
             "firstName", "lastName", "email", "phone", "dateOfBirth", "gender", "notes"
     );
+
+    @Inject
+    @All
+    List<MailBlockRenderer> blockRenderers;
 
     /**
      * Defensive sanitize pass for template bodies (G-003): keeps common inline
@@ -63,6 +71,8 @@ public class MailTemplateResource {
     public record PlaceholderTile(String token, String fieldName, Map<String, String> label,
                                   String group, String groupLabel) {}
 
+    public record BlockPreviewResponse(String html) {}
+
     @GET
     @Path("/placeholders")
     public List<PlaceholderTile> placeholders(@QueryParam("kind") String kind) {
@@ -84,6 +94,21 @@ public class MailTemplateResource {
                 .sorted(Comparator.comparing(t -> labelSortKey(t.label())))
                 .toList());
         return tiles;
+    }
+
+    @POST
+    @Path("/blocks/preview")
+    public BlockPreviewResponse previewBlock(JsonNode config) {
+        String blockType = config != null ? config.path("type").asText(null) : null;
+        if (blockType == null || blockType.isBlank()) {
+            throw new BadRequestException("type is required");
+        }
+        for (MailBlockRenderer renderer : blockRenderers) {
+            if (renderer.supports(blockType)) {
+                return new BlockPreviewResponse(renderer.render(config));
+            }
+        }
+        throw new NotFoundException("no renderer for block type: " + blockType);
     }
 
     private String labelSortKey(Map<String, String> label) {
