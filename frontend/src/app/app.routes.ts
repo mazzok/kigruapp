@@ -26,6 +26,7 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./eltern/eltern.component').then(m => m.ElternComponent),
   },
+  {
     path: 'schliesstage',
     canActivate: [authGuard],
     loadComponent: () =>
