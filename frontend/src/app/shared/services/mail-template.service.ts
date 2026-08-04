@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
+import { MailBlockConfig } from '../models/mail-block.model';
 import { MailTemplate, MailTemplateKind, PlaceholderTile, SaveMailTemplateRequest } from '../models/mail-template.model';
 
 @Injectable({ providedIn: 'root' })
@@ -31,5 +32,9 @@ export class MailTemplateService {
   placeholders(kind?: MailTemplateKind): Observable<PlaceholderTile[]> {
     const query = kind ? `?kind=${kind}` : '';
     return this.api.get<PlaceholderTile[]>(`/mail-templates/placeholders${query}`);
+  }
+
+  previewBlock(config: MailBlockConfig): Observable<{ html: string }> {
+    return this.api.post<{ html: string }>('/mail-templates/blocks/preview', config);
   }
 }
