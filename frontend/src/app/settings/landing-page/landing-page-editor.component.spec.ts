@@ -2,7 +2,7 @@ import { SecurityContext } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { DomSanitizer } from '@angular/platform-browser';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { LandingPageEditorComponent } from './landing-page-editor.component';
 import { LandingPageService } from '../../shared/services/landing-page.service';
 import { NotificationService } from '../../shared/services/notification.service';
@@ -14,7 +14,7 @@ describe('LandingPageEditorComponent', () => {
   let notify: jasmine.SpyObj<NotificationService>;
 
   beforeEach(() => {
-    service = jasmine.createSpyObj('LandingPageService', ['get', 'save', 'placeholders', 'context']);
+    service = jasmine.createSpyObj('LandingPageService', ['get', 'save', 'placeholders', 'context', 'uploadImage']);
     notify = jasmine.createSpyObj('NotificationService', ['success', 'error', 'extractError']);
     service.get.and.returnValue(of({ bodyHtml: '<p>Hallo {{person.firstName}}</p>', updatedAt: null }));
     service.placeholders.and.returnValue(of([
@@ -149,6 +149,60 @@ describe('LandingPageEditorComponent', () => {
     component.onEditorDrop(event);
 
     expect(insertEmbed).not.toHaveBeenCalled();
+  });
+
+  /** Simuliert die Dateiauswahl im vom Handler erzeugten <input type="file">. */
+  function triggerImageHandler(file: File | undefined): HTMLInputElement {
+    let capturedInput!: HTMLInputElement;
+    spyOn(HTMLInputElement.prototype, 'click').and.callFake(function (this: HTMLInputElement) {
+      capturedInput = this;
+    });
+    (component.quillModules.toolbar as any).handlers.image();
+    Object.defineProperty(capturedInput, 'files', { value: file ? [file] : [] });
+    capturedInput.dispatchEvent(new Event('change'));
+    return capturedInput;
+  }
+
+  it('lädt ein ausgewähltes Bild hoch und fügt die zurückgegebene URL an der Cursorposition ein', () => {
+    const insertEmbed = jasmine.createSpy('insertEmbed');
+    const setSelection = jasmine.createSpy('setSelection');
+    component.quillInstance = {
+      insertEmbed,
+      setSelection,
+      getSelection: () => ({ index: 2, length: 0 }),
+      getLength: () => 5,
+      root: { innerHTML: '<p>x</p><img src="/api/v1/landing-page/images/1">' },
+    };
+    const file = new File(['x'], 'bild.png', { type: 'image/png' });
+    service.uploadImage.and.returnValue(of({ id: '1', url: '/api/v1/landing-page/images/1' }));
+
+    triggerImageHandler(file);
+
+    expect(service.uploadImage).toHaveBeenCalledWith(file);
+    expect(insertEmbed).toHaveBeenCalledWith(2, 'image', '/api/v1/landing-page/images/1');
+    expect(setSelection).toHaveBeenCalledWith(3, 0);
+    expect(component.form.value.bodyHtml).toContain('/api/v1/landing-page/images/1');
+  });
+
+  it('lehnt zu große Bilder ab, ohne sie hochzuladen', () => {
+    const bigFile = new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'gross.png', {
+      type: 'image/png',
+    });
+
+    triggerImageHandler(bigFile);
+
+    expect(service.uploadImage).not.toHaveBeenCalled();
+    expect(notify.error).toHaveBeenCalledWith('Bild ist zu groß (max. 5 MB).');
+  });
+
+  it('meldet einen Fehler, wenn der Bild-Upload fehlschlägt', () => {
+    const file = new File(['x'], 'bild.png', { type: 'image/png' });
+    service.uploadImage.and.returnValue(throwError(() => new Error('boom')));
+    notify.extractError.and.returnValue('Fehlermeldung');
+
+    triggerImageHandler(file);
+
+    expect(notify.error).toHaveBeenCalledWith('Fehlermeldung');
   });
 
   it('lädt die Kontextwerte des angemeldeten Nutzers', () => {

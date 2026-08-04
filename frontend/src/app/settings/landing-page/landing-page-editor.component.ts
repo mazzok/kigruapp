@@ -20,6 +20,9 @@ import {
 import { WEB_QUILL_TOOLBAR, configureQuillForWebOutput } from './quill-web.config';
 
 const DRAG_MIME = 'application/x-landing-token';
+const ACCEPTED_IMAGE_TYPES = 'image/png,image/jpeg,image/gif,image/webp';
+/** Deckt sich mit dem serverseitigen Limit in LandingPageImageResource. */
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 /** Deutsche Überschriften der Token-Familien. */
 const GROUP_LABELS: Record<string, string> = {
@@ -46,7 +49,19 @@ interface PlaceholderGroup {
   styleUrl: './landing-page-editor.component.scss',
 })
 export class LandingPageEditorComponent implements OnInit {
-  readonly quillModules = { toolbar: WEB_QUILL_TOOLBAR };
+  /**
+   * Ohne eigenen Handler würde Quills Bild-Button die Datei als Base64-data-URI
+   * einbetten — der Sanitizer im Backend wirft data-URIs beim Speichern aber weg
+   * (siehe LandingPageResource), wodurch das Bild in der Vorschau sichtbar bliebe,
+   * auf der gespeicherten Startseite aber fehlen würde. Der Handler lädt die Datei
+   * stattdessen hoch und fügt die zurückgegebene http(s)-URL ein.
+   */
+  readonly quillModules = {
+    toolbar: {
+      container: WEB_QUILL_TOOLBAR,
+      handlers: { image: () => this.handleImageUpload() },
+    },
+  };
 
   placeholders: LandingPlaceholder[] = [];
   groupedPlaceholders: PlaceholderGroup[] = [];
@@ -106,6 +121,39 @@ export class LandingPageEditorComponent implements OnInit {
 
   onEditorCreated(editor: any): void {
     this.quillInstance = editor;
+  }
+
+  /** Öffnet die Dateiauswahl und lädt das gewählte Bild hoch, statt es als data-URI einzubetten. */
+  private handleImageUpload(): void {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = ACCEPTED_IMAGE_TYPES;
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) {
+        return;
+      }
+      if (file.size > MAX_IMAGE_BYTES) {
+        this.notify.error('Bild ist zu groß (max. 5 MB).');
+        return;
+      }
+      this.landingPageService.uploadImage(file).subscribe({
+        next: (upload) => this.insertImageAtCursor(upload.url),
+        error: (err) => this.notify.error(this.notify.extractError(err)),
+      });
+    };
+    input.click();
+  }
+
+  private insertImageAtCursor(url: string): void {
+    if (!this.quillInstance) {
+      return;
+    }
+    const selection = this.quillInstance.getSelection?.(true);
+    const index = selection ? selection.index : this.quillInstance.getLength();
+    this.quillInstance.insertEmbed(index, 'image', url);
+    this.quillInstance.setSelection(index + 1, 0);
+    this.form.patchValue({ bodyHtml: this.quillInstance.root?.innerHTML ?? '' });
   }
 
   private groupTiles(tiles: LandingPlaceholder[]): PlaceholderGroup[] {

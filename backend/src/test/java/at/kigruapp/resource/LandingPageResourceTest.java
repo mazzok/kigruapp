@@ -87,6 +87,13 @@ class LandingPageResourceTest {
     }
 
     @Test
+    void sanitizerKeepsRelativeImageUrlFromUploadEndpoint() {
+        String saved = put("<img src=\"/api/v1/landing-page/images/507f1f77bcf86cd799439011\">");
+
+        assertTrue(saved.contains("/api/v1/landing-page/images/507f1f77bcf86cd799439011"), saved);
+    }
+
+    @Test
     void sanitizerKeepsPlaceholderTokensIntact() {
         String saved = put("<p>Hallo {{person.firstName}}, Bilanz {{stunden.bilanz}}</p>");
 

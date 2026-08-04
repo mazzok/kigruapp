@@ -13,3 +13,9 @@ export interface LandingPlaceholder {
 
 /** Token → Wert für den angemeldeten Nutzer. */
 export type LandingContext = Record<string, string>;
+
+/** Antwort des Bild-Upload-Endpoints. */
+export interface LandingPageImageUpload {
+  id: string;
+  url: string;
+}

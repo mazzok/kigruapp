@@ -109,6 +109,8 @@ public class SecurityFilter implements ContainerRequestFilter {
         // /placeholders bleibt bewusst admin-only — es ist reines Editor-Zubehör.
         if (path.equals("/api/v1/landing-page") && "GET".equals(method)) return true;
         if (path.equals("/api/v1/landing-page/context") && "GET".equals(method)) return true;
+        // Eingebettete Bilder: lesend für alle Angemeldeten, der Upload bleibt admin-only.
+        if (path.matches("/api/v1/landing-page/images/[^/]+") && "GET".equals(method)) return true;
 
         // Default: admin-only (safe default — deny non-admins for anything not explicitly whitelisted above)
         return false;
