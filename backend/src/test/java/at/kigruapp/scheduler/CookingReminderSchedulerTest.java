@@ -1,6 +1,9 @@
 package at.kigruapp.scheduler;
 
-import at.kigruapp.entity.CookingReminderSettings;
+import at.kigruapp.entity.MailAccount;
+import at.kigruapp.entity.MailEncryption;
+import at.kigruapp.entity.MailJob;
+import at.kigruapp.entity.MailTemplate;
 import io.quarkus.scheduler.Scheduler;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
@@ -11,6 +14,7 @@ import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 @QuarkusTest
 class CookingReminderSchedulerTest {
@@ -23,10 +27,53 @@ class CookingReminderSchedulerTest {
 
     @BeforeEach
     void setup() {
-        CookingReminderSettings.deleteAll();
-        if (scheduler.getScheduledJob(CookingReminderScheduler.JOB_ID) != null) {
-            scheduler.unscheduleJob(CookingReminderScheduler.JOB_ID);
+        MailJob.deleteAll();
+        MailTemplate.deleteAll();
+        MailAccount.deleteAll();
+        for (MailJob job : MailJob.<MailJob>list("kind", MailJob.KIND_COOKING)) {
+            String quartzId = CookingReminderScheduler.jobId(job.id);
+            if (scheduler.getScheduledJob(quartzId) != null) {
+                scheduler.unscheduleJob(quartzId);
+            }
         }
+    }
+
+    private MailAccount persistAccount() {
+        MailAccount account = new MailAccount();
+        account.name = "Kiga";
+        account.host = "localhost";
+        account.port = 2525;
+        account.encryption = MailEncryption.NONE;
+        account.fromAddress = "kiga@example.org";
+        account.fromName = "Kindergruppe";
+        account.enabled = true;
+        account.persist();
+        return account;
+    }
+
+    private MailTemplate persistTemplate() {
+        MailTemplate template = new MailTemplate();
+        template.name = "Erinnerung";
+        template.bodyHtml = "<p>Kochdienst</p>";
+        template.kind = MailTemplate.KIND_COOKING;
+        template.createdAt = Instant.now();
+        template.persist();
+        return template;
+    }
+
+    private MailJob persistCookingJob(MailAccount account, MailTemplate template, String sendTime, boolean active) {
+        MailJob job = new MailJob();
+        job.kind = MailJob.KIND_COOKING;
+        job.name = "Kochdienst-Erinnerung";
+        job.templateId = template.id;
+        job.subject = "Dein Kochdienst";
+        job.senderAccountId = account.id.toHexString();
+        job.sendTime = sendTime;
+        job.active = active;
+        job.createdAt = Instant.now();
+        job.updatedAt = job.createdAt;
+        job.persist();
+        return job;
     }
 
     @Test
@@ -39,33 +86,42 @@ class CookingReminderSchedulerTest {
 
     @Test
     void rescheduleRegistriertJob() {
-        CookingReminderSettings settings = new CookingReminderSettings();
-        settings.sendTime = "18:30";
-        settings.updatedAt = Instant.now();
-        settings.persist();
+        MailAccount account = persistAccount();
+        MailTemplate template = persistTemplate();
+        MailJob job = persistCookingJob(account, template, "18:30", true);
 
         reminderScheduler.reschedule();
 
-        assertNotNull(scheduler.getScheduledJob(CookingReminderScheduler.JOB_ID));
+        assertNotNull(scheduler.getScheduledJob(CookingReminderScheduler.jobId(job.id)));
     }
 
     @Test
     void rescheduleIstIdempotent() {
-        CookingReminderSettings settings = new CookingReminderSettings();
-        settings.sendTime = "07:00";
-        settings.updatedAt = Instant.now();
-        settings.persist();
+        MailAccount account = persistAccount();
+        MailTemplate template = persistTemplate();
+        MailJob job = persistCookingJob(account, template, "07:00", true);
 
         reminderScheduler.reschedule();
         reminderScheduler.reschedule();
 
-        assertNotNull(scheduler.getScheduledJob(CookingReminderScheduler.JOB_ID));
+        assertNotNull(scheduler.getScheduledJob(CookingReminderScheduler.jobId(job.id)));
     }
 
     @Test
-    void rescheduleOhneEinstellungenNutztStandardzeit() {
+    void rescheduleOhneAktiveJobsRegistriertNichts() {
         reminderScheduler.reschedule();
 
-        assertNotNull(scheduler.getScheduledJob(CookingReminderScheduler.JOB_ID));
+        assertEquals(0, MailJob.count("kind", MailJob.KIND_COOKING));
+    }
+
+    @Test
+    void rescheduleUebergehtInaktiveJobs() {
+        MailAccount account = persistAccount();
+        MailTemplate template = persistTemplate();
+        MailJob job = persistCookingJob(account, template, "07:00", false);
+
+        reminderScheduler.reschedule();
+
+        assertNull(scheduler.getScheduledJob(CookingReminderScheduler.jobId(job.id)));
     }
 }

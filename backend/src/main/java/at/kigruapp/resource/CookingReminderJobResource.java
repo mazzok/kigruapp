@@ -27,6 +27,9 @@ public class CookingReminderJobResource {
 
     private static final Pattern SEND_TIME_PATTERN = Pattern.compile("^([01]\\d|2[0-3]):[0-5]\\d$");
 
+    @jakarta.inject.Inject
+    at.kigruapp.scheduler.CookingReminderScheduler cookingReminderScheduler;
+
     public record JobDto(String id, String name, String senderAccountId, String subject,
                          String sendTime, boolean active, String templateId,
                          String templateName, String templateBodyHtml) {}
@@ -69,6 +72,7 @@ public class CookingReminderJobResource {
             template.delete();
             throw e;
         }
+        cookingReminderScheduler.reschedule();
         return Response.status(201).entity(toDto(job, template)).build();
     }
 
@@ -93,6 +97,7 @@ public class CookingReminderJobResource {
         applyFields(job, request);
         job.updatedAt = Instant.now();
         job.update();
+        cookingReminderScheduler.reschedule();
         return toDto(job, template);
     }
 
@@ -105,6 +110,7 @@ public class CookingReminderJobResource {
         if (template != null) {
             template.delete();
         }
+        cookingReminderScheduler.reschedule();
         return Response.noContent().build();
     }
 

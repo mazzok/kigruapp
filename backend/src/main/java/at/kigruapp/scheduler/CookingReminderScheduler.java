@@ -1,13 +1,11 @@
 package at.kigruapp.scheduler;
 
 import at.kigruapp.entity.CookingReminder;
-import at.kigruapp.entity.CookingReminderSettings;
 import at.kigruapp.entity.CookingReminderStatus;
 import at.kigruapp.entity.FieldDefinition;
 import at.kigruapp.entity.MailAccount;
 import at.kigruapp.entity.MailJob;
 import at.kigruapp.entity.MailTemplate;
-import at.kigruapp.resource.CookingReminderSettingsResource;
 import at.kigruapp.service.MailService;
 import at.kigruapp.service.MailTemplateRenderer;
 import at.kigruapp.service.RecipientResolverService;
@@ -34,18 +32,22 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Täglicher Versand der Kochdienst-Erinnerungen. Der Lauf ist rein
  * datumsgesteuert: erinnert wird ein Kochdienst genau an dem Tag, an dem
  * {@code dutyDate − reminderDaysBefore} auf das Laufdatum fällt. Vergangene
- * Fälligkeiten werden bewusst nicht nachgeholt.
+ * Fälligkeiten werden bewusst nicht nachgeholt. Je aktivem Kochdienst-Job
+ * (MailJob mit kind=COOKING) wird ein eigener Quartz-Trigger registriert.
  */
 @ApplicationScoped
 public class CookingReminderScheduler {
 
-    public static final String JOB_ID = "cooking-reminder-daily";
+    /** Praefix der Quartz-Job-Ids; je Kochdienst-Job eine eigene Registrierung. */
+    public static final String JOB_ID_PREFIX = "cooking-reminder-";
 
     private static final String TIMEZONE = "Europe/Vienna";
 
@@ -69,8 +71,15 @@ public class CookingReminderScheduler {
     @Inject
     MailService mailService;
 
-    /** In-memory guard against overlapping runs (only one daily job, unlike MailJobScheduler). */
-    private final AtomicBoolean running = new AtomicBoolean(false);
+    /** Ueberlappungsschutz je Kochdienst-Job: ein langsamer Job darf keinen anderen ueberspringen lassen. */
+    private final Map<ObjectId, AtomicBoolean> running = new ConcurrentHashMap<>();
+
+    /** Merkt sich die eigenen Registrierungen, damit reschedule() sie wieder aufheben kann. */
+    private final Set<String> registeredJobIds = ConcurrentHashMap.newKeySet();
+
+    public static String jobId(ObjectId cookingJobId) {
+        return JOB_ID_PREFIX + cookingJobId.toHexString();
+    }
 
     /**
      * Test-only hook: marks a run as currently in progress, so the overlap
@@ -78,13 +87,13 @@ public class CookingReminderScheduler {
      * called via the CDI proxy so it correctly mutates the actual bean
      * instance's state (unlike direct field access on a proxy).
      */
-    void markRunningForTest() {
-        running.set(true);
+    void markRunningForTest(ObjectId cookingJobId) {
+        running.computeIfAbsent(cookingJobId, id -> new AtomicBoolean()).set(true);
     }
 
-    /** Test-only hook: clears the guard set by {@link #markRunningForTest()}. */
-    void clearRunningForTest() {
-        running.set(false);
+    /** Test-only hook: clears the guard set by {@link #markRunningForTest(ObjectId)}. */
+    void clearRunningForTest(ObjectId cookingJobId) {
+        running.computeIfAbsent(cookingJobId, id -> new AtomicBoolean()).set(false);
     }
 
     /** Ein fälliger Kochdienst samt der für die Mail nötigen Daten. */
@@ -104,73 +113,80 @@ public class CookingReminderScheduler {
         return "0 " + time.getMinute() + " " + time.getHour() + " * * ?";
     }
 
-    /** Registriert den täglichen Lauf neu. Idempotent — hebt eine bestehende Registrierung vorher auf. */
+    /** Registriert je aktivem Kochdienst-Job einen taeglichen Lauf. Idempotent. */
     public void reschedule() {
-        CookingReminderSettings settings = CookingReminderSettings.findSingleton();
-        String cron = toCron(settings == null ? null : settings.sendTime);
-        if (scheduler.getScheduledJob(JOB_ID) != null) {
-            scheduler.unscheduleJob(JOB_ID);
+        for (String existing : new ArrayList<>(registeredJobIds)) {
+            if (scheduler.getScheduledJob(existing) != null) {
+                scheduler.unscheduleJob(existing);
+            }
         }
-        scheduler.newJob(JOB_ID)
-                .setCron(cron)
-                .setTimeZone(TIMEZONE)
-                .setTask(ctx -> runFor(LocalDate.now(ZoneId.of(TIMEZONE))))
-                .schedule();
-        Log.infof("Kochdienst-Erinnerung: taeglicher Lauf registriert (%s, %s)", cron, TIMEZONE);
+        registeredJobIds.clear();
+
+        List<MailJob> jobs = MailJob.list("kind = ?1 and active = ?2", MailJob.KIND_COOKING, true);
+        for (MailJob job : jobs) {
+            String quartzId = jobId(job.id);
+            ObjectId cookingJobId = job.id;
+            scheduler.newJob(quartzId)
+                    .setCron(toCron(job.sendTime))
+                    .setTimeZone(TIMEZONE)
+                    .setTask(ctx -> runForJobId(LocalDate.now(ZoneId.of(TIMEZONE)), cookingJobId))
+                    .schedule();
+            registeredJobIds.add(quartzId);
+            Log.infof("Kochdienst-Erinnerung: Lauf fuer Job %s registriert (%s, %s)",
+                    job.name, toCron(job.sendTime), TIMEZONE);
+        }
     }
 
-    public void runFor(LocalDate today) {
-        if (!running.compareAndSet(false, true)) {
-            Log.warnf("Kochdienst-Erinnerung: Lauf fuer %s uebersprungen, vorheriger Lauf noch aktiv", today);
+    /** Laedt den Job frisch, damit eine zwischenzeitliche Aenderung sofort greift. */
+    void runForJobId(LocalDate today, ObjectId cookingJobId) {
+        MailJob job = MailJob.findById(cookingJobId);
+        if (job == null || !job.isCooking() || !job.active) {
+            return;
+        }
+        runFor(today, job);
+    }
+
+    public void runFor(LocalDate today, MailJob job) {
+        AtomicBoolean guard = running.computeIfAbsent(job.id, id -> new AtomicBoolean(false));
+        if (!guard.compareAndSet(false, true)) {
+            Log.warnf("Kochdienst-Erinnerung: Lauf fuer %s/%s uebersprungen, vorheriger Lauf noch aktiv",
+                    job.name, today);
             return;
         }
         try {
-            CookingReminderSettings settings = CookingReminderSettings.findSingleton();
-            if (settings == null || settings.senderAccountId == null || settings.templateId == null) {
-                return;
-            }
-
-            MailJob singletonJob = findSingletonCookingJob(settings);
-            if (singletonJob == null) {
-                return;
-            }
-
-            List<DueDuty> due = findDueDuties(today, singletonJob.id);
+            List<DueDuty> due = findDueDuties(today);
             if (due.isEmpty()) {
                 return;
             }
 
-            if (!CookingReminderSettingsResource.isActive(settings)) {
-                String reason = inactiveReason(settings);
-                Log.warnf("Kochdienst-Erinnerung: %s, %d faellige Erinnerung(en) entfallen", reason, due.size());
+            MailAccount account = findAccount(job.senderAccountId);
+            MailTemplate template = job.templateId == null ? null : MailTemplate.findById(job.templateId);
+            if (account == null || !account.enabled || template == null) {
+                String reason = account == null || !account.enabled
+                        ? "Mailkonto fehlt oder ist deaktiviert"
+                        : "Mailvorlage fehlt";
+                Log.warnf("Kochdienst-Erinnerung (%s): %s, %d faellige Erinnerung(en) entfallen",
+                        job.name, reason, due.size());
                 for (DueDuty duty : due) {
-                    writeLogSafely(duty, CookingReminderStatus.ACCOUNT_UNAVAILABLE, 0, reason);
+                    writeLogSafely(duty, job.id, CookingReminderStatus.ACCOUNT_UNAVAILABLE, 0, reason);
                 }
                 return;
             }
 
-            MailAccount account = CookingReminderSettingsResource.findAccount(settings.senderAccountId);
-            MailTemplate template = CookingReminderSettingsResource.findTemplate(settings.templateId);
-
             for (DueDuty duty : due) {
-                sendOne(duty, account, template, settings.subject);
+                sendOne(duty, job, account, template);
             }
         } finally {
-            running.set(false);
+            guard.set(false);
         }
     }
 
-    /**
-     * isActive prüft Konto und Vorlage gemeinsam; hier wird unterschieden,
-     * welche der beiden Ursachen tatsächlich zutrifft, damit der Log-Eintrag
-     * nicht pauschal auf das Konto zeigt, wenn in Wahrheit die Vorlage fehlt.
-     */
-    private String inactiveReason(CookingReminderSettings settings) {
-        MailAccount account = CookingReminderSettingsResource.findAccount(settings.senderAccountId);
-        if (account == null || !account.enabled) {
-            return "Mailkonto fehlt oder ist deaktiviert";
+    /** Ersetzt die frueher in CookingReminderSettingsResource liegende Aufloesung. */
+    private static MailAccount findAccount(String hexId) {
+        if (hexId == null || !ObjectId.isValid(hexId)) {
+            return null;
         }
-        return "Mailvorlage fehlt";
+        return MailAccount.findById(new ObjectId(hexId));
     }
 
     /**
@@ -180,12 +196,15 @@ public class CookingReminderScheduler {
      * defekter Insert (z. B. Mongo nicht erreichbar) nur diesen einen
      * Kochdienst betrifft und nicht die runFor-Schleife verlässt.
      */
-    private void sendOne(DueDuty duty, MailAccount account, MailTemplate template, String subject) {
+    private void sendOne(DueDuty duty, MailJob job, MailAccount account, MailTemplate template) {
+        if (CookingReminder.existsFor(duty.dutyId(), duty.dueDate(), job.id)) {
+            return;
+        }
         try {
             List<RecipientResolverService.ResolvedRecipient> recipients =
                     recipientResolverService.resolveFamilyRecipients(duty.familyId());
             if (recipients.isEmpty()) {
-                writeLogSafely(duty, CookingReminderStatus.NO_RECIPIENTS, 0, null);
+                writeLogSafely(duty, job.id, CookingReminderStatus.NO_RECIPIENTS, 0, null);
                 return;
             }
 
@@ -195,7 +214,7 @@ public class CookingReminderScheduler {
             for (RecipientResolverService.ResolvedRecipient recipient : recipients) {
                 try {
                     String html = renderer.render(template.bodyHtml, recipient.properties(), dutyProperties);
-                    mailService.sendHtml(account, recipient.email(), subject, html);
+                    mailService.sendHtml(account, recipient.email(), job.subject, html);
                     successCount++;
                 } catch (Exception e) {
                     lastError = e.getMessage();
@@ -204,15 +223,15 @@ public class CookingReminderScheduler {
             }
 
             if (successCount == recipients.size()) {
-                writeLogSafely(duty, CookingReminderStatus.SENT, successCount, null);
+                writeLogSafely(duty, job.id, CookingReminderStatus.SENT, successCount, null);
             } else {
-                writeLogSafely(duty, CookingReminderStatus.FAILED, successCount,
+                writeLogSafely(duty, job.id, CookingReminderStatus.FAILED, successCount,
                         (recipients.size() - successCount) + " von " + recipients.size()
                                 + " fehlgeschlagen; letzter Fehler: " + lastError);
             }
         } catch (Exception e) {
             Log.errorf(e, "Kochdienst-Erinnerung fuer %s fehlgeschlagen: %s", duty.dutyId(), e.getMessage());
-            writeLogSafely(duty, CookingReminderStatus.FAILED, 0, e.getMessage());
+            writeLogSafely(duty, job.id, CookingReminderStatus.FAILED, 0, e.getMessage());
         }
     }
 
@@ -233,9 +252,9 @@ public class CookingReminderScheduler {
      * Kochdienst die komplette runFor-Schleife verlassen und die übrigen
      * fälligen Kochdienste unbearbeitet lassen.
      */
-    private void writeLogSafely(DueDuty duty, CookingReminderStatus status, int recipientCount, String error) {
+    private void writeLogSafely(DueDuty duty, ObjectId jobId, CookingReminderStatus status, int recipientCount, String error) {
         try {
-            writeLog(duty, status, recipientCount, error);
+            writeLog(duty, jobId, status, recipientCount, error);
         } catch (Exception e) {
             Log.errorf(e, "Kochdienst-Erinnerung: Log-Eintrag fuer %s/%s konnte nicht geschrieben werden, Kochdienst wird uebersprungen",
                     duty.dutyId(), duty.dueDate());
@@ -251,9 +270,10 @@ public class CookingReminderScheduler {
      * Nur über {@link #writeLogSafely} aufrufen, damit ein solcher Fehler
      * nicht die runFor-Schleife verlässt.
      */
-    private void writeLog(DueDuty duty, CookingReminderStatus status, int recipientCount, String error) {
+    private void writeLog(DueDuty duty, ObjectId jobId, CookingReminderStatus status, int recipientCount, String error) {
         CookingReminder reminder = new CookingReminder();
         reminder.dutyId = duty.dutyId();
+        reminder.jobId = jobId;
         reminder.dueDate = duty.dueDate();
         reminder.dutyDate = duty.dutyDate();
         reminder.sentAt = Instant.now();
@@ -272,20 +292,13 @@ public class CookingReminderScheduler {
         }
     }
 
-    private MailJob findSingletonCookingJob(CookingReminderSettings settings) {
-        if (settings.templateId == null || !ObjectId.isValid(settings.templateId)) {
-            return null;
-        }
-        ObjectId templateOid = new ObjectId(settings.templateId);
-        MailJob job = MailJob.<MailJob>find("kind = ?1 and templateId = ?2", MailJob.KIND_COOKING, templateOid).firstResult();
-        return job;
-    }
-
     /**
      * Sucht alle Kochdienste mit aktivierter Erinnerung, deren Fälligkeitstag
-     * heute ist und für die noch kein Log-Eintrag existiert.
+     * heute ist. Die Idempotenz je Kochdienst-Job wird nicht hier, sondern in
+     * {@link #sendOne} über {@link CookingReminder#existsFor} geprüft, da
+     * dieselbe Faelligkeit von mehreren Jobs unabhaengig verarbeitet wird.
      */
-    List<DueDuty> findDueDuties(LocalDate today, ObjectId jobId) {
+    List<DueDuty> findDueDuties(LocalDate today) {
         FieldDefinition cookingDutyDef = FieldDefinition.find("fieldName", "cookingDuty").firstResult();
         if (cookingDutyDef == null) {
             return List.of();
@@ -314,7 +327,6 @@ public class CookingReminderScheduler {
             if (!parsedDutyDate.minusDays(days.intValue()).equals(today)) continue;
 
             ObjectId dutyId = doc.getObjectId("_id");
-            if (CookingReminder.existsFor(dutyId, dueDate, jobId)) continue;
 
             ObjectId familyId = resolveFamilyId(dutyId);
             if (familyId == null) {

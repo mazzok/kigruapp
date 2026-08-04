@@ -44,6 +44,7 @@ class CookingReminderRunTest {
     FieldDefinition firstNameDef;
     MailAccount account;
     MailTemplate template;
+    MailJob job;
     ObjectId familyId;
 
     private MongoCollection<Document> fieldInstances() {
@@ -56,8 +57,8 @@ class CookingReminderRunTest {
         FieldDefinition.deleteAll();
         MailAccount.deleteAll();
         MailTemplate.deleteAll();
+        MailJob.deleteAll();
         CookingReminder.deleteAll();
-        CookingReminderSettings.deleteAll();
         fieldInstances().deleteMany(new Document());
 
         cookingDutyDef = persistDefinition("cookingDuty");
@@ -78,16 +79,21 @@ class CookingReminderRunTest {
         template = new MailTemplate();
         template.name = "Erinnerung";
         template.bodyHtml = "<p>Hallo {{person.firstName}}, am {{duty.date}} kochst du.</p>";
+        template.kind = MailTemplate.KIND_COOKING;
         template.createdAt = Instant.now();
         template.persist();
 
-        CookingReminderSettings settings = new CookingReminderSettings();
-        settings.senderAccountId = account.id.toHexString();
-        settings.templateId = template.id.toHexString();
-        settings.subject = "Dein Kochdienst";
-        settings.sendTime = "07:00";
-        settings.updatedAt = Instant.now();
-        settings.persist();
+        job = new MailJob();
+        job.kind = MailJob.KIND_COOKING;
+        job.name = "Kochdienst-Erinnerung";
+        job.templateId = template.id;
+        job.subject = "Dein Kochdienst";
+        job.senderAccountId = account.id.toHexString();
+        job.sendTime = "07:00";
+        job.active = true;
+        job.createdAt = Instant.now();
+        job.updatedAt = job.createdAt;
+        job.persist();
 
         familyId = new ObjectId();
     }
@@ -126,7 +132,7 @@ class CookingReminderRunTest {
         return person;
     }
 
-    /** Hängt einen Kochdienst an die Person und liefert die Instanz-Id zurück. */
+    /** HÃ¤ngt einen Kochdienst an die Person und liefert die Instanz-Id zurÃ¼ck. */
     private ObjectId persistDuty(Person person, String date, boolean reminderEnabled, Integer daysBefore) {
         return persistDuty(person, date, reminderEnabled, daysBefore, List.of("g1"));
     }
@@ -161,7 +167,7 @@ class CookingReminderRunTest {
         persistParent("Bernd", "bernd@example.org");
         ObjectId dutyId = persistDuty(anna, "2026-09-15", true, 3);
 
-        scheduler.runFor(LocalDate.of(2026, 9, 12));
+        scheduler.runFor(LocalDate.of(2026, 9, 12), job);
 
         assertTrue(greenMail.waitForIncomingEmail(5000, 2));
         MimeMessage[] messages = greenMail.getReceivedMessages();
@@ -181,7 +187,7 @@ class CookingReminderRunTest {
         Person anna = persistParent("Anna", "anna@example.org");
         persistDuty(anna, "2026-09-15", true, 3);
 
-        scheduler.runFor(LocalDate.of(2026, 9, 11));
+        scheduler.runFor(LocalDate.of(2026, 9, 11), job);
 
         assertEquals(0, greenMail.getReceivedMessages().length);
         assertEquals(0, CookingReminder.count());
@@ -192,7 +198,7 @@ class CookingReminderRunTest {
         Person anna = persistParent("Anna", "anna@example.org");
         persistDuty(anna, "2026-09-15", false, null);
 
-        scheduler.runFor(LocalDate.of(2026, 9, 12));
+        scheduler.runFor(LocalDate.of(2026, 9, 12), job);
 
         assertEquals(0, greenMail.getReceivedMessages().length);
         assertEquals(0, CookingReminder.count());
@@ -203,10 +209,10 @@ class CookingReminderRunTest {
         Person anna = persistParent("Anna", "anna@example.org");
         persistDuty(anna, "2026-09-15", true, 3);
 
-        scheduler.runFor(LocalDate.of(2026, 9, 12));
+        scheduler.runFor(LocalDate.of(2026, 9, 12), job);
         int afterFirstRun = greenMail.getReceivedMessages().length;
 
-        scheduler.runFor(LocalDate.of(2026, 9, 12));
+        scheduler.runFor(LocalDate.of(2026, 9, 12), job);
 
         assertEquals(afterFirstRun, greenMail.getReceivedMessages().length);
         assertEquals(1, CookingReminder.count());
@@ -217,12 +223,12 @@ class CookingReminderRunTest {
         Person anna = persistParent("Anna", "anna@example.org");
         ObjectId dutyId = persistDuty(anna, "2026-09-15", true, 3);
 
-        scheduler.runFor(LocalDate.of(2026, 9, 12));
+        scheduler.runFor(LocalDate.of(2026, 9, 12), job);
 
         fieldInstances().updateOne(new Document("_id", dutyId),
                 new Document("$set", new Document("value.date", "2026-09-22")));
 
-        scheduler.runFor(LocalDate.of(2026, 9, 19));
+        scheduler.runFor(LocalDate.of(2026, 9, 19), job);
 
         assertEquals(2, CookingReminder.count());
     }
@@ -234,7 +240,7 @@ class CookingReminderRunTest {
         Person anna = persistParent("Anna", "anna@example.org");
         persistDuty(anna, "2026-09-15", true, 3);
 
-        scheduler.runFor(LocalDate.of(2026, 9, 12));
+        scheduler.runFor(LocalDate.of(2026, 9, 12), job);
 
         assertEquals(0, greenMail.getReceivedMessages().length);
         CookingReminder log = CookingReminder.findAll().firstResult();
@@ -247,7 +253,7 @@ class CookingReminderRunTest {
         Person ohne = persistParent("Ohne", "");
         persistDuty(ohne, "2026-09-15", true, 3);
 
-        scheduler.runFor(LocalDate.of(2026, 9, 12));
+        scheduler.runFor(LocalDate.of(2026, 9, 12), job);
 
         assertEquals(0, greenMail.getReceivedMessages().length);
         CookingReminder log = CookingReminder.findAll().firstResult();
@@ -267,33 +273,36 @@ class CookingReminderRunTest {
         Person anna = persistParent("Anna", "anna@example.org");
         persistDuty(anna, "2026-09-15", true, 3);
 
-        scheduler.markRunningForTest();
+        scheduler.markRunningForTest(job.id);
         try {
-            scheduler.runFor(LocalDate.of(2026, 9, 12));
+            scheduler.runFor(LocalDate.of(2026, 9, 12), job);
 
             assertEquals(0, greenMail.getReceivedMessages().length);
             assertEquals(0, CookingReminder.count());
         } finally {
-            scheduler.clearRunningForTest();
+            scheduler.clearRunningForTest(job.id);
         }
     }
 
     @Test
-    void ohneKonfigurationPassiertNichts() {
-        CookingReminderSettings.deleteAll();
+    void ohneVorlagePassiertNichts() {
+        job.templateId = null;
+        job.update();
         Person anna = persistParent("Anna", "anna@example.org");
         persistDuty(anna, "2026-09-15", true, 3);
 
-        scheduler.runFor(LocalDate.of(2026, 9, 12));
+        scheduler.runFor(LocalDate.of(2026, 9, 12), job);
 
         assertEquals(0, greenMail.getReceivedMessages().length);
-        assertEquals(0, CookingReminder.count());
+        CookingReminder log = CookingReminder.findAll().firstResult();
+        assertNotNull(log);
+        assertEquals(CookingReminderStatus.ACCOUNT_UNAVAILABLE, log.status);
     }
 
     /**
      * value.groups eines Kochdienstes speichert Ids von FieldDefinitions (so wie
      * sie GET /api/v1/organisation/groups liefert), nicht Ids von field_instances.
-     * Die Auflösung muss also über FieldDefinition laufen.
+     * Die AuflÃ¶sung muss also Ã¼ber FieldDefinition laufen.
      */
     @Test
     void loestGruppenLabelsUeberFieldDefinitionAuf() throws Exception {
@@ -303,18 +312,18 @@ class CookingReminderRunTest {
         MailTemplate groupsTemplate = new MailTemplate();
         groupsTemplate.name = "Erinnerung mit Gruppen";
         groupsTemplate.bodyHtml = "<p>Gruppen: {{duty.groups}}</p>";
+        groupsTemplate.kind = MailTemplate.KIND_COOKING;
         groupsTemplate.createdAt = Instant.now();
         groupsTemplate.persist();
 
-        CookingReminderSettings settings = CookingReminderSettings.findSingleton();
-        settings.templateId = groupsTemplate.id.toHexString();
-        settings.update();
+        job.templateId = groupsTemplate.id;
+        job.update();
 
         Person anna = persistParent("Anna", "anna@example.org");
         persistDuty(anna, "2026-09-15", true, 3,
                 List.of(groupA.id.toHexString(), groupB.id.toHexString()));
 
-        scheduler.runFor(LocalDate.of(2026, 9, 12));
+        scheduler.runFor(LocalDate.of(2026, 9, 12), job);
 
         assertTrue(greenMail.waitForIncomingEmail(5000, 1));
         String body = GreenMailUtil.getBody(greenMail.getReceivedMessages()[0]);
@@ -326,11 +335,11 @@ class CookingReminderRunTest {
      * Regression: ein defekter Log-Insert (echter Schreibfehler, nicht der
      * Duplicate-Key-Fall) darf nur den betroffenen Kochdienst treffen und
      * nicht die runFor-Schleife verlassen. Ein echter Mongo-Schreibfehler
-     * lässt sich im Test nicht sinnvoll provozieren (der Testcontainer läuft
+     * lÃ¤sst sich im Test nicht sinnvoll provozieren (der Testcontainer lÃ¤uft
      * durchgehend); stattdessen wird hier der bereits vorhandene
-     * Teilausfall-Pfad über einen fehlschlagenden Mailversand geprüft: bei
-     * zwei fälligen Kochdiensten scheitert der Versand für den einen
-     * (syntaktisch ungültige Empfängeradresse), der zweite wird trotzdem
+     * Teilausfall-Pfad Ã¼ber einen fehlschlagenden Mailversand geprÃ¼ft: bei
+     * zwei fÃ¤lligen Kochdiensten scheitert der Versand fÃ¼r den einen
+     * (syntaktisch ungÃ¼ltige EmpfÃ¤ngeradresse), der zweite wird trotzdem
      * zugestellt und beide werden korrekt geloggt.
      */
     @Test
@@ -343,7 +352,7 @@ class CookingReminderRunTest {
         Person peter = persistParent("Peter", "invalid address@example.org");
         ObjectId dutyIdFailing = persistDuty(peter, "2026-09-15", true, 3);
 
-        scheduler.runFor(LocalDate.of(2026, 9, 12));
+        scheduler.runFor(LocalDate.of(2026, 9, 12), job);
 
         assertTrue(greenMail.waitForIncomingEmail(5000, 1));
         assertEquals(1, greenMail.getReceivedMessages().length);
@@ -357,3 +366,4 @@ class CookingReminderRunTest {
         assertEquals(CookingReminderStatus.FAILED, logFailing.status);
     }
 }
+
