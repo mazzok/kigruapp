@@ -41,6 +41,7 @@ class CookingReminderTest {
         reminder.dutyId = dutyId;
         reminder.dueDate = dueDate;
         reminder.dutyDate = "2026-09-15";
+        reminder.jobId = new ObjectId();
         reminder.sentAt = Instant.now();
         reminder.status = CookingReminderStatus.SENT;
         reminder.recipientCount = 2;
@@ -50,11 +51,14 @@ class CookingReminderTest {
     @Test
     void existsForFindsPersistedReminder() {
         ObjectId dutyId = new ObjectId();
-        reminder(dutyId, "2026-09-12").persist();
+        ObjectId jobId = new ObjectId();
+        CookingReminder r = reminder(dutyId, "2026-09-12");
+        r.jobId = jobId;
+        r.persist();
 
-        assertTrue(CookingReminder.existsFor(dutyId, "2026-09-12"));
-        assertFalse(CookingReminder.existsFor(dutyId, "2026-09-13"));
-        assertFalse(CookingReminder.existsFor(new ObjectId(), "2026-09-12"));
+        assertTrue(CookingReminder.existsFor(dutyId, "2026-09-12", jobId));
+        assertFalse(CookingReminder.existsFor(dutyId, "2026-09-13", jobId));
+        assertFalse(CookingReminder.existsFor(new ObjectId(), "2026-09-12", jobId));
     }
 
     @Test

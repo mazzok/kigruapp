@@ -5,6 +5,7 @@ import at.kigruapp.entity.CookingReminderSettings;
 import at.kigruapp.entity.CookingReminderStatus;
 import at.kigruapp.entity.FieldDefinition;
 import at.kigruapp.entity.MailAccount;
+import at.kigruapp.entity.MailJob;
 import at.kigruapp.entity.MailTemplate;
 import at.kigruapp.resource.CookingReminderSettingsResource;
 import at.kigruapp.service.MailService;
@@ -129,7 +130,12 @@ public class CookingReminderScheduler {
                 return;
             }
 
-            List<DueDuty> due = findDueDuties(today);
+            MailJob singletonJob = findSingletonCookingJob(settings);
+            if (singletonJob == null) {
+                return;
+            }
+
+            List<DueDuty> due = findDueDuties(today, singletonJob.id);
             if (due.isEmpty()) {
                 return;
             }
@@ -266,11 +272,20 @@ public class CookingReminderScheduler {
         }
     }
 
+    private MailJob findSingletonCookingJob(CookingReminderSettings settings) {
+        if (settings.templateId == null || !ObjectId.isValid(settings.templateId)) {
+            return null;
+        }
+        ObjectId templateOid = new ObjectId(settings.templateId);
+        MailJob job = MailJob.<MailJob>find("kind = ?1 and templateId = ?2", MailJob.KIND_COOKING, templateOid).firstResult();
+        return job;
+    }
+
     /**
      * Sucht alle Kochdienste mit aktivierter Erinnerung, deren Fälligkeitstag
      * heute ist und für die noch kein Log-Eintrag existiert.
      */
-    List<DueDuty> findDueDuties(LocalDate today) {
+    List<DueDuty> findDueDuties(LocalDate today, ObjectId jobId) {
         FieldDefinition cookingDutyDef = FieldDefinition.find("fieldName", "cookingDuty").firstResult();
         if (cookingDutyDef == null) {
             return List.of();
@@ -299,7 +314,7 @@ public class CookingReminderScheduler {
             if (!parsedDutyDate.minusDays(days.intValue()).equals(today)) continue;
 
             ObjectId dutyId = doc.getObjectId("_id");
-            if (CookingReminder.existsFor(dutyId, dueDate)) continue;
+            if (CookingReminder.existsFor(dutyId, dueDate, jobId)) continue;
 
             ObjectId familyId = resolveFamilyId(dutyId);
             if (familyId == null) {
