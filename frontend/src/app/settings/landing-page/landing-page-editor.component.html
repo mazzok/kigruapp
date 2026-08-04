@@ -1,0 +1,69 @@
+<div class="editor-page">
+  <div class="header">
+    <h2>Startseite</h2>
+    <button mat-flat-button color="primary" (click)="save()">
+      <mat-icon>save</mat-icon>
+      Speichern
+    </button>
+  </div>
+
+  <mat-tab-group (selectedTabChange)="refreshPreview()">
+    <mat-tab label="Bearbeiten">
+      <div class="tab-body">
+        <div class="mode-bar">
+          <button mat-stroked-button (click)="toggleSourceMode()">
+            <mat-icon>{{ sourceMode ? 'visibility' : 'code' }}</mat-icon>
+            {{ sourceMode ? 'Zurück zum Editor' : 'HTML-Quelltext' }}
+          </button>
+        </div>
+
+        <div class="edit-layout">
+          <aside class="tiles">
+            @for (group of groupedPlaceholders; track group.group) {
+              <h4>{{ group.label }}</h4>
+              <div class="chips">
+                @for (tile of group.tiles; track tile.token) {
+                  <button
+                    type="button"
+                    class="chip"
+                    draggable="true"
+                    [matTooltip]="tile.token"
+                    (dragstart)="onChipDragStart($event, tile)"
+                    (click)="insertPlaceholder(tile)"
+                  >
+                    {{ tile.label }}
+                  </button>
+                }
+              </div>
+            }
+          </aside>
+
+          <div class="editor-area" (dragover)="onEditorDragOver($event)" (drop)="onEditorDrop($event)">
+            @if (sourceMode) {
+              <textarea
+                class="source-area"
+                spellcheck="false"
+                [(ngModel)]="sourceHtml"
+                [ngModelOptions]="{ standalone: true }"
+              ></textarea>
+            } @else {
+              <form [formGroup]="form">
+                <quill-editor
+                  formControlName="bodyHtml"
+                  [modules]="quillModules"
+                  (onEditorCreated)="onEditorCreated($event)"
+                ></quill-editor>
+              </form>
+            }
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+    <mat-tab label="Vorschau">
+      <div class="tab-body">
+        <p class="hint">So sieht die Startseite mit Ihren eigenen Werten aus.</p>
+        <div class="preview-box" [innerHTML]="previewHtml"></div>
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+</div>

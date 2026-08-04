@@ -119,7 +119,19 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./settings/mail/mail.component').then(m => m.MailComponent),
       },
+      {
+        path: 'landing-page',
+        loadComponent: () =>
+          import('./settings/landing-page/landing-page-editor.component').then(
+            m => m.LandingPageEditorComponent
+          ),
+      },
     ],
   },
-  { path: '', redirectTo: 'cooking', pathMatch: 'full' },
+  {
+    path: '',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./landing/landing.component').then(m => m.LandingComponent),
+  },
 ];

@@ -1,0 +1,126 @@
+.editor-page {
+  padding: 1rem;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.tab-body {
+  padding-top: 1rem;
+}
+
+.hint {
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 0.85rem;
+}
+
+.mode-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.5rem;
+}
+
+.edit-layout {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.tiles {
+  flex: 0 0 12rem;
+
+  h4 {
+    margin: 0.75rem 0 0.35rem;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(0, 0, 0, 0.6);
+  }
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.chip {
+  background: #eef0fb;
+  color: #3f51b5;
+  border: 1px solid #c9cff2;
+  border-radius: 12px;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: grab;
+}
+
+.editor-area {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+// Auf schmalen Geräten stehen die Kacheln über dem Editor.
+@media (max-width: 700px) {
+  .edit-layout {
+    flex-direction: column;
+  }
+
+  .tiles {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+}
+
+.source-area {
+  width: 100%;
+  min-height: 20rem;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  padding: 0.75rem;
+  border: 1px solid #e2e2e6;
+  border-radius: 4px;
+  resize: vertical;
+}
+
+.preview-box {
+  border: 1px solid #e2e2e6;
+  border-radius: 4px;
+  padding: 1rem;
+  min-height: 12rem;
+  background: #fff;
+
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  td,
+  th {
+    border: 1px solid #e2e2e6;
+    padding: 0.35rem 0.5rem;
+  }
+}
+
+// Gleiche Pillen-Darstellung wie im Mail-Editor — beide nutzen denselben Blot.
+::ng-deep .mail-token {
+  background: #eef0fb;
+  color: #3f51b5;
+  border: 1px solid #c9cff2;
+  border-radius: 12px;
+  padding: 0.05rem 0.5rem;
+  font-size: 0.85em;
+  font-weight: 600;
+  white-space: nowrap;
+}
