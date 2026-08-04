@@ -49,7 +49,7 @@ public class MailTemplateResource {
      * Without this, stored {@code {{person.x}}} tokens are broken and neither the
      * renderer nor the editor's token→pill conversion can match them.
      */
-    private static String sanitizeBody(String bodyHtml) {
+    static String sanitizeBody(String bodyHtml) {
         return HTML_POLICY.sanitize(bodyHtml).replaceAll("<!--\\s*-->", "");
     }
 
@@ -72,8 +72,14 @@ public class MailTemplateResource {
     }
 
     @GET
-    public List<MailTemplate> list() {
-        return MailTemplate.listAll(Sort.descending("updatedAt"));
+    public List<MailTemplate> list(@QueryParam("kind") String kind) {
+        List<MailTemplate> all = MailTemplate.listAll(Sort.descending("updatedAt"));
+        if (kind == null || kind.isBlank()) {
+            return all;
+        }
+        return all.stream()
+                .filter(t -> kind.equals(t.effectiveKind()))
+                .collect(Collectors.toList());
     }
 
     @GET
@@ -92,6 +98,7 @@ public class MailTemplateResource {
         MailTemplate template = new MailTemplate();
         template.name = request.name;
         template.bodyHtml = sanitizeBody(request.bodyHtml);
+        template.kind = MailTemplate.KIND_GENERAL;
         template.createdAt = Instant.now();
         template.updatedAt = template.createdAt;
         template.persist();
@@ -104,6 +111,10 @@ public class MailTemplateResource {
         MailTemplate template = MailTemplate.findById(new ObjectId(id));
         if (template == null) {
             throw new NotFoundException();
+        }
+        if (template.isCooking()) {
+            throw new WebApplicationException(
+                    "Kochdienst-Vorlagen werden in den Kochdienst-Einstellungen gepflegt", 409);
         }
         validate(request);
         template.name = request.name;
@@ -120,6 +131,10 @@ public class MailTemplateResource {
         MailTemplate template = MailTemplate.findById(templateId);
         if (template == null) {
             throw new NotFoundException();
+        }
+        if (template.isCooking()) {
+            throw new WebApplicationException(
+                    "Kochdienst-Vorlagen werden in den Kochdienst-Einstellungen gepflegt", 409);
         }
         List<MailJob> referencingJobs = MailJob.list("templateId", templateId);
         if (!referencingJobs.isEmpty()) {

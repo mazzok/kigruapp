@@ -45,6 +45,13 @@ class MailTemplateResourceTest {
         return t;
     }
 
+    private MailTemplate persistCookingTemplate(String name) {
+        MailTemplate t = persistTemplate(name, "<p>Kochdienst</p>");
+        t.kind = MailTemplate.KIND_COOKING;
+        t.update();
+        return t;
+    }
+
     @Test
     void createAndListTemplates() {
         given()
@@ -165,5 +172,61 @@ class MailTemplateResourceTest {
                 .body("{\"name\":\"\",\"bodyHtml\":\"<p>x</p>\"}")
                 .when().post("/api/v1/mail-templates")
                 .then().statusCode(400);
+    }
+
+    @Test
+    void listFiltersByKind() {
+        persistTemplate("Allgemein", "<p>a</p>");
+        persistCookingTemplate("Kochdienst");
+
+        given()
+                .when().get("/api/v1/mail-templates?kind=GENERAL")
+                .then().statusCode(200)
+                .body("name", hasItem("Allgemein"))
+                .body("name", not(hasItem("Kochdienst")));
+
+        given()
+                .when().get("/api/v1/mail-templates?kind=COOKING")
+                .then().statusCode(200)
+                .body("name", hasItem("Kochdienst"))
+                .body("name", not(hasItem("Allgemein")));
+    }
+
+    @Test
+    void listWithoutKindReturnsEverything() {
+        persistTemplate("Allgemein", "<p>a</p>");
+        persistCookingTemplate("Kochdienst");
+
+        given()
+                .when().get("/api/v1/mail-templates")
+                .then().statusCode(200)
+                .body("name", hasItem("Allgemein"))
+                .body("name", hasItem("Kochdienst"));
+    }
+
+    @Test
+    void createAlwaysProducesGeneralKind() {
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"name\":\"Neu\",\"bodyHtml\":\"<p>x</p>\",\"kind\":\"COOKING\"}")
+                .when().post("/api/v1/mail-templates")
+                .then().statusCode(201)
+                .body("kind", is("GENERAL"));
+    }
+
+    @Test
+    void cookingTemplatesCannotBeChangedOnGeneralEndpoint() {
+        MailTemplate cooking = persistCookingTemplate("Kochdienst");
+        String id = cooking.id.toHexString();
+
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"name\":\"Geaendert\",\"bodyHtml\":\"<p>y</p>\"}")
+                .when().put("/api/v1/mail-templates/" + id)
+                .then().statusCode(409);
+
+        given()
+                .when().delete("/api/v1/mail-templates/" + id)
+                .then().statusCode(409);
     }
 }
