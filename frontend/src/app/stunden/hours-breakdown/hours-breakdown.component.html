@@ -1,0 +1,94 @@
+@if (data) {
+  @if (hasSoll) {
+    <div class="kpi-row">
+      <div class="kpi kpi-soll">
+        <span class="kpi-label">Soll Semester</span>
+        <b>{{ formatMinutes(data.sollMinutes) }}</b>
+        <span class="kpi-sub">{{ spans.length }} Monate mit Soll</span>
+      </div>
+      <div class="kpi kpi-ist">
+        <span class="kpi-label">Geleistet</span>
+        <b>{{ formatMinutes(data.istMinutes) }}</b>
+        <span class="kpi-sub">{{ state?.realPercent }} %</span>
+      </div>
+      <div class="kpi kpi-balance" [class.negative]="(state?.deltaMinutes ?? 0) < 0">
+        <span class="kpi-label">Bilanz</span>
+        <b>{{ (state?.deltaMinutes ?? 0) < 0 ? '−' : '+' }}{{ formatMinutes(state ? (state.deltaMinutes < 0 ? -state.deltaMinutes : state.deltaMinutes) : 0) }}</b>
+        <span class="kpi-sub">{{ (state?.deltaMinutes ?? 0) < 0 ? 'Rückstand' : 'Vorsprung' }}</span>
+      </div>
+      <div class="kpi kpi-average">
+        <span class="kpi-label">Ø geleistet</span>
+        <b>{{ formatMinutes(state?.avgDoneMinutes ?? 0) }}</b>
+        <span class="kpi-sub">nötig {{ formatMinutes(state?.monthlySollMinutes ?? 0) }}/Monat</span>
+      </div>
+    </div>
+
+    <div class="progress-bar" [matTooltip]="state?.tooltip ?? ''" matTooltipClass="hours-ring-tooltip">
+      <span class="progress-bar-fill" [ngClass]="'level-' + (state?.level ?? 'level5')"
+            [style.width.%]="state?.ringPercent ?? 0"></span>
+    </div>
+
+    <section class="composition">
+      <header>
+        <b>{{ children.length }} Kinder
+          @if (data.familyMonthlyMinutes > 0) { · {{ formatMinutes(data.familyMonthlyMinutes) }} h/Monat }
+          · {{ formatMinutes(data.sollMinutes) }} h gesamt</b>
+        <button type="button" class="toggle" (click)="expanded = !expanded">
+          Monatsverlauf <mat-icon>{{ expanded ? 'expand_less' : 'expand_more' }}</mat-icon>
+        </button>
+      </header>
+
+      <table class="children">
+        <tr>
+          <th>Kind</th>
+          @if (!data.allGroups) { <th class="group-column">Gruppe</th> }
+          <th>Satz/Monat</th>
+          <th>Summe</th>
+        </tr>
+        @for (child of children; track child.childId) {
+          <tr class="child-row">
+            <td>
+              {{ child.name }}
+              @if (periodHint(child)) { <span class="period">{{ periodHint(child) }}</span> }
+            </td>
+            @if (!data.allGroups) {
+              <td class="group-column">
+                <span class="dot" [style.background]="child.groupColor"></span>{{ child.groupLabel }}
+              </td>
+            }
+            <td>{{ formatMinutes(child.baseMinutesPerMonth) }}</td>
+            <td>{{ formatMinutes(child.sollMinutes) }}</td>
+          </tr>
+        }
+      </table>
+
+      @if (expanded) {
+        <table class="months">
+          <tr>
+            <th>Monat</th>
+            @for (child of children; track child.childId) { <th>{{ child.name }}</th> }
+            <th>Soll</th>
+          </tr>
+          @for (span of spans; track span.label) {
+            <tr class="month-span">
+              <td>{{ span.label }}</td>
+              @for (child of children; track child.childId) {
+                <td>
+                  @if (minutesFor(span, child.childId) !== null) {
+                    {{ formatMinutes(minutesFor(span, child.childId)!) }}
+                    @if (shareHint(span, child.childId)) {
+                      <span class="hint">{{ shareHint(span, child.childId) }}</span>
+                    }
+                  } @else { — }
+                </td>
+              }
+              <td>{{ formatMinutes(span.sollMinutes) }}</td>
+            </tr>
+          }
+        </table>
+      }
+    </section>
+  } @else {
+    <p class="empty-hint">Für dieses Semester sind keine zu leistenden Stunden hinterlegt.</p>
+  }
+}

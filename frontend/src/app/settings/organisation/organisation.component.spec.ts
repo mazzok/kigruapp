@@ -72,7 +72,10 @@ class FakeSemesterService {
 class FakeRequiredHoursService {
   getCalls: string[] = [];
   saveCalls: RequiredHours[] = [];
-  config: RequiredHours = { semesterId: '', defaultMinutesPerMonth: 0, tiers: [] };
+  config: RequiredHours = {
+    semesterId: '', defaultMinutesPerMonth: 0, allGroups: true,
+    order: 'MOST_EXPENSIVE_FIRST', groupRates: [], tiers: [],
+  };
   get(semesterId: string) {
     this.getCalls.push(semesterId);
     return of(this.config);
@@ -335,25 +338,76 @@ describe('OrganisationComponent - Zu leistende Stunden / Aliquot', () => {
   });
 
   it('builds one preview row per default plus one per tier', () => {
+    component.rhAllGroups = true;
     component.rhDefaultHhmm = '08:00';
-    component.rhTiers = [{ fromChild: 2, hhmm: '06:00' }];
+    component.rhTiers = [{ fromChild: 2, percent: 25 }];
     component.recomputeRhPreview();
     expect(component.rhPreview.length).toBe(2);
 
-    component.rhTiers = [{ fromChild: 2, hhmm: '06:00' }, { fromChild: 3, hhmm: '04:00' }];
+    component.rhTiers = [{ fromChild: 2, percent: 25 }, { fromChild: 3, percent: 50 }];
     component.recomputeRhPreview();
     expect(component.rhPreview.length).toBe(3);
   });
 
-  it('treats a blank tier value as 0 and saves without error', () => {
+  it('rejects percent tiers outside 0..100 and does not save', () => {
     component.rhSelectedSemesterId = 'sem1';
     component.rhDefaultHhmm = '08:00';
-    component.rhTiers = [{ fromChild: 2, hhmm: '' }];
+    component.rhAllGroups = true;
+    component.rhTiers = [{ fromChild: 2, percent: 120 }];
 
     component.saveRequiredHours();
 
-    expect(component.rhError).toBeNull();
+    expect(requiredHoursService.saveCalls.length).toBe(0);
+    expect(component.rhError).not.toBeNull();
+  });
+
+  it('befüllt beim Abhaken jede Gruppe mit dem bisherigen Default', () => {
+    component.rhDefaultHhmm = '08:00';
+    component.groupsDataSource.data = [
+      { id: 'g1', definitionId: 'd1', fieldName: 'group', label: {}, jsonSchema: {}, required: false,
+        value: { label: 'Käfergruppe', color: '#43a047' }, definitionOutdated: false },
+      { id: 'g2', definitionId: 'd1', fieldName: 'group', label: {}, jsonSchema: {}, required: false,
+        value: { label: 'Bärengruppe', color: '#fb8c00' }, definitionOutdated: false },
+    ] as any;
+
+    component.onRhAllGroupsChange(false);
+
+    expect(component.rhGroupRates.length).toBe(2);
+    expect(component.rhGroupRates[0].hhmm).toBe('08:00');
+    expect(component.rhGroupRates[0].label).toBe('Käfergruppe');
+  });
+
+  it('blockiert das Speichern bei leerem Gruppenfeld', () => {
+    requiredHoursService.saveCalls = [];
+    component.rhSelectedSemesterId = 's1';
+    component.rhDefaultHhmm = '08:00';
+    component.rhAllGroups = false;
+    component.rhGroupRates = [
+      { groupInstanceId: 'g1', label: 'Käfergruppe', color: null, hhmm: '08:00' },
+      { groupInstanceId: 'g2', label: 'Bärengruppe', color: null, hhmm: '' },
+    ];
+
+    component.saveRequiredHours();
+
+    expect(requiredHoursService.saveCalls.length).toBe(0);
+    expect(component.rhError).toContain('Bärengruppe');
+  });
+
+  it('speichert Gruppensätze und Reihenfolge', () => {
+    requiredHoursService.saveCalls = [];
+    component.rhSelectedSemesterId = 's1';
+    component.rhDefaultHhmm = '08:00';
+    component.rhAllGroups = false;
+    component.rhOrder = 'LEAST_EXPENSIVE_FIRST';
+    component.rhGroupRates = [{ groupInstanceId: 'g1', label: 'Käfergruppe', color: null, hhmm: '05:00' }];
+    component.rhTiers = [{ fromChild: 2, percent: 25 }];
+
+    component.saveRequiredHours();
+
     expect(requiredHoursService.saveCalls.length).toBe(1);
-    expect(requiredHoursService.saveCalls[0].tiers).toEqual([{ fromChild: 2, minutesPerMonth: 0 }]);
+    expect(requiredHoursService.saveCalls[0].allGroups).toBe(false);
+    expect(requiredHoursService.saveCalls[0].order).toBe('LEAST_EXPENSIVE_FIRST');
+    expect(requiredHoursService.saveCalls[0].groupRates).toEqual([{ groupInstanceId: 'g1', minutesPerMonth: 300 }]);
+    expect(requiredHoursService.saveCalls[0].tiers).toEqual([{ fromChild: 2, percent: 25 }]);
   });
 });

@@ -40,10 +40,29 @@ export interface FamilyHoursSummary {
   members: HourSummary[];
 }
 
+export interface OurHoursChild {
+  childId: string;
+  name: string;
+  groupLabel: string | null;
+  groupColor: string | null;
+  baseMinutesPerMonth: number;
+  entryDate: string | null;
+  exitDate: string | null;
+  sollMinutes: number;
+}
+
+export interface OurHoursChildShare {
+  childId: string;
+  minutes: number;
+  fractionPercent: number;
+  discountPercent: number;
+}
+
 export interface OurHoursMonthRow {
   month: string;        // "YYYY-MM"
   sollMinutes: number;
   istMinutes: number;
+  children: OurHoursChildShare[];
 }
 
 export interface OurHoursEntry {
@@ -62,6 +81,8 @@ export interface OurHours {
   monthsInSemester: number;
   sollMinutes: number;
   istMinutes: number;
+  allGroups: boolean;
+  children: OurHoursChild[];
   months: OurHoursMonthRow[];
   entries: OurHoursEntry[];
 }

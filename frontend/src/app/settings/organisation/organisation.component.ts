@@ -12,6 +12,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { IconPickerDialogComponent } from '../../shared/components/icon-picker/icon-picker-dialog.component';
 import { switchMap } from 'rxjs/operators';
 import { OrganisationService } from '../../shared/services/organisation.service';
@@ -29,9 +30,17 @@ import { Semester, CreateSemesterRequest } from '../../shared/models/semester.mo
 import { Currency } from '../../shared/models/currency.model';
 import { KostenDefinition } from '../../shared/models/kosten-definition.model';
 import { AliquotMode } from '../../shared/models/aliquot-config.model';
+import { RequiredHoursGroupRate, RequiredHoursOrder } from '../../shared/models/required-hours.model';
 import { parseHhmm, formatMinutes } from '../../shared/util/time-format.util';
-import { familyMonthlyMinutes } from './required-hours-preview.util';
+import { familyMonthlyMinutes, groupCombinationMinutes } from './required-hours-preview.util';
 import { ParentDirectoryAttributesComponent } from './parent-directory-attributes/parent-directory-attributes.component';
+
+interface GroupRateRow {
+  groupInstanceId: string;
+  label: string;
+  color: string | null;
+  hhmm: string;
+}
 
 @Component({
   selector: 'app-organisation',
@@ -40,7 +49,8 @@ import { ParentDirectoryAttributesComponent } from './parent-directory-attribute
     CommonModule, ReactiveFormsModule, FormsModule,
     MatTabsModule, MatTableModule, MatFormFieldModule,
     MatInputModule, MatButtonModule, MatIconModule,
-    MatExpansionModule, MatDialogModule, MatDatepickerModule, MatSelectModule, MatTooltipModule, IconPickerDialogComponent,
+    MatExpansionModule, MatDialogModule, MatDatepickerModule, MatSelectModule, MatTooltipModule,
+    MatCheckboxModule, IconPickerDialogComponent,
     ParentDirectoryAttributesComponent,
   ],
   templateUrl: './organisation.component.html',
@@ -112,8 +122,11 @@ export class OrganisationComponent implements OnInit {
   rhSemesters: Semester[] = [];
   rhSelectedSemesterId: string | null = null;
   rhDefaultHhmm = '';                                   // "HH:mm"
-  rhTiers: { fromChild: number; hhmm: string }[] = [];
-  rhPreview: { children: number; hhmm: string }[] = [];
+  rhAllGroups = true;
+  rhOrder: RequiredHoursOrder = 'MOST_EXPENSIVE_FIRST';
+  rhGroupRates: GroupRateRow[] = [];
+  rhTiers: { fromChild: number; percent: number }[] = [];
+  rhPreview: { label: string; hhmm: string }[] = [];
   rhError: string | null = null;
   stundenMode: AliquotMode = 'NONE';
   kostenMode: AliquotMode = 'NONE';
@@ -506,10 +519,45 @@ export class OrganisationComponent implements OnInit {
     if (!this.rhSelectedSemesterId) return;
     this.requiredHoursService.get(this.rhSelectedSemesterId).subscribe((cfg) => {
       this.rhDefaultHhmm = cfg.defaultMinutesPerMonth ? formatMinutes(cfg.defaultMinutesPerMonth) : '';
-      this.rhTiers = (cfg.tiers ?? []).map((t) => ({ fromChild: t.fromChild, hhmm: formatMinutes(t.minutesPerMonth) }));
+      this.rhAllGroups = cfg.allGroups ?? true;
+      this.rhOrder = cfg.order ?? 'MOST_EXPENSIVE_FIRST';
+      this.rhTiers = (cfg.tiers ?? []).map((t) => ({ fromChild: t.fromChild, percent: t.percent }));
+      this.rhGroupRates = this.groupRateRows(cfg.groupRates ?? []);
       this.recomputeRhPreview();
       this.loadAliquot();
     });
+  }
+
+  /** Eine Zeile je vorhandener Gruppe; bekannte Werte werden übernommen, sonst der Default. */
+  private groupRateRows(saved: RequiredHoursGroupRate[]): GroupRateRow[] {
+    const byId = new Map(saved.map((r) => [r.groupInstanceId, r.minutesPerMonth]));
+    const fallback = parseHhmm(this.rhDefaultHhmm) ?? 0;
+    return this.groupsDataSource.data.map((instance) => {
+      const value = instance.value as { label?: string; color?: string } | null;
+      const minutes = byId.get(instance.id!) ?? fallback;
+      return {
+        groupInstanceId: instance.id!,
+        label: value?.label ?? instance.id!,
+        color: value?.color ?? null,
+        hhmm: minutes > 0 ? formatMinutes(minutes) : '',
+      };
+    });
+  }
+
+  onRhAllGroupsChange(allGroups: boolean): void {
+    this.rhAllGroups = allGroups;
+    if (!allGroups) {
+      this.rhGroupRates = this.groupRateRows(
+        this.rhGroupRates.map((r) => ({
+          groupInstanceId: r.groupInstanceId,
+          minutesPerMonth: parseHhmm(r.hhmm) ?? 0,
+        })),
+      );
+    }
+    this.recomputeRhPreview();
+    if (this.rhAllGroups) {
+      this.saveRequiredHours();
+    }
   }
 
   onRhSemesterChange(semesterId: string): void {
@@ -538,7 +586,7 @@ export class OrganisationComponent implements OnInit {
 
   addRhTier(): void {
     const nextFrom = this.rhTiers.length === 0 ? 2 : Math.max(...this.rhTiers.map((t) => t.fromChild)) + 1;
-    this.rhTiers.push({ fromChild: nextFrom, hhmm: '' });
+    this.rhTiers.push({ fromChild: nextFrom, percent: 0 });
     this.recomputeRhPreview();
   }
 
@@ -549,32 +597,65 @@ export class OrganisationComponent implements OnInit {
   }
 
   recomputeRhPreview(): void {
-    const def = parseHhmm(this.rhDefaultHhmm) ?? 0;
-    const tiers = this.rhTiers
-      .map((t) => ({ fromChild: t.fromChild, minutesPerMonth: parseHhmm(t.hhmm) ?? 0 }))
-      .sort((a, b) => a.fromChild - b.fromChild);
-    const childCounts = Array.from(new Set([1, ...this.rhTiers.map((t) => t.fromChild)])).sort((a, b) => a - b);
-    this.rhPreview = childCounts.map((n) => ({
-      children: n,
-      hhmm: formatMinutes(familyMonthlyMinutes({ defaultMinutesPerMonth: def, tiers }, n)),
+    const tiers = [...this.rhTiers].sort((a, b) => a.fromChild - b.fromChild);
+    if (this.rhAllGroups) {
+      const def = parseHhmm(this.rhDefaultHhmm) ?? 0;
+      const childCounts = Array.from(new Set([1, ...tiers.map((t) => t.fromChild)])).sort((a, b) => a - b);
+      this.rhPreview = childCounts.map((n) => ({
+        label: `${n} ${n === 1 ? 'Kind' : 'Kinder'}`,
+        hhmm: formatMinutes(familyMonthlyMinutes({ defaultMinutesPerMonth: def, tiers }, n)),
+      }));
+      return;
+    }
+    // Gruppensätze: je Gruppe eine Zeile mit einem Kind, dann die beiden teuersten kombiniert.
+    const rows = this.rhGroupRates
+      .map((r) => ({ label: r.label, minutes: parseHhmm(r.hhmm) ?? 0 }))
+      .filter((r) => r.minutes > 0);
+    this.rhPreview = rows.map((r) => ({
+      label: `1 Kind · ${r.label}`,
+      hhmm: formatMinutes(groupCombinationMinutes([r.minutes], tiers, this.rhOrder)),
     }));
+    const topTwo = [...rows].sort((a, b) => b.minutes - a.minutes).slice(0, 2);
+    if (topTwo.length === 2) {
+      this.rhPreview.push({
+        label: `2 Kinder · ${topTwo[0].label} + ${topTwo[1].label}`,
+        hhmm: formatMinutes(groupCombinationMinutes(topTwo.map((r) => r.minutes), tiers, this.rhOrder)),
+      });
+    }
   }
 
   saveRequiredHours(): void {
     this.rhError = null;
     const def = parseHhmm(this.rhDefaultHhmm);
     if (def === null || def <= 0) { this.rhError = 'Default-Stunden ungültig'; return; }
-    const tiers = this.rhTiers.map((t) => ({ fromChild: t.fromChild, minutesPerMonth: (t.hhmm.trim() === '' ? 0 : (parseHhmm(t.hhmm) ?? -1)) }));
+
+    const tiers = this.rhTiers.map((t) => ({ fromChild: t.fromChild, percent: t.percent }));
     const froms = tiers.map((t) => t.fromChild);
     const ascendingUnique = froms.every((f, i) => f >= 2 && (i === 0 || f > froms[i - 1]));
-    if (!ascendingUnique || tiers.some((t) => t.minutesPerMonth < 0)) {
-      this.rhError = 'Staffeln müssen ab dem 2. Kind eindeutig und aufsteigend sein; Werte dürfen 0 sein.';
+    if (!ascendingUnique || tiers.some((t) => t.percent < 0 || t.percent > 100)) {
+      this.rhError = 'Staffeln müssen ab dem 2. Kind eindeutig und aufsteigend sein; Rabatt zwischen 0 und 100 %.';
       return;
     }
+
+    const groupRates: RequiredHoursGroupRate[] = [];
+    if (!this.rhAllGroups) {
+      for (const row of this.rhGroupRates) {
+        const minutes = parseHhmm(row.hhmm);
+        if (minutes === null || minutes <= 0) {
+          this.rhError = `Stunden fehlen für ${row.label}`;
+          return;
+        }
+        groupRates.push({ groupInstanceId: row.groupInstanceId, minutesPerMonth: minutes });
+      }
+    }
+
     if (!this.rhSelectedSemesterId) return;
     this.requiredHoursService.save(this.rhSelectedSemesterId, {
       semesterId: this.rhSelectedSemesterId,
       defaultMinutesPerMonth: def,
+      allGroups: this.rhAllGroups,
+      order: this.rhOrder,
+      groupRates,
       tiers,
     }).subscribe({
       next: () => { this.rhError = null; },

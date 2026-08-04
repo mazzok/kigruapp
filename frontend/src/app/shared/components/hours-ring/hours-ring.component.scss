@@ -1,0 +1,71 @@
+.hours-ring {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 16px;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+
+  &:hover .ring-arc,
+  &:focus-visible .ring-arc {
+    filter: brightness(1.15);
+  }
+}
+
+.ring {
+  flex: 0 0 auto;
+}
+
+.ring-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.25);
+  stroke-width: 4;
+}
+
+.ring-arc {
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.4s ease-out;
+  animation: hours-ring-in 0.8s ease-out;
+
+  &.level-level1 { stroke: #b71c1c; }
+  &.level-level2 { stroke: #e64a19; }
+  &.level-level3 { stroke: #f57c00; }
+  &.level-level4 { stroke: #fbc02d; }
+  &.level-level5 { stroke: #43a047; }
+}
+
+@keyframes hours-ring-in {
+  from {
+    stroke-dashoffset: 100.53px;   // voller Umfang bei r = 16
+  }
+}
+
+.ring-label {
+  font-size: 11px;
+  font-weight: 600;
+  fill: currentColor;
+}
+
+.hours-ring-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.hours-ring-done {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.hours-ring-goal {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+::ng-deep .hours-ring-tooltip {
+  white-space: pre-line;
+  font-size: 12px;
+}

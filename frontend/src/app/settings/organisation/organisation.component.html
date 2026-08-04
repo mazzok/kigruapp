@@ -312,23 +312,54 @@
           </mat-select>
         </mat-form-field>
 
+        <mat-checkbox [checked]="rhAllGroups" (change)="onRhAllGroupsChange($event.checked)">
+          Für alle Gruppen dieselben Stunden
+        </mat-checkbox>
+
+        @if (rhAllGroups) {
+          <mat-form-field appearance="outline">
+            <mat-label>Stunden pro Monat pro Kind (HH:mm)</mat-label>
+            <input matInput [(ngModel)]="rhDefaultHhmm" (ngModelChange)="recomputeRhPreview()"
+                   (change)="saveRequiredHours()" placeholder="08:00">
+          </mat-form-field>
+        } @else {
+          @for (rate of rhGroupRates; track rate.groupInstanceId) {
+            <div class="group-rate-row">
+              <span class="dot" [style.background]="rate.color"></span>
+              <mat-form-field appearance="outline">
+                <mat-label>{{ rate.label }} — Stunden/Monat (HH:mm)</mat-label>
+                <input matInput [(ngModel)]="rate.hhmm" (ngModelChange)="recomputeRhPreview()"
+                       (change)="saveRequiredHours()" placeholder="08:00">
+              </mat-form-field>
+            </div>
+          }
+          @if (rhGroupRates.length === 0) {
+            <p class="error">Es sind noch keine Gruppen angelegt.</p>
+          }
+        }
+
+        <h4>Staffelung (Geschwisterrabatt) — gilt für alle Gruppen</h4>
         <mat-form-field appearance="outline">
-          <mat-label>Stunden pro Monat pro Kind (HH:mm)</mat-label>
-          <input matInput [(ngModel)]="rhDefaultHhmm" (ngModelChange)="recomputeRhPreview()" (change)="saveRequiredHours()" placeholder="08:00">
+          <mat-label>Reihenfolge</mat-label>
+          <mat-select [(ngModel)]="rhOrder" (selectionChange)="recomputeRhPreview(); saveRequiredHours()">
+            <mat-option value="MOST_EXPENSIVE_FIRST">Teuerste Gruppe zuerst</mat-option>
+            <mat-option value="LEAST_EXPENSIVE_FIRST">Günstigste Gruppe zuerst</mat-option>
+          </mat-select>
         </mat-form-field>
 
-        <h4>Staffelung (Rabatte)</h4>
         @for (tier of rhTiers; track $index; let i = $index) {
           <div class="tier-row">
             <span>Ab dem</span>
             <mat-form-field appearance="outline" class="narrow">
-              <input matInput type="number" min="2" [(ngModel)]="tier.fromChild" (ngModelChange)="recomputeRhPreview()" (change)="saveRequiredHours()">
+              <input matInput type="number" min="2" [(ngModel)]="tier.fromChild"
+                     (ngModelChange)="recomputeRhPreview()" (change)="saveRequiredHours()">
             </mat-form-field>
             <span>. Kind:</span>
             <mat-form-field appearance="outline" class="narrow">
-              <input matInput [(ngModel)]="tier.hhmm" (ngModelChange)="recomputeRhPreview()" (change)="saveRequiredHours()" placeholder="06:00">
+              <input matInput type="number" min="0" max="100" [(ngModel)]="tier.percent"
+                     (ngModelChange)="recomputeRhPreview()" (change)="saveRequiredHours()">
             </mat-form-field>
-            <span>pro Monat</span>
+            <span>% Rabatt</span>
             <button mat-icon-button color="warn" (click)="removeRhTier(i)"><mat-icon>delete</mat-icon></button>
           </div>
         }
@@ -336,9 +367,9 @@
 
         <h4>Vorschau</h4>
         <table class="preview">
-          <tr><th>Kinder</th><th>Stunden/Monat</th></tr>
-          @for (row of rhPreview; track row.children) {
-            <tr><td>{{ row.children }}</td><td>{{ row.hhmm }}</td></tr>
+          <tr><th>Fall</th><th>Stunden/Monat</th></tr>
+          @for (row of rhPreview; track row.label) {
+            <tr><td>{{ row.label }}</td><td>{{ row.hhmm }}</td></tr>
           }
         </table>
 

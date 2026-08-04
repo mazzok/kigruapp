@@ -18,14 +18,20 @@ describe('RequiredHoursService', () => {
     service.get('sem1').subscribe();
     const req = http.expectOne('/api/v1/required-hours?semesterId=sem1');
     expect(req.request.method).toBe('GET');
-    req.flush({ semesterId: 'sem1', defaultMinutesPerMonth: 480, tiers: [] });
+    req.flush({ semesterId: 'sem1', defaultMinutesPerMonth: 480, allGroups: true, order: 'MOST_EXPENSIVE_FIRST', groupRates: [], tiers: [] });
   });
 
   it('PUTs config for a semester', () => {
-    service.save('sem1', { semesterId: 'sem1', defaultMinutesPerMonth: 480, tiers: [{ fromChild: 2, minutesPerMonth: 360 }] }).subscribe();
+    service.save('sem1', {
+      semesterId: 'sem1', defaultMinutesPerMonth: 480, allGroups: true,
+      order: 'MOST_EXPENSIVE_FIRST', groupRates: [], tiers: [{ fromChild: 2, percent: 25 }],
+    }).subscribe();
     const req = http.expectOne('/api/v1/required-hours?semesterId=sem1');
     expect(req.request.method).toBe('PUT');
     expect(req.request.body.tiers[0].fromChild).toBe(2);
-    req.flush({ semesterId: 'sem1', defaultMinutesPerMonth: 480, tiers: [{ fromChild: 2, minutesPerMonth: 360 }] });
+    req.flush({
+      semesterId: 'sem1', defaultMinutesPerMonth: 480, allGroups: true,
+      order: 'MOST_EXPENSIVE_FIRST', groupRates: [], tiers: [{ fromChild: 2, percent: 25 }],
+    });
   });
 });

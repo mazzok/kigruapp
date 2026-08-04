@@ -1,15 +1,16 @@
-import { RequiredHoursTier } from '../../shared/models/required-hours.model';
+import { RequiredHoursOrder, RequiredHoursTier } from '../../shared/models/required-hours.model';
 
-function rateForChild(defaultMinutes: number, tiers: RequiredHoursTier[], n: number): number {
-  let rate = defaultMinutes;
+/** Rabatt der höchsten passenden Staffel für einen 1-basierten Rang. */
+function discountPercent(tiers: RequiredHoursTier[], rank: number): number {
   let bestFrom = 0;
+  let percent = 0;
   for (const t of tiers) {
-    if (t.fromChild <= n && t.fromChild >= bestFrom) {
+    if (t.fromChild <= rank && t.fromChild >= bestFrom) {
       bestFrom = t.fromChild;
-      rate = t.minutesPerMonth;
+      percent = t.percent;
     }
   }
-  return rate;
+  return percent;
 }
 
 export function familyMonthlyMinutes(
@@ -18,7 +19,20 @@ export function familyMonthlyMinutes(
 ): number {
   let total = 0;
   for (let n = 1; n <= childCount; n++) {
-    total += rateForChild(cfg.defaultMinutesPerMonth, cfg.tiers, n);
+    total += Math.round(cfg.defaultMinutesPerMonth * (100 - discountPercent(cfg.tiers, n)) / 100);
   }
   return total;
+}
+
+/** Monatswert einer Kombination von Gruppensätzen unter der gewählten Reihenfolge. */
+export function groupCombinationMinutes(
+  rates: number[],
+  tiers: RequiredHoursTier[],
+  order: RequiredHoursOrder,
+): number {
+  const sorted = [...rates].sort((a, b) => (order === 'LEAST_EXPENSIVE_FIRST' ? a - b : b - a));
+  return sorted.reduce(
+    (total, rate, index) => total + Math.round(rate * (100 - discountPercent(tiers, index + 1)) / 100),
+    0,
+  );
 }
