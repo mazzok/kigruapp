@@ -377,4 +377,32 @@ class MailJobResourceTest {
                 .when().post("/api/v1/mail-jobs")
                 .then().statusCode(201);
     }
+
+    @Test
+    void cookingJobsCannotBeChangedOnTheGeneralEndpoint() {
+        MailJob cooking = new MailJob();
+        cooking.kind = MailJob.KIND_COOKING;
+        cooking.name = "Erinnerung";
+        cooking.subject = "x";
+        cooking.sendTime = "07:00";
+        cooking.createdAt = java.time.Instant.now();
+        cooking.updatedAt = cooking.createdAt;
+        cooking.persist();
+        String id = cooking.id.toHexString();
+
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"name\":\"Neu\",\"templateId\":null,\"subject\":\"y\",\"senderAccountId\":null,"
+                        + "\"cron\":\"0 0 8 * * ?\",\"allParents\":true,\"recipientSelections\":[]}")
+                .when().put("/api/v1/mail-jobs/" + id)
+                .then().statusCode(409);
+
+        given()
+                .when().delete("/api/v1/mail-jobs/" + id)
+                .then().statusCode(409);
+
+        given()
+                .when().post("/api/v1/mail-jobs/" + id + "/activate")
+                .then().statusCode(409);
+    }
 }

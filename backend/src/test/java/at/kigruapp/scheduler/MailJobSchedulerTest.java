@@ -55,4 +55,21 @@ class MailJobSchedulerTest {
                 .count();
         assertEquals(1, matching);
     }
+
+    /**
+     * COOKING jobs never set cron (only sendTime), so scheduling one via the
+     * GENERAL job path would NPE on the null cron. This reproduces the
+     * startup-crash scenario that MailJobStartupRearmer would otherwise hit
+     * for every active COOKING job.
+     */
+    @Test
+    void scheduleSkipsCookingJobsInsteadOfCrashingOnNullCron() {
+        MailJob job = new MailJob();
+        job.id = new org.bson.types.ObjectId();
+        job.kind = MailJob.KIND_COOKING;
+        job.cron = null;
+
+        assertDoesNotThrow(() -> mailJobScheduler.schedule(job));
+        assertNull(scheduler.getScheduledJob(job.id.toHexString()));
+    }
 }

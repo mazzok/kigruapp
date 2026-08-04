@@ -72,6 +72,7 @@ public class MailJobResource {
         validate(request);
         MailJob job = new MailJob();
         applyFields(job, request);
+        job.kind = MailJob.KIND_GENERAL;
         job.active = false;
         job.createdAt = Instant.now();
         job.updatedAt = job.createdAt;
@@ -85,6 +86,10 @@ public class MailJobResource {
         MailJob job = MailJob.findById(new ObjectId(id));
         if (job == null) {
             throw new NotFoundException();
+        }
+        if (job.isCooking()) {
+            throw new WebApplicationException(
+                    "Kochdienst-Jobs werden in den Kochdienst-Einstellungen gepflegt", 409);
         }
         validate(request);
         boolean cronChanged = !job.cron.equals(request.cron);
@@ -104,6 +109,10 @@ public class MailJobResource {
         if (job == null) {
             throw new NotFoundException();
         }
+        if (job.isCooking()) {
+            throw new WebApplicationException(
+                    "Kochdienst-Jobs werden in den Kochdienst-Einstellungen gepflegt", 409);
+        }
         if (job.active) {
             mailJobScheduler.unschedule(job.id);
         }
@@ -118,6 +127,10 @@ public class MailJobResource {
         MailJob job = MailJob.findById(new ObjectId(id));
         if (job == null) {
             throw new NotFoundException();
+        }
+        if (job.isCooking()) {
+            throw new WebApplicationException(
+                    "Kochdienst-Jobs werden in den Kochdienst-Einstellungen gepflegt", 409);
         }
         try {
             cronParser.parse(job.cron).validate();
@@ -138,6 +151,10 @@ public class MailJobResource {
         MailJob job = MailJob.findById(new ObjectId(id));
         if (job == null) {
             throw new NotFoundException();
+        }
+        if (job.isCooking()) {
+            throw new WebApplicationException(
+                    "Kochdienst-Jobs werden in den Kochdienst-Einstellungen gepflegt", 409);
         }
         mailJobScheduler.unschedule(job.id);
         job.active = false;
