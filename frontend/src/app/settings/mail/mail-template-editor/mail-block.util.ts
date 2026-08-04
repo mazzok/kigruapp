@@ -28,7 +28,9 @@ function escapeHtml(value: string): string {
 
 /** Builds the editor representation of a block: a non-editable card with a summary + edit button. */
 export function blockSpan(blockType: string, config: MailBlockConfig, summary: string): string {
-  const configJson = JSON.stringify(config).replace(/"/g, '&quot;');
+  // Order matters: escape & first, then ", so an already-escaped &quot; isn't
+  // re-escaped into &amp;quot; (which would corrupt the JSON on parse-back).
+  const configJson = JSON.stringify(config).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
   return `<div class="mail-block" data-block-type="${blockType}" data-config="${configJson}" contenteditable="false">`
     + `<span class="mail-block-summary">${escapeHtml(summary)}</span>`
     + `<button type="button" class="mail-block-edit-btn" aria-label="Baustein bearbeiten">✎</button>`
@@ -40,9 +42,15 @@ export function markersToEmbeds(
   html: string,
   resolveSummary: (blockType: string, config: MailBlockConfig) => string,
 ): string {
-  return html.replace(BLOCK_MARKER_RE, (_all, blockType: string, encoded: string) => {
-    const config = JSON.parse(fromBase64Url(encoded)) as MailBlockConfig;
-    return blockSpan(blockType, config, resolveSummary(blockType, config));
+  return html.replace(BLOCK_MARKER_RE, (all, blockType: string, encoded: string) => {
+    try {
+      const config = JSON.parse(fromBase64Url(encoded)) as MailBlockConfig;
+      return blockSpan(blockType, config, resolveSummary(blockType, config));
+    } catch {
+      // Corrupted base64/JSON in a stored marker must not brick the whole
+      // editor — leave the raw marker text untouched at this position.
+      return all;
+    }
   });
 }
 

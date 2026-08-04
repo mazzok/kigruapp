@@ -48,6 +48,27 @@ describe('mail-block.util', () => {
       .toBe('Kochdienst: Gruppe wählen, nächste 3 Monate');
   });
 
+  it('blockSpan escapes & before " so a config value containing both round-trips intact', () => {
+    const cfg = { ...CONFIG, groupId: 'Rot & "Blau"' } as unknown as CookingDutyBlockConfig;
+    const html = blockSpan('cookingDuty', cfg, 'ignored');
+    const match = html.match(/data-config="([^"]*)"/);
+    expect(match).toBeTruthy();
+    const attrValue = match![1];
+    // Simulate the browser un-escaping the HTML attribute (order: &amp; -> &, &quot; -> ")
+    // the way a real DOMParser would when reading data-config back.
+    const div = document.createElement('div');
+    div.innerHTML = `<div data-config="${attrValue}"></div>`;
+    const roundTripped = (div.firstElementChild as HTMLElement).getAttribute('data-config');
+    expect(JSON.parse(roundTripped!)).toEqual(cfg);
+  });
+
+  it('markersToEmbeds leaves a marker with corrupted base64/JSON untouched instead of throwing', () => {
+    const corrupted = '<p>Hallo</p>{{block.cookingDuty:not-valid-base64===}}';
+    expect(() => markersToEmbeds(corrupted, () => 'ignored')).not.toThrow();
+    const out = markersToEmbeds(corrupted, () => 'ignored');
+    expect(out).toBe(corrupted);
+  });
+
   it('instanceLabel prefers value.label, then the field label, then the field name', () => {
     const withValueLabel: FieldInstanceDTO = { id: 'g1', definitionId: 'd1', fieldName: 'group', label: { de: 'Gruppen' }, jsonSchema: {}, required: false, value: { label: 'Rote Gruppe' }, definitionOutdated: false };
     const withoutValueLabel: FieldInstanceDTO = { ...withValueLabel, value: {} };
