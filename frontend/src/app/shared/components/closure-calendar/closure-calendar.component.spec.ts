@@ -165,4 +165,19 @@ describe('ClosureCalendarComponent', () => {
 
     expect(component.selectedDays).toEqual([]);
   });
+
+  describe('layout', () => {
+    it('setzt standardmaessig kein layout-row', () => {
+      const root = fixture.nativeElement.querySelector('.closure-calendar');
+      expect(root.classList.contains('layout-row')).toBe(false);
+    });
+
+    it('setzt layout-row wenn layout auf row steht', () => {
+      component.layout = 'row';
+      fixture.detectChanges();
+
+      const root = fixture.nativeElement.querySelector('.closure-calendar');
+      expect(root.classList.contains('layout-row')).toBe(true);
+    });
+  });
 });

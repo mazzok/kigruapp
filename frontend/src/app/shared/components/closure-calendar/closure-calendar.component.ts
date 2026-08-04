@@ -26,6 +26,8 @@ export class ClosureCalendarComponent implements OnChanges, OnInit {
   @Input() holidays: Holiday[] = [];
   /** Elternansicht: keine Auswahl, keine Handler. */
   @Input() readonly = false;
+  /** 'stacked' (Default, Elternansicht): Monate untereinander. 'row': Monate horizontal scrollbar (Admin-Maske). */
+  @Input() layout: 'stacked' | 'row' = 'stacked';
 
   @Output() selectionChange = new EventEmitter<string[]>();
 
