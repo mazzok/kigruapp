@@ -63,6 +63,9 @@ export class MailTemplateFormComponent implements OnInit {
    */
   private lastRawValue: { name: string; bodyHtml: string } | null = null;
 
+  /** True, sobald die Platzhalter mindestens einmal geladen wurden. */
+  private placeholdersLoaded = false;
+
   form = new FormGroup({
     name: new FormControl('', Validators.required),
     bodyHtml: new FormControl('', Validators.required),
@@ -80,6 +83,7 @@ export class MailTemplateFormComponent implements OnInit {
     this.mailTemplateService.placeholders(this.kind).subscribe((tiles) => {
       this.placeholders = tiles;
       this.groups = this.buildGroups(tiles);
+      this.placeholdersLoaded = true;
       if (this.lastRawValue) {
         this.applyValue(this.lastRawValue);
       }
@@ -91,10 +95,10 @@ export class MailTemplateFormComponent implements OnInit {
   }
 
   private applyValue(v: { name: string; bodyHtml: string }): void {
-    this.form.patchValue(
-      { name: v.name, bodyHtml: tokensToPills(v.bodyHtml, this.placeholders) },
-      { emitEvent: false },
-    );
+    const bodyHtml = this.placeholdersLoaded
+      ? tokensToPills(v.bodyHtml, this.placeholders)
+      : v.bodyHtml;
+    this.form.patchValue({ name: v.name, bodyHtml }, { emitEvent: false });
     this.updatePreview(this.form.value.bodyHtml ?? '');
   }
 

@@ -163,7 +163,7 @@ describe('MailTemplateFormComponent', () => {
       bodyHtml: '<p>Hallo <span class="mail-token" data-token="{{person.firstName}}">Vorname</span></p>',
     });
 
-    expect(component.previewHtml as unknown as string).toBe('<p>Hallo Anna</p>');
+    expect((component.previewHtml as any).changingThisBreaksApplicationSecurity).toBe('<p>Hallo Anna</p>');
   });
 
   it('dragging a chip sets the token payload on the drag event', () => {
