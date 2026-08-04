@@ -116,9 +116,9 @@ Konfiguration.
 
 ### Backend (Erweiterung)
 
-- `MailTemplateRenderer` — zusätzlicher Schritt: `mail-block`-Divs im
-  `bodyHtml` scannen (Jsoup) und über die `MailBlockRenderer`-Registry
-  ersetzen, nach der bestehenden Token-Auflösung.
+- `MailTemplateRenderer` — zusätzlicher Schritt: `{{block.<type>:<config>}}`-
+  Marker im `bodyHtml` per Regex scannen (kein Jsoup, siehe oben) und über die
+  `MailBlockRenderer`-Registry ersetzen, nach der bestehenden Token-Auflösung.
 
 ## Testing
 
