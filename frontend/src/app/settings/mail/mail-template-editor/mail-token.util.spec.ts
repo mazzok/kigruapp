@@ -69,7 +69,7 @@ describe('mail-token.util', () => {
 
   it('wandelt duty-Tokens in Pills mit Label', () => {
     const html = tokensToPills('<p>Am {{duty.date}} kochst du.</p>', [
-      { token: '{{duty.date}}', fieldName: 'date', label: { de: 'Datum' }, group: 'KOCHDIENST', groupLabel: 'Kochdienst' },
+      { token: '{{duty.date}}', fieldName: 'date', label: { de: 'Datum' } },
     ]);
 
     expect(html).toContain('data-token="{{duty.date}}"');
