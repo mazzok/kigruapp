@@ -1,0 +1,80 @@
+<div class="reminder-jobs">
+  <aside class="job-list">
+    <div class="list-head">
+      <h3>Erinnerungen</h3>
+      <button mat-stroked-button color="primary" type="button" (click)="newJob()">
+        <mat-icon>add</mat-icon> Neue Erinnerung
+      </button>
+    </div>
+
+    <nav class="jobs" *ngIf="jobs.length; else emptyList">
+      <div class="job-item" *ngFor="let job of jobs" [class.selected]="job.id === selectedId">
+        <button class="job-main" type="button" (click)="selectForEdit(job)">
+          <span class="job-name">{{ job.name }}</span>
+          <span class="job-time">{{ job.sendTime }}</span>
+        </button>
+        <mat-slide-toggle [checked]="job.active" (change)="toggleActive(job)"
+                          matTooltip="Aktiv"></mat-slide-toggle>
+        <button mat-icon-button type="button" (click)="delete(job)" matTooltip="Loeschen">
+          <mat-icon>delete_outline</mat-icon>
+        </button>
+      </div>
+    </nav>
+
+    <ng-template #emptyList>
+      <p class="empty">Noch keine Erinnerung angelegt.</p>
+    </ng-template>
+  </aside>
+
+  <div class="job-placeholder" *ngIf="!editing">
+    <mat-icon>notifications</mat-icon>
+    <p class="placeholder-title">Keine Erinnerung ausgewählt</p>
+    <p class="placeholder-sub">Wähle links eine bestehende Erinnerung oder lege über
+      „Neue Erinnerung“ eine neue an.</p>
+  </div>
+
+  <form *ngIf="editing" [formGroup]="form" class="job-form" (ngSubmit)="save()">
+    <header class="form-head">
+      <h3>{{ selectedId ? 'Erinnerung bearbeiten' : 'Neue Erinnerung' }}</h3>
+    </header>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Name</mat-label>
+      <input matInput formControlName="name" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Mailkonto</mat-label>
+      <mat-select formControlName="senderAccountId">
+        <mat-option *ngFor="let account of accounts" [value]="account.id">{{ account.name }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Betreff</mat-label>
+      <input matInput formControlName="subject" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Versandzeit</mat-label>
+      <input matInput type="time" formControlName="sendTime" />
+    </mat-form-field>
+
+    <mat-slide-toggle formControlName="active">Aktiv</mat-slide-toggle>
+
+    <p class="recipients-hint">
+      Empfänger sind immer die Eltern der Familie, die den Kochdienst übernommen hat.
+      Wie viele Tage vorher erinnert wird, legt das Elternteil beim Kochdienst selbst fest.
+    </p>
+
+    <app-mail-template-form [kind]="'COOKING'" nameLabel="Name der Vorlage"
+                            [value]="templateValue"
+                            (valueChange)="onTemplateChange($event)"></app-mail-template-form>
+
+    <footer class="actions">
+      <button mat-button type="button" (click)="closeEditor()">Verwerfen</button>
+      <span class="spacer"></span>
+      <button mat-flat-button color="primary" type="submit" [disabled]="!canSave">Speichern</button>
+    </footer>
+  </form>
+</div>

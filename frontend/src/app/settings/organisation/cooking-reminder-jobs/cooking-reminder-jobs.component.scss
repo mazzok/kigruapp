@@ -1,0 +1,185 @@
+$border: #e6e8ee;
+$border-strong: #c7ccd8;
+$surface: #ffffff;
+$muted: #6b7280;
+$heading: #1f2430;
+$accent: #3f51b5;
+
+.reminder-jobs {
+  display: grid;
+  grid-template-columns: 264px minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.job-list {
+  position: sticky;
+  top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+
+  .list-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+
+    h3 {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: $heading;
+    }
+
+    button mat-icon {
+      font-size: 1.1rem;
+      height: 1.1rem;
+      width: 1.1rem;
+      margin-right: 0.15rem;
+    }
+  }
+
+  .jobs {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .job-item {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    border: 1px solid $border;
+    border-radius: 10px;
+    background: $surface;
+    padding: 0.35rem 0.35rem 0.35rem 0.25rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+    &:hover {
+      border-color: $border-strong;
+    }
+
+    &.selected {
+      border-color: $accent;
+      box-shadow: inset 0 0 0 1px $accent;
+    }
+
+    .job-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      padding: 0.4rem 0.5rem;
+      border: none;
+      background: none;
+      cursor: pointer;
+      text-align: left;
+      font: inherit;
+    }
+
+    .job-name {
+      font-weight: 500;
+      color: $heading;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .job-time {
+      color: $muted;
+      font-size: 0.85rem;
+    }
+  }
+
+  .empty {
+    margin: 0;
+    padding: 0.75rem;
+    color: $muted;
+    font-size: 0.9rem;
+    border: 1px dashed $border;
+    border-radius: 10px;
+  }
+}
+
+.job-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.35rem;
+  min-height: 320px;
+  padding: 2rem;
+  border: 1px dashed $border-strong;
+  border-radius: 14px;
+  background: $surface;
+  color: $muted;
+
+  mat-icon {
+    font-size: 2.5rem;
+    height: 2.5rem;
+    width: 2.5rem;
+    opacity: 0.5;
+  }
+
+  .placeholder-title {
+    margin: 0.25rem 0 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: $heading;
+  }
+
+  .placeholder-sub {
+    margin: 0;
+    max-width: 360px;
+    font-size: 0.9rem;
+  }
+}
+
+.job-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+  max-width: 760px;
+
+  .form-head h3 {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 600;
+    color: $heading;
+  }
+
+  mat-form-field {
+    width: 100%;
+  }
+
+  .recipients-hint {
+    margin: 0;
+    color: $muted;
+    font-size: 0.85rem;
+  }
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+
+  .spacer {
+    flex: 1;
+  }
+}
+
+@media (max-width: 860px) {
+  .reminder-jobs {
+    grid-template-columns: 1fr;
+  }
+
+  .job-list {
+    position: static;
+  }
+}
