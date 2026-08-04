@@ -4,8 +4,8 @@ import {
 import { PlaceholderTile } from '../../../shared/models/mail-template.model';
 
 const PLACEHOLDERS: PlaceholderTile[] = [
-  { token: '{{person.firstName}}', fieldName: 'firstName', label: { de: 'Vorname', en: 'First name' } },
-  { token: '{{person.lastName}}', fieldName: 'lastName', label: { de: 'Nachname', en: 'Last name' } },
+  { token: '{{person.firstName}}', fieldName: 'firstName', label: { de: 'Vorname', en: 'First name' }, group: 'PERSON', groupLabel: 'Person' },
+  { token: '{{person.lastName}}', fieldName: 'lastName', label: { de: 'Nachname', en: 'Last name' }, group: 'PERSON', groupLabel: 'Person' },
 ];
 
 describe('mail-token.util', () => {
@@ -69,7 +69,7 @@ describe('mail-token.util', () => {
 
   it('wandelt duty-Tokens in Pills mit Label', () => {
     const html = tokensToPills('<p>Am {{duty.date}} kochst du.</p>', [
-      { token: '{{duty.date}}', fieldName: 'date', label: { de: 'Datum' } },
+      { token: '{{duty.date}}', fieldName: 'date', label: { de: 'Datum' }, group: 'KOCHDIENST', groupLabel: 'Kochdienst' },
     ]);
 
     expect(html).toContain('data-token="{{duty.date}}"');
