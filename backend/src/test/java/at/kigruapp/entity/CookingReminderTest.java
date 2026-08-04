@@ -64,9 +64,16 @@ class CookingReminderTest {
     @Test
     void uniqueIndexRejectsDuplicateDutyAndDueDate() {
         ObjectId dutyId = new ObjectId();
-        reminder(dutyId, "2026-09-12").persist();
+        ObjectId jobId = new ObjectId();
+        CookingReminder first = reminder(dutyId, "2026-09-12");
+        first.jobId = jobId;
+        first.persist();
 
-        assertThrows(MongoWriteException.class, () -> reminder(dutyId, "2026-09-12").persist());
+        assertThrows(MongoWriteException.class, () -> {
+            CookingReminder duplicate = reminder(dutyId, "2026-09-12");
+            duplicate.jobId = jobId;
+            duplicate.persist();
+        });
     }
 
     @Test
@@ -86,7 +93,7 @@ class CookingReminderTest {
         long indexCount = 0;
         for (Document index : mongoClient.getDatabase(databaseName)
                 .getCollection("cooking_reminders").listIndexes()) {
-            if ("dutyId_1_dueDate_1".equals(index.getString("name"))) {
+            if ("dutyId_1_dueDate_1_jobId_1".equals(index.getString("name"))) {
                 indexCount++;
             }
         }
