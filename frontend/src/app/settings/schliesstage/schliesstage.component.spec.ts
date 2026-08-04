@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { By } from '@angular/platform-browser';
 import { of } from 'rxjs';
 
 import { SchliesstageComponent } from './schliesstage.component';
@@ -8,6 +9,7 @@ import { ClosurePeriodService } from '../../shared/services/closure-period.servi
 import { HolidayService } from '../../shared/services/holiday.service';
 import { SemesterService } from '../../shared/services/semester.service';
 import { ApplyPeriodsRequest, ClosureDefinition, ClosurePeriod } from '../../shared/models/closure.model';
+import { ClosureCalendarComponent } from '../../shared/components/closure-calendar/closure-calendar.component';
 
 const ferien: ClosureDefinition = {
   id: 'def-ferien', label: 'Ferien', color: '#d94f4f', active: true, createdAt: '2026-07-02T00:00:00Z',
@@ -132,5 +134,10 @@ describe('SchliesstageComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.assign-bar')).not.toBeNull();
+  });
+
+  it('uebergibt layout row an app-closure-calendar', () => {
+    const calendar = fixture.debugElement.query(By.directive(ClosureCalendarComponent));
+    expect(calendar.componentInstance.layout).toBe('row');
   });
 });
