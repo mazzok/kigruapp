@@ -15,15 +15,16 @@ import { OrganisationDTO } from '../../../shared/models/organisation.model';
 import { FieldInstanceService } from '../../../shared/services/field-instance.service';
 import { FieldInstanceDTO } from '../../../shared/models/field-instance.model';
 
+const JOB: MailJob = {
+  id: 'j1', name: 'Willkommen-Job', templateId: 't1', subject: 'Willkommen',
+  senderAccountId: 'acc1', cron: '0 0 8 * * ?', allParents: true,
+  recipientSelections: [], active: false, kind: 'GENERAL', sendTime: null,
+  lastRunAt: null, lastRunStatus: null, lastRunError: null,
+  createdAt: '2026-01-01', updatedAt: '2026-01-01',
+};
+
 class FakeMailJobService {
-  jobs: MailJob[] = [
-    {
-      id: 'j1', name: 'Willkommen-Job', templateId: 't1', subject: 'Willkommen',
-      senderAccountId: 'acc1', cron: '0 0 8 * * ?', allParents: true,
-      recipientSelections: [], active: false, lastRunAt: null, lastRunStatus: null,
-      lastRunError: null, createdAt: '2026-01-01', updatedAt: '2026-01-01',
-    },
-  ];
+  jobs: MailJob[] = [JOB];
   createCalls: SaveMailJobRequest[] = [];
   updateCalls: { id: string; request: SaveMailJobRequest }[] = [];
   deleteCalls: string[] = [];
@@ -57,9 +58,9 @@ class FakeMailJobService {
 
 class FakeMailTemplateService {
   templates: MailTemplate[] = [
-    { id: 't1', name: 'Willkommen', bodyHtml: '<p>Hallo</p>', createdAt: '2026-01-01', updatedAt: '2026-01-01' },
+    { id: 't1', name: 'Willkommen', bodyHtml: '<p>Hallo</p>', kind: 'GENERAL', createdAt: '2026-01-01', updatedAt: '2026-01-01' },
   ];
-  list() {
+  list(_kind?: string) {
     return of(this.templates);
   }
 }
@@ -403,14 +404,18 @@ describe('MailJobEditorComponent', () => {
 describe('MailJobEditorComponent (Template)', () => {
   let fixture: ComponentFixture<MailJobEditorComponent>;
   let component: MailJobEditorComponent;
+  let mailTemplateService: FakeMailTemplateService;
 
   beforeEach(async () => {
+    mailTemplateService = new FakeMailTemplateService();
+    spyOn(mailTemplateService, 'list').and.callThrough();
+
     await TestBed.configureTestingModule({
       imports: [MailJobEditorComponent],
       providers: [
         provideNoopAnimations(),
         { provide: MailJobService, useClass: FakeMailJobService },
-        { provide: MailTemplateService, useClass: FakeMailTemplateService },
+        { provide: MailTemplateService, useValue: mailTemplateService },
         { provide: MailAccountService, useClass: FakeMailAccountService },
         { provide: OrganisationService, useClass: FakeOrganisationService },
         { provide: FieldInstanceService, useClass: FakeFieldInstanceService },
@@ -485,5 +490,22 @@ describe('MailJobEditorComponent (Template)', () => {
     component.form.patchValue({ allParents: false });
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.recipient-select')).not.toBeNull();
+  });
+
+  it('laedt nur allgemeine Vorlagen fuer das Dropdown', () => {
+    fixture.detectChanges();
+
+    expect(mailTemplateService.list).toHaveBeenCalledWith('GENERAL');
+  });
+
+  it('erkennt Kochdienst-Jobs', () => {
+    expect(component.isCooking({ ...JOB, kind: 'COOKING' })).toBeTrue();
+    expect(component.isCooking({ ...JOB, kind: 'GENERAL' })).toBeFalse();
+  });
+
+  it('oeffnet einen Kochdienst-Job nicht zum Bearbeiten', () => {
+    component.selectForEdit({ ...JOB, kind: 'COOKING' });
+
+    expect(component.editing).toBeFalse();
   });
 });

@@ -9,7 +9,7 @@
 
     <nav class="jobs" *ngIf="jobs.length; else emptyList">
       <div class="job-item" *ngFor="let j of jobs" [class.selected]="j.id === selectedId">
-        <button class="job-main" type="button" (click)="selectForEdit(j)">
+        <button class="job-main" type="button" [disabled]="isCooking(j)" (click)="selectForEdit(j)">
           <span class="job-name">{{ j.name }}</span>
           <span class="job-meta">
             <span *ngIf="j.active" class="badge">aktiv</span>
@@ -17,15 +17,18 @@
                   [matTooltip]="statusTooltip(j)">
               {{ statusLabel(j) }}
             </span>
+            <span class="kind-chip" *ngIf="isCooking(j)"
+                  matTooltip="Wird in Organisation → Dienst-Einstellungen gepflegt">Kochdienst</span>
           </span>
         </button>
         <div class="job-controls">
           <mat-slide-toggle
             [checked]="j.active"
+            [disabled]="isCooking(j)"
             (click)="$event.stopPropagation()"
             (change)="toggleActive(j)"
             matTooltip="{{ j.active ? 'Deaktivieren' : 'Aktivieren' }}"></mat-slide-toggle>
-          <button mat-icon-button type="button" class="delete-btn"
+          <button mat-icon-button type="button" class="delete-btn" [disabled]="isCooking(j)"
                   (click)="$event.stopPropagation(); delete(j)" matTooltip="Löschen">
             <mat-icon>delete_outline</mat-icon>
           </button>
