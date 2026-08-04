@@ -1,0 +1,27 @@
+<mat-form-field appearance="outline" [formGroup]="form">
+  <mat-label>{{ nameLabel }}</mat-label>
+  <input matInput formControlName="name" />
+</mat-form-field>
+
+<div class="chip-bar" *ngFor="let group of groups">
+  <span class="chip-hint">{{ group.label }} (klicken oder in den Text ziehen):</span>
+  <button class="chip" type="button"
+          *ngFor="let tile of group.tiles"
+          draggable="true"
+          (dragstart)="onChipDragStart($event, tile)"
+          (click)="insertPlaceholder(tile)">
+    {{ tile.label['de'] || tile.fieldName }}
+  </button>
+</div>
+
+<label class="field-label">Inhalt</label>
+<div class="editor-wrap" [formGroup]="form"
+     (dragover)="onEditorDragOver($event)" (drop)="onEditorDrop($event)">
+  <quill-editor formControlName="bodyHtml" [modules]="quillModules"
+                (onEditorCreated)="onEditorCreated($event)"></quill-editor>
+</div>
+
+<div class="preview">
+  <label class="field-label">Vorschau <span class="muted">(mit Beispiel-Daten)</span></label>
+  <div class="preview-box" [innerHTML]="previewHtml"></div>
+</div>
