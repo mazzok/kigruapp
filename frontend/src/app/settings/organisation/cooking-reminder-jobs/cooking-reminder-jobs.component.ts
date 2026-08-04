@@ -40,7 +40,7 @@ export class CookingReminderJobsComponent implements OnInit {
   selectedId: string | null = null;
   editing = false;
 
-  /** Wert fuer die Maske (Eingang) und der zuletzt gemeldete Wert (Ausgang). */
+  /** Wert für die Maske (Eingang) und der zuletzt gemeldete Wert (Ausgang). */
   templateValue = { name: '', bodyHtml: '' };
   private currentTemplate = { name: '', bodyHtml: '' };
 
@@ -136,7 +136,7 @@ export class CookingReminderJobsComponent implements OnInit {
     });
   }
 
-  /** Der Schalter in der Liste speichert den Job unveraendert mit gekipptem active. */
+  /** Der Schalter in der Liste speichert den Job unverändert mit gekipptem active. */
   toggleActive(job: CookingReminderJob): void {
     const activating = !job.active;
     this.jobService.update(job.id, {
@@ -162,7 +162,7 @@ export class CookingReminderJobsComponent implements OnInit {
   delete(job: CookingReminderJob): void {
     this.jobService.delete(job.id).subscribe({
       next: () => {
-        this.notify.success('Erinnerung geloescht');
+        this.notify.success('Erinnerung gelöscht');
         if (this.selectedId === job.id) {
           this.closeEditor();
         }
