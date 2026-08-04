@@ -97,7 +97,8 @@ public class MailTemplateRenderer {
             JsonNode config = OBJECT_MAPPER.readTree(decoded);
             for (MailBlockRenderer renderer : blockRenderers) {
                 if (renderer.supports(blockType)) {
-                    return renderer.render(config);
+                    String rendered = renderer.render(config);
+                    return rendered != null ? rendered : "";
                 }
             }
             return "";

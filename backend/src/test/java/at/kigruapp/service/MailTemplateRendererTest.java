@@ -117,6 +117,15 @@ class MailTemplateRendererTest {
     }
 
     @Test
+    void blanksABlockMarkerWhenTheMatchingRendererReturnsNull() {
+        MailTemplateRenderer renderer = new MailTemplateRenderer(java.util.List.of(new FakeBlockRenderer("cookingDuty", null)));
+
+        String result = renderer.render("<p>{{block.cookingDuty:eyJncm91cElkIjoiZzEifQ==}}</p>", java.util.Map.of());
+
+        assertEquals("<p></p>", result);
+    }
+
+    @Test
     void blanksABlockMarkerWhenNoRendererSupportsItsType() {
         MailTemplateRenderer renderer = new MailTemplateRenderer(java.util.List.of(new FakeBlockRenderer("cookingDuty", "<table></table>")));
 
