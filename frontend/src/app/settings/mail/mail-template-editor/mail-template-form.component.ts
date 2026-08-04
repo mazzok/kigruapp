@@ -44,11 +44,8 @@ export class MailTemplateFormComponent implements OnInit {
 
   /** Wert in Token-Form; wird beim Setzen in Pill-Form uebersetzt. */
   @Input() set value(v: { name: string; bodyHtml: string }) {
-    this.form.patchValue(
-      { name: v.name, bodyHtml: tokensToPills(v.bodyHtml, this.placeholders) },
-      { emitEvent: false },
-    );
-    this.updatePreview(this.form.value.bodyHtml ?? '');
+    this.lastRawValue = v;
+    this.applyValue(v);
   }
 
   @Output() valueChange = new EventEmitter<{ name: string; bodyHtml: string }>();
@@ -57,6 +54,14 @@ export class MailTemplateFormComponent implements OnInit {
   groups: PlaceholderGroup[] = [];
   previewHtml: SafeHtml;
   quillInstance: any = null;
+
+  /**
+   * Letzter über das Input gesetzter Wert in Token-Form. Wird erneut
+   * angewendet, sobald die Platzhalter asynchron eintreffen — der Setter kann
+   * vor ngOnInit feuern (Angular-Bindungsreihenfolge), wenn `placeholders`
+   * noch leer ist, und würde sonst rohe Tokens statt Pill-Labels anzeigen.
+   */
+  private lastRawValue: { name: string; bodyHtml: string } | null = null;
 
   form = new FormGroup({
     name: new FormControl('', Validators.required),
@@ -75,11 +80,22 @@ export class MailTemplateFormComponent implements OnInit {
     this.mailTemplateService.placeholders(this.kind).subscribe((tiles) => {
       this.placeholders = tiles;
       this.groups = this.buildGroups(tiles);
+      if (this.lastRawValue) {
+        this.applyValue(this.lastRawValue);
+      }
     });
     this.form.valueChanges.subscribe(() => {
       this.updatePreview(this.form.value.bodyHtml ?? '');
       this.valueChange.emit(this.currentValue());
     });
+  }
+
+  private applyValue(v: { name: string; bodyHtml: string }): void {
+    this.form.patchValue(
+      { name: v.name, bodyHtml: tokensToPills(v.bodyHtml, this.placeholders) },
+      { emitEvent: false },
+    );
+    this.updatePreview(this.form.value.bodyHtml ?? '');
   }
 
   get valid(): boolean {

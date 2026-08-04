@@ -113,12 +113,30 @@ describe('MailTemplateFormComponent', () => {
   });
 
   it('setting value loads it with tokens converted to pills', () => {
+    // Angular fires @Input() setters before ngOnInit, so `value` must be set
+    // before the first detectChanges() to reproduce real template-binding order.
     component.kind = 'COOKING';
+    component.value = { name: 'Vorlage', bodyHtml: '<p>Hallo {{person.firstName}}</p>' };
     fixture.detectChanges();
 
+    expect(component.form.value.bodyHtml).toContain('data-token="{{person.firstName}}"');
+    expect(component.form.value.bodyHtml).not.toContain('{{person.firstName}}</p>');
+  });
+
+  it('re-applies the pill conversion once placeholders arrive after the initial value setter', () => {
+    // Reproduces the real ordering: `value` is set (as Angular does, before
+    // ngOnInit) while `placeholders` is still empty, so if the component only
+    // converted once at setter-time this would be stuck showing raw tokens.
+    component.kind = 'COOKING';
     component.value = { name: 'Vorlage', bodyHtml: '<p>Hallo {{person.firstName}}</p>' };
 
+    expect(component.form.value.bodyHtml).toContain('{{person.firstName}}');
+    expect(component.form.value.bodyHtml).not.toContain('data-token');
+
+    fixture.detectChanges(); // triggers ngOnInit -> placeholders() resolves synchronously (of())
+
     expect(component.form.value.bodyHtml).toContain('data-token="{{person.firstName}}"');
+    expect(component.form.value.bodyHtml).toContain('>Vorname<');
     expect(component.form.value.bodyHtml).not.toContain('{{person.firstName}}</p>');
   });
 
