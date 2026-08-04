@@ -166,6 +166,37 @@ class MailTemplateResourceTest {
     }
 
     @Test
+    void placeholdersForCookingReturnDutyTokensAndOnlyNameFields() {
+        persistDefinition("firstName", "Vorname");
+        persistDefinition("lastName", "Nachname");
+        persistDefinition("email", "E-Mail");
+
+        given()
+                .when().get("/api/v1/mail-templates/placeholders?kind=COOKING")
+                .then().statusCode(200)
+                .body("token", hasItem("{{duty.date}}"))
+                .body("token", hasItem("{{duty.personName}}"))
+                .body("token", hasItem("{{person.firstName}}"))
+                .body("token", hasItem("{{person.lastName}}"))
+                .body("token", not(hasItem("{{person.email}}")))
+                .body("group", hasItem("KOCHDIENST"))
+                .body("group", hasItem("PERSON"));
+    }
+
+    @Test
+    void placeholdersWithoutKindStayGeneral() {
+        persistDefinition("firstName", "Vorname");
+        persistDefinition("email", "E-Mail");
+
+        given()
+                .when().get("/api/v1/mail-templates/placeholders")
+                .then().statusCode(200)
+                .body("token", hasItem("{{person.email}}"))
+                .body("token", not(hasItem("{{duty.date}}")))
+                .body("group", everyItem(is("PERSON")));
+    }
+
+    @Test
     void createRejectsBlankName() {
         given()
                 .contentType(ContentType.JSON)

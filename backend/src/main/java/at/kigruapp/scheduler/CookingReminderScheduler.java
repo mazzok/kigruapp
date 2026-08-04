@@ -210,7 +210,7 @@ public class CookingReminderScheduler {
         }
     }
 
-    private Map<String, String> buildDutyProperties(DueDuty duty) {
+    Map<String, String> buildDutyProperties(DueDuty duty) {
         Map<String, String> properties = new HashMap<>();
         properties.put("date", LocalDate.parse(duty.dutyDate()).format(DISPLAY_DATE));
         properties.put("description", duty.description() == null ? "" : duty.description());
