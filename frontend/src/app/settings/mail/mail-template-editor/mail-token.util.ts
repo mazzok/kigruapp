@@ -1,7 +1,7 @@
 import { PlaceholderTile } from '../../../shared/models/mail-template.model';
 
-/** Matches a stored placeholder token, capturing the field name. */
-export const TOKEN_RE = /\{\{person\.([A-Za-z]+)\}\}/g;
+/** Matches a stored placeholder token of either namespace, capturing the whole token. */
+export const TOKEN_RE = /\{\{(?:person|duty)\.[A-Za-z0-9_]+\}\}/g;
 
 /** Builds the editor representation of a placeholder: a non-editable pill. */
 export function pillSpan(token: string, label: string): string {
@@ -11,10 +11,8 @@ export function pillSpan(token: string, label: string): string {
 /** Stored HTML (raw {{tokens}}) -> editor HTML (pill spans). */
 export function tokensToPills(html: string, placeholders: PlaceholderTile[]): string {
   const labels = new Map<string, string>();
-  placeholders.forEach((p) => labels.set(p.fieldName, p.label['de'] || p.fieldName));
-  return html.replace(TOKEN_RE, (token, fieldName) =>
-    pillSpan(token, labels.get(fieldName) ?? fieldName),
-  );
+  placeholders.forEach((p) => labels.set(p.token, p.label['de'] || p.fieldName));
+  return html.replace(TOKEN_RE, (token) => pillSpan(token, labels.get(token) ?? token));
 }
 
 /**
@@ -31,18 +29,23 @@ export function pillsToTokens(html: string): string {
   return doc.body.innerHTML.replace(/﻿/g, '');
 }
 
-/** Fixed sample values used only for the client-side preview. */
+/** Fixed sample values used only for the client-side preview. Key is the full token. */
 export const SAMPLE_VALUES: Record<string, string> = {
-  firstName: 'Anna',
-  lastName: 'Muster',
-  email: 'anna.muster@example.org',
-  phone: '+43 660 1234567',
-  dateOfBirth: '15.03.2015',
-  gender: 'weiblich',
-  notes: 'Allergien beachten',
+  '{{person.firstName}}': 'Anna',
+  '{{person.lastName}}': 'Muster',
+  '{{person.email}}': 'anna.muster@example.org',
+  '{{person.phone}}': '+43 660 1234567',
+  '{{person.dateOfBirth}}': '15.03.2015',
+  '{{person.gender}}': 'weiblich',
+  '{{person.notes}}': 'Allergien beachten',
+  '{{duty.date}}': '10.08.2026',
+  '{{duty.groups}}': 'Baeren, Fuechse',
+  '{{duty.description}}': 'Gemuesesuppe',
+  '{{duty.daysBefore}}': '2',
+  '{{duty.personName}}': 'Anna Muster',
 };
 
 /** Stored HTML -> preview HTML with sample data (unknown tokens blanked). */
 export function renderPreview(storedHtml: string, samples: Record<string, string>): string {
-  return storedHtml.replace(TOKEN_RE, (_token, fieldName) => samples[fieldName] ?? '');
+  return storedHtml.replace(TOKEN_RE, (token) => samples[token] ?? '');
 }

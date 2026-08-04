@@ -24,10 +24,10 @@ describe('mail-token.util', () => {
     expect(out).toContain('>Nachname<');
   });
 
-  it('tokensToPills falls back to the fieldName when no label is known', () => {
+  it('tokensToPills falls back to the token when no label is known', () => {
     const out = tokensToPills('<p>{{person.phone}}</p>', PLACEHOLDERS);
     expect(out).toContain('data-token="{{person.phone}}"');
-    expect(out).toContain('>phone<');
+    expect(out).toContain('>{{person.phone}}<');
   });
 
   it('pillsToTokens turns pills back into raw tokens', () => {
@@ -63,7 +63,27 @@ describe('mail-token.util', () => {
   });
 
   it('SAMPLE_VALUES covers every allowlisted field', () => {
-    ['firstName','lastName','email','phone','dateOfBirth','gender','notes']
+    ['{{person.firstName}}','{{person.lastName}}','{{person.email}}','{{person.phone}}','{{person.dateOfBirth}}','{{person.gender}}','{{person.notes}}']
       .forEach((f) => expect(SAMPLE_VALUES[f]).toBeTruthy());
+  });
+
+  it('wandelt duty-Tokens in Pills mit Label', () => {
+    const html = tokensToPills('<p>Am {{duty.date}} kochst du.</p>', [
+      { token: '{{duty.date}}', fieldName: 'date', label: { de: 'Datum' }, group: 'KOCHDIENST', groupLabel: 'Kochdienst' },
+    ]);
+
+    expect(html).toContain('data-token="{{duty.date}}"');
+    expect(html).toContain('>Datum<');
+  });
+
+  it('rendert die Vorschau fuer beide Namensraeume', () => {
+    const preview = renderPreview('<p>{{person.firstName}} am {{duty.date}}</p>', SAMPLE_VALUES);
+
+    expect(preview).toContain('Anna');
+    expect(preview).toContain('10.08.2026');
+  });
+
+  it('laesst unbekannte Tokens leer', () => {
+    expect(renderPreview('<p>{{duty.unbekannt}}</p>', SAMPLE_VALUES)).toBe('<p></p>');
   });
 });
