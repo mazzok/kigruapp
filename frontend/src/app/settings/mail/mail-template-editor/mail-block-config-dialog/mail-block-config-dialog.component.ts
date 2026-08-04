@@ -68,10 +68,12 @@ export class MailBlockConfigDialogComponent {
     if (this.form.invalid) {
       this.previewHtml = '';
       this.previewError = false;
+      this.lastPreviewedConfigJson = null;
       return;
     }
     const currentConfigJson = JSON.stringify(this.form.value);
     if (currentConfigJson === this.lastPreviewedConfigJson) {
+      this.previewError = false;
       return;
     }
     this.previewLoading = true;

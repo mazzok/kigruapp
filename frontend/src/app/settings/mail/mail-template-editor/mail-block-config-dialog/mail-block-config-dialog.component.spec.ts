@@ -117,4 +117,28 @@ describe('MailBlockConfigDialogComponent', () => {
     expect(component.previewError).toBe(true);
     expect(component.previewLoading).toBe(false);
   });
+
+  it('clears a stale previewError when revisiting a config that previously loaded successfully', () => {
+    // Config A (the initial config) loads successfully.
+    component.onTabChange(1);
+    expect(component.previewHtml).toBe('<table></table>');
+    expect(component.previewError).toBe(false);
+
+    // Switch to config B and make the load fail.
+    component.form.patchValue({ periodAmount: 4 });
+    mailTemplateService.previewShouldError = true;
+    component.onTabChange(1);
+    expect(component.previewError).toBe(true);
+
+    // Restore config A (already cached) and revisit the Vorschau tab.
+    mailTemplateService.previewShouldError = false;
+    component.form.patchValue({ periodAmount: 2 });
+    component.onTabChange(1);
+
+    expect(component.previewError).toBe(false);
+    expect(component.previewHtml).toBe('<table></table>');
+    // Only the one failed call for config B should have happened; config A is
+    // served from the cache and does not trigger a third HTTP call.
+    expect(mailTemplateService.previewCalls.length).toBe(2);
+  });
 });

@@ -6,7 +6,7 @@
         [form]="form" [groups]="data.groups"></app-cooking-duty-block-config>
     </mat-tab>
     <mat-tab label="Vorschau">
-      <div class="preview-tab">
+      <div class="preview-tab" style="padding: 0.5rem 0;">
         <p *ngIf="form.invalid">Bitte zuerst eine Gruppe wählen.</p>
         <p *ngIf="!form.invalid && previewLoading">Lädt...</p>
         <p *ngIf="!form.invalid && previewError">Vorschau nicht verfügbar.</p>
