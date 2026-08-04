@@ -12,6 +12,17 @@
   padding: 8px;
 }
 
+.closure-calendar.layout-row {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 8px; // Platz fuer die Scrollbar, damit sie den Inhalt nicht ueberlagert.
+}
+
+.layout-row .month {
+  flex: 0 0 240px;
+  min-width: 240px;
+}
+
 .month-label {
   font-size: 12px;
   font-weight: 600;

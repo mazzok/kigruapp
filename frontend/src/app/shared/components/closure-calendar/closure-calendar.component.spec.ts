@@ -179,5 +179,15 @@ describe('ClosureCalendarComponent', () => {
       const root = fixture.nativeElement.querySelector('.closure-calendar');
       expect(root.classList.contains('layout-row')).toBe(true);
     });
+
+    it('scrollt horizontal statt zu umbrechen im row-layout', () => {
+      component.layout = 'row';
+      fixture.detectChanges();
+
+      const root = fixture.nativeElement.querySelector('.closure-calendar');
+      const style = getComputedStyle(root);
+      expect(style.overflowX).toBe('auto');
+      expect(style.flexWrap).toBe('nowrap');
+    });
   });
 });
