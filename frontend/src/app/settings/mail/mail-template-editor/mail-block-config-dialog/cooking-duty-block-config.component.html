@@ -1,0 +1,25 @@
+<form [formGroup]="form" class="cooking-duty-block-config">
+  <mat-form-field appearance="outline">
+    <mat-label>Gruppe</mat-label>
+    <mat-select formControlName="groupId">
+      <mat-option *ngFor="let g of groups" [value]="g.id">{{ instanceLabel(g) }}</mat-option>
+    </mat-select>
+  </mat-form-field>
+
+  <div class="period-row">
+    <mat-form-field appearance="outline">
+      <mat-label>Anzahl</mat-label>
+      <mat-select formControlName="periodAmount">
+        <mat-option *ngFor="let n of periodAmountOptions" [value]="n">{{ n }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Zeiteinheit</mat-label>
+      <mat-select formControlName="periodUnit">
+        <mat-option value="week">Woche(n)</mat-option>
+        <mat-option value="month">Monat(e)</mat-option>
+      </mat-select>
+    </mat-form-field>
+  </div>
+</form>

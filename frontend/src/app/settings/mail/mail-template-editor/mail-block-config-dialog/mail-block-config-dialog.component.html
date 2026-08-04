@@ -1,0 +1,9 @@
+<h2 mat-dialog-title>Baustein konfigurieren</h2>
+<mat-dialog-content>
+  <app-cooking-duty-block-config *ngIf="data.blockType === 'cookingDuty'"
+    [form]="form" [groups]="data.groups"></app-cooking-duty-block-config>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-button type="button" (click)="cancel()">Abbrechen</button>
+  <button mat-flat-button color="primary" type="button" [disabled]="form.invalid" (click)="save()">Übernehmen</button>
+</mat-dialog-actions>
