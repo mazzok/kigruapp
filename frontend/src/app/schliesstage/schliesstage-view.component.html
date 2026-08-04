@@ -1,0 +1,32 @@
+<div class="schliesstage-view">
+  <h2>Schließtage</h2>
+
+  @if (from) {
+    <p class="semester-label">Semester {{ semesterLabel }}</p>
+
+    <app-closure-calendar
+      [from]="from"
+      [to]="to"
+      [periods]="periods"
+      [definitions]="definitions"
+      [holidays]="holidays"
+      [readonly]="readonly">
+    </app-closure-calendar>
+
+    @if (legend.length > 0) {
+      <div class="legend">
+        @for (definition of legend; track definition.id) {
+          <span class="legend-entry">
+            <span class="swatch" [style.background-color]="definition.color"></span>
+            {{ definition.label }}
+          </span>
+        }
+      </div>
+    }
+  } @else if (loaded) {
+    <p class="no-semester">
+      Für den heutigen Tag ist kein Semester hinterlegt. Sobald ein laufendes
+      Semester eingetragen ist, erscheinen hier die Schließtage.
+    </p>
+  }
+</div>

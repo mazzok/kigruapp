@@ -16,6 +16,10 @@
         <mat-icon matListItemIcon>contacts</mat-icon>
         <span matListItemTitle>Eltern</span>
       </a>
+      <a mat-list-item routerLink="/schliesstage" routerLinkActive="active">
+        <mat-icon matListItemIcon>event_busy</mat-icon>
+        <span matListItemTitle>Schließtage</span>
+      </a>
       @if (currentUser.isAdmin) {
         <div class="admin-section">
           <button type="button" class="admin-section-toggle" (click)="toggleAdminSection()" [attr.aria-expanded]="adminSectionExpanded">

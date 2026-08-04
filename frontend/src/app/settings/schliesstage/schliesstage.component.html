@@ -1,0 +1,106 @@
+<div class="schliesstage">
+  <mat-form-field appearance="outline">
+    <mat-label>Semester</mat-label>
+    <mat-select [value]="selectedSemesterId" (selectionChange)="onSemesterChange($event.value)">
+      @for (semester of semesters; track semester.id) {
+        <mat-option [value]="semester.id">{{ semesterLabel(semester) }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  @if (loading) {
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  }
+
+  <app-closure-calendar
+    [from]="from"
+    [to]="to"
+    [periods]="periods"
+    [definitions]="definitions"
+    [holidays]="holidays"
+    layout="row"
+    (selectionChange)="onSelectionChange($event)">
+  </app-closure-calendar>
+
+  @if (selectedDays.length > 0) {
+    <div class="assign-bar">
+      <span class="assign-count">{{ selectedDays.length }} Tage gewählt</span>
+      <div class="assign-options">
+        @for (definition of assignableDefinitions; track definition.id) {
+          <mat-checkbox
+            [checked]="tristate(definition.id) === 'all'"
+            [indeterminate]="tristate(definition.id) === 'some'"
+            (change)="toggleDefinition(definition)">
+            <span class="swatch" [style.background-color]="definition.color"></span>
+            {{ definition.label }}
+          </mat-checkbox>
+        }
+      </div>
+    </div>
+  }
+
+  <form class="definition-form" [formGroup]="definitionForm" (ngSubmit)="addDefinition()">
+    <mat-form-field appearance="outline">
+      <mat-label>Bezeichnung</mat-label>
+      <input matInput formControlName="label">
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Farbe</mat-label>
+      <input matInput formControlName="color" type="color">
+    </mat-form-field>
+    <button mat-raised-button color="primary" type="submit" [disabled]="!definitionForm.valid">
+      Hinzufügen
+    </button>
+  </form>
+
+  <table mat-table [dataSource]="definitions" class="mat-elevation-z2">
+    <ng-container matColumnDef="color">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let row">
+        @if (editingId === row.id) {
+          <input [formControl]="editForm.controls.color" type="color" (blur)="commitEdit()">
+        } @else {
+          <span class="swatch" [style.background-color]="row.color"></span>
+        }
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="label">
+      <th mat-header-cell *matHeaderCellDef>Bezeichnung</th>
+      <td mat-cell *matCellDef="let row">
+        @if (editingId === row.id) {
+          <input [formControl]="editForm.controls.label" (blur)="commitEdit()">
+        } @else {
+          {{ row.label }}
+        }
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="status">
+      <th mat-header-cell *matHeaderCellDef>Status</th>
+      <td mat-cell *matCellDef="let row">{{ row.active ? 'Aktiv' : 'Deaktiviert' }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="actions">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let row">
+        <button mat-icon-button (click)="startEdit(row)" title="Bearbeiten">
+          <mat-icon>edit</mat-icon>
+        </button>
+        @if (row.active) {
+          <button mat-icon-button color="warn" (click)="setActive(row, false)" title="Deaktivieren">
+            <mat-icon>block</mat-icon>
+          </button>
+        } @else {
+          <button mat-icon-button (click)="setActive(row, true)" title="Reaktivieren">
+            <mat-icon>undo</mat-icon>
+          </button>
+        }
+      </td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="definitionColumns"></tr>
+    <tr mat-row *matRowDef="let row; columns: definitionColumns;"
+        [class.inactive]="!row.active"></tr>
+  </table>
+</div>

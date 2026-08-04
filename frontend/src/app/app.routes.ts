@@ -27,6 +27,14 @@ export const routes: Routes = [
       import('./eltern/eltern.component').then(m => m.ElternComponent),
   },
   {
+    path: 'schliesstage',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./schliesstage/schliesstage-view.component').then(
+        m => m.SchliesstageViewComponent
+      ),
+  },
+  {
     path: 'administration',
     canActivate: [authGuard, adminGuard],
     children: [

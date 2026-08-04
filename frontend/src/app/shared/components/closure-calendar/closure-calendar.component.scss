@@ -1,0 +1,99 @@
+.closure-calendar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.month {
+  flex: 1 1 220px;
+  min-width: 200px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.closure-calendar.layout-row {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 8px; // Platz fuer die Scrollbar, damit sie den Inhalt nicht ueberlagert.
+}
+
+.layout-row .month {
+  flex: 0 0 240px;
+  min-width: 240px;
+}
+
+.month-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  margin-bottom: 6px;
+}
+
+.weekdays,
+.days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.weekday {
+  font-size: 10px;
+  text-align: center;
+  opacity: 0.55;
+}
+
+.day {
+  position: relative;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.05);
+  font-size: 11px;
+}
+
+.day.blank {
+  background: none;
+}
+
+.day.weekend,
+.day.holiday {
+  opacity: 0.45;
+}
+
+// Auf gefuellten Tagen braucht die Zahl einen Kontrastträger, damit sie auf
+// dunklen wie hellen Definitionsfarben lesbar bleibt.
+.day.assigned .day-number {
+  padding: 0 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.78);
+  color: rgba(0, 0, 0, 0.87);
+}
+
+.day.selectable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.day.selected {
+  outline: 2px solid #2e7d32;
+  outline-offset: -1px;
+}
+
+// Pfeil mit Plus, solange STRG gedrueckt ist und der Zeiger im Kalender steht.
+.closure-calendar.ctrl-active .day.selectable {
+  cursor: copy;
+}
+
+.closure-calendar.readonly .day {
+  cursor: default;
+}
+
+.empty {
+  opacity: 0.6;
+  font-style: italic;
+}

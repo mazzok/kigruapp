@@ -39,6 +39,7 @@
       [excludeDays]="excludeDays"
       [refresh]="refresh"
       (eventClicked)="onEventClicked($event.event)"
+      (beforeViewRender)="beforeMonthViewRender($event)"
       [locale]="'de'"
       [weekStartsOn]="1">
     </mwl-calendar-month-view>
