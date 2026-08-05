@@ -36,7 +36,7 @@ import { parseHhmm, formatMinutes } from '../../shared/util/time-format.util';
 import { familyMonthlyMinutes, groupCombinationMinutes } from './required-hours-preview.util';
 import { SchliesstageComponent } from '../schliesstage/schliesstage.component';
 import { ParentDirectoryAttributesComponent } from './parent-directory-attributes/parent-directory-attributes.component';
-import { CookingReminderJobsComponent } from './cooking-reminder-jobs/cooking-reminder-jobs.component';
+import { CookingJobsComponent } from './cooking-jobs/cooking-jobs.component';
 
 interface GroupRateRow {
   groupInstanceId: string;
@@ -57,7 +57,7 @@ interface GroupRateRow {
     MatExpansionModule, MatDialogModule, MatDatepickerModule, MatSelectModule, MatTooltipModule,
     MatCheckboxModule, IconPickerDialogComponent,
     ParentDirectoryAttributesComponent,
-    CookingReminderJobsComponent,
+    CookingJobsComponent,
   ],
   templateUrl: './organisation.component.html',
   styleUrl: './organisation.component.scss',
