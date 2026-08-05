@@ -8,7 +8,8 @@
     </div>
 
     <nav class="tpls" *ngIf="templates.length; else emptyList">
-      <div class="tpl-item" *ngFor="let t of templates" [class.selected]="t.id === selectedId">
+      <div class="tpl-item" *ngFor="let t of templates" [class.selected]="t.id === selectedId"
+           [style.opacity]="isCooking(t) ? 0.55 : 1">
         <button class="tpl-main" type="button" (click)="selectForEdit(t)" [disabled]="isCooking(t)">
           <span class="tpl-name">{{ t.name }}</span>
         </button>

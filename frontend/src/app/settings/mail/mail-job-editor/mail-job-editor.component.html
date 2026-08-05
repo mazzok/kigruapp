@@ -8,7 +8,8 @@
     </div>
 
     <nav class="jobs" *ngIf="jobs.length; else emptyList">
-      <div class="job-item" *ngFor="let j of jobs" [class.selected]="j.id === selectedId">
+      <div class="job-item" *ngFor="let j of jobs" [class.selected]="j.id === selectedId"
+           [style.opacity]="isCooking(j) ? 0.55 : 1">
         <button class="job-main" type="button" [disabled]="isCooking(j)" (click)="selectForEdit(j)">
           <span class="job-name">{{ j.name }}</span>
           <span class="job-meta">
