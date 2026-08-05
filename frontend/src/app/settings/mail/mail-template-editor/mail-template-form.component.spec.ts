@@ -200,4 +200,34 @@ describe('MailTemplateFormComponent', () => {
     expect(args[1]).toBe('mail-token');
     expect(args[2]).toEqual({ token: '{{person.firstName}}', label: 'Vorname' });
   });
+
+  it('zeigt den Kochdienst-Baustein nur bei kind=COOKING_OVERVIEW', () => {
+    component.kind = 'COOKING_OVERVIEW';
+    fixture.detectChanges();
+
+    expect(component.blockDefinitions.map((d) => d.type)).toEqual(['cookingDuty']);
+  });
+
+  it('zeigt keinen Baustein bei kind=GENERAL', () => {
+    component.kind = 'GENERAL';
+    fixture.detectChanges();
+
+    expect(component.blockDefinitions).toEqual([]);
+  });
+
+  it('zeigt keinen Baustein bei kind=COOKING_REMINDER', () => {
+    component.kind = 'COOKING_REMINDER';
+    fixture.detectChanges();
+
+    expect(component.blockDefinitions).toEqual([]);
+  });
+
+  it('fuegt beim Klick auf einen Baustein-Chip einen Block in den Editor ein (COOKING_OVERVIEW)', () => {
+    component.kind = 'COOKING_OVERVIEW';
+    fixture.detectChanges();
+
+    component.insertBlock(component.blockDefinitions[0]);
+
+    expect(component.form.value.bodyHtml).toContain('data-block-type="cookingDuty"');
+  });
 });

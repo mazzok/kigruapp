@@ -14,6 +14,17 @@
   </button>
 </div>
 
+<div class="chip-bar block-bar" *ngIf="blockDefinitions.length">
+  <span class="chip-hint">Bausteine einfügen (klicken oder in den Text ziehen):</span>
+  <button class="chip block-chip" type="button"
+          *ngFor="let def of blockDefinitions"
+          draggable="true"
+          (dragstart)="onBlockDragStart($event, def)"
+          (click)="insertBlock(def)">
+    <mat-icon>{{ def.icon }}</mat-icon> {{ def.label }}
+  </button>
+</div>
+
 <label class="field-label">Inhalt</label>
 <div class="editor-wrap" [formGroup]="form"
      (dragover)="onEditorDragOver($event)" (drop)="onEditorDrop($event)">
