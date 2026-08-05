@@ -75,3 +75,11 @@ dem Takt geraten könnte.
 - Kein automatisches Live-Update bei jeder Formularänderung.
 - Keine Vorschau in der bestehenden Mail-Vorschau-Box im Editor (nur im
   Konfig-Dialog).
+
+## Nachtrag 2026-08-05: Kind-Beschränkung
+
+Seit der Rebase auf main (nach der Aufteilung in `MailTemplateKind.COOKING_REMINDER`/
+`COOKING_OVERVIEW`) ist der Kochdienst-Baustein ausschließlich im Editor für
+Kochdienst-Übersichtsjobs (`kind === 'COOKING_OVERVIEW'`) verfügbar, nicht mehr in
+allgemeinen Mail-Vorlagen oder bei Kochdienst-Erinnerungen. Details siehe
+[2026-08-05-mail-bausteine-rebase-kochdienst-scoping-design.md](2026-08-05-mail-bausteine-rebase-kochdienst-scoping-design.md).
