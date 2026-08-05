@@ -13,7 +13,7 @@
           <span class="tpl-name">{{ t.name }}</span>
         </button>
         <span class="kind-chip" *ngIf="isCooking(t)"
-              matTooltip="Wird in Organisation → Dienst-Einstellungen gepflegt">Kochdienst</span>
+              [matTooltip]="kindChipTooltip(t)">{{ kindChipLabel(t) }}</span>
         <button mat-icon-button type="button" class="delete-btn"
                 (click)="$event.stopPropagation(); delete(t)" matTooltip="Löschen" [disabled]="isCooking(t)">
           <mat-icon>delete_outline</mat-icon>

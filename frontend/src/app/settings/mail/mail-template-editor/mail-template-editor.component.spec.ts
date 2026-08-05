@@ -86,7 +86,7 @@ describe('MailTemplateEditorComponent', () => {
 
   it('does not open cooking templates for editing', () => {
     service.templates.push({
-      id: 't-cooking', name: 'Kochdienst', bodyHtml: '<p>x</p>', kind: 'COOKING',
+      id: 't-cooking', name: 'Kochdienst', bodyHtml: '<p>x</p>', kind: 'COOKING_REMINDER',
       createdAt: '2026-01-01', updatedAt: '2026-01-01',
     });
 
@@ -98,7 +98,13 @@ describe('MailTemplateEditorComponent', () => {
 
   it('isCooking reflects the template kind', () => {
     expect(component.isCooking(service.templates[0])).toBe(false);
-    expect(component.isCooking({ ...service.templates[0], kind: 'COOKING' })).toBe(true);
+    expect(component.isCooking({ ...service.templates[0], kind: 'COOKING_REMINDER' })).toBe(true);
+    expect(component.isCooking({ ...service.templates[0], kind: 'COOKING_OVERVIEW' })).toBe(true);
+  });
+
+  it('unterscheidet die Chip-Beschriftung nach Vorlagen-Art', () => {
+    expect(component.kindChipLabel({ ...service.templates[0], kind: 'COOKING_REMINDER' })).toBe('Kochdienst-Erinnerung');
+    expect(component.kindChipLabel({ ...service.templates[0], kind: 'COOKING_OVERVIEW' })).toBe('Kochdienst-Übersicht');
   });
 
   it('closes the editor after a successful save', () => {

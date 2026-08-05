@@ -499,12 +499,18 @@ describe('MailJobEditorComponent (Template)', () => {
   });
 
   it('erkennt Kochdienst-Jobs', () => {
-    expect(component.isCooking({ ...JOB, kind: 'COOKING' })).toBeTrue();
+    expect(component.isCooking({ ...JOB, kind: 'COOKING_REMINDER' })).toBeTrue();
+    expect(component.isCooking({ ...JOB, kind: 'COOKING_OVERVIEW' })).toBeTrue();
     expect(component.isCooking({ ...JOB, kind: 'GENERAL' })).toBeFalse();
   });
 
+  it('unterscheidet die Chip-Beschriftung nach Job-Art', () => {
+    expect(component.kindChipLabel({ ...JOB, kind: 'COOKING_REMINDER' })).toBe('Kochdienst-Erinnerung');
+    expect(component.kindChipLabel({ ...JOB, kind: 'COOKING_OVERVIEW' })).toBe('Kochdienst-Übersicht');
+  });
+
   it('oeffnet einen Kochdienst-Job nicht zum Bearbeiten', () => {
-    component.selectForEdit({ ...JOB, kind: 'COOKING' });
+    component.selectForEdit({ ...JOB, kind: 'COOKING_REMINDER' });
 
     expect(component.editing).toBeFalse();
   });

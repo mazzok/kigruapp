@@ -54,7 +54,7 @@ export class MailTemplateEditorComponent implements OnInit {
 
   onSelectTemplate(id: string): void {
     const template = this.templates.find((t) => t.id === id);
-    if (!template || template.kind === 'COOKING') {
+    if (!template || this.isCooking(template)) {
       return;
     }
     this.selectedId = template.id;
@@ -97,7 +97,17 @@ export class MailTemplateEditorComponent implements OnInit {
   }
 
   isCooking(template: MailTemplate): boolean {
-    return template.kind === 'COOKING';
+    return template.kind === 'COOKING_REMINDER' || template.kind === 'COOKING_OVERVIEW';
+  }
+
+  kindChipLabel(template: MailTemplate): string {
+    return template.kind === 'COOKING_REMINDER' ? 'Kochdienst-Erinnerung' : 'Kochdienst-Übersicht';
+  }
+
+  kindChipTooltip(template: MailTemplate): string {
+    return template.kind === 'COOKING_REMINDER'
+      ? 'Wird in Organisation → Dienst-Einstellungen → Erinnerungen gepflegt'
+      : 'Wird in Organisation → Dienst-Einstellungen → Übersichtsjobs gepflegt';
   }
 
   delete(template: MailTemplate): void {

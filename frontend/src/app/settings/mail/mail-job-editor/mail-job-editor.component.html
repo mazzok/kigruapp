@@ -18,7 +18,7 @@
               {{ statusLabel(j) }}
             </span>
             <span class="kind-chip" *ngIf="isCooking(j)"
-                  matTooltip="Wird in Organisation → Dienst-Einstellungen gepflegt">Kochdienst</span>
+                  [matTooltip]="kindChipTooltip(j)">{{ kindChipLabel(j) }}</span>
           </span>
         </button>
         <div class="job-controls">

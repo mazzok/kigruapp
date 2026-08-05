@@ -250,7 +250,17 @@ export class MailJobEditorComponent implements OnInit {
   }
 
   isCooking(job: MailJob): boolean {
-    return job.kind === 'COOKING';
+    return job.kind === 'COOKING_REMINDER' || job.kind === 'COOKING_OVERVIEW';
+  }
+
+  kindChipLabel(job: MailJob): string {
+    return job.kind === 'COOKING_REMINDER' ? 'Kochdienst-Erinnerung' : 'Kochdienst-Übersicht';
+  }
+
+  kindChipTooltip(job: MailJob): string {
+    return job.kind === 'COOKING_REMINDER'
+      ? 'Wird in Organisation → Dienst-Einstellungen → Erinnerungen gepflegt'
+      : 'Wird in Organisation → Dienst-Einstellungen → Übersichtsjobs gepflegt';
   }
 
   selectForEdit(job: MailJob): void {

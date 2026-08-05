@@ -1,4 +1,4 @@
-export type MailTemplateKind = 'GENERAL' | 'COOKING';
+export type MailTemplateKind = 'GENERAL' | 'COOKING_REMINDER' | 'COOKING_OVERVIEW';
 
 export interface MailTemplate {
   id: string;

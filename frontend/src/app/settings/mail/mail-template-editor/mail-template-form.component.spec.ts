@@ -33,14 +33,14 @@ describe('MailTemplateFormComponent', () => {
   });
 
   it('laedt die Platzhalter fuer die uebergebene Art', () => {
-    component.kind = 'COOKING';
+    component.kind = 'COOKING_REMINDER';
     fixture.detectChanges();
 
-    expect(service.placeholders).toHaveBeenCalledWith('COOKING');
+    expect(service.placeholders).toHaveBeenCalledWith('COOKING_REMINDER');
   });
 
   it('gruppiert die Chips nach Gruppe', () => {
-    component.kind = 'COOKING';
+    component.kind = 'COOKING_REMINDER';
     fixture.detectChanges();
 
     expect(component.groups.map((g) => g.label)).toEqual(['Kochdienst', 'Person']);
@@ -48,7 +48,7 @@ describe('MailTemplateFormComponent', () => {
   });
 
   it('meldet Aenderungen in Token-Form nach aussen', () => {
-    component.kind = 'COOKING';
+    component.kind = 'COOKING_REMINDER';
     fixture.detectChanges();
     const emitted: { name: string; bodyHtml: string }[] = [];
     component.valueChange.subscribe((v) => emitted.push(v));
@@ -59,7 +59,7 @@ describe('MailTemplateFormComponent', () => {
   });
 
   it('ist erst mit Name und Inhalt gueltig', () => {
-    component.kind = 'COOKING';
+    component.kind = 'COOKING_REMINDER';
     fixture.detectChanges();
 
     expect(component.valid).toBeFalse();
@@ -74,7 +74,7 @@ describe('MailTemplateFormComponent', () => {
   });
 
   it('toolbar only exposes formats that serialize to inline styles or semantic tags (no indent/list)', () => {
-    component.kind = 'COOKING';
+    component.kind = 'COOKING_REMINDER';
     fixture.detectChanges();
 
     const flatButtons = component.quillModules.toolbar.flat().map((b) => (typeof b === 'string' ? b : Object.keys(b)[0]));
@@ -83,7 +83,7 @@ describe('MailTemplateFormComponent', () => {
   });
 
   it('clicking a tile inserts a pill embed via the Quill instance', () => {
-    component.kind = 'COOKING';
+    component.kind = 'COOKING_REMINDER';
     fixture.detectChanges();
     const fakeQuill = {
       getSelection: () => ({ index: 3 }),
@@ -102,7 +102,7 @@ describe('MailTemplateFormComponent', () => {
   });
 
   it('clicking a tile with no editor appends a pill span to the body', () => {
-    component.kind = 'COOKING';
+    component.kind = 'COOKING_REMINDER';
     fixture.detectChanges();
     component.form.patchValue({ bodyHtml: '<p>Hallo</p>' });
 
@@ -115,7 +115,7 @@ describe('MailTemplateFormComponent', () => {
   it('setting value loads it with tokens converted to pills', () => {
     // Angular fires @Input() setters before ngOnInit, so `value` must be set
     // before the first detectChanges() to reproduce real template-binding order.
-    component.kind = 'COOKING';
+    component.kind = 'COOKING_REMINDER';
     component.value = { name: 'Vorlage', bodyHtml: '<p>Hallo {{person.firstName}}</p>' };
     fixture.detectChanges();
 
@@ -127,7 +127,7 @@ describe('MailTemplateFormComponent', () => {
     // Reproduces the real ordering: `value` is set (as Angular does, before
     // ngOnInit) while `placeholders` is still empty, so if the component only
     // converted once at setter-time this would be stuck showing raw tokens.
-    component.kind = 'COOKING';
+    component.kind = 'COOKING_REMINDER';
     component.value = { name: 'Vorlage', bodyHtml: '<p>Hallo {{person.firstName}}</p>' };
 
     expect(component.form.value.bodyHtml).toContain('{{person.firstName}}');
@@ -141,7 +141,7 @@ describe('MailTemplateFormComponent', () => {
   });
 
   it('emits pills converted back to raw tokens (no mail-token spans) via valueChange', () => {
-    component.kind = 'COOKING';
+    component.kind = 'COOKING_REMINDER';
     fixture.detectChanges();
     const emitted: { name: string; bodyHtml: string }[] = [];
     component.valueChange.subscribe((v) => emitted.push(v));
@@ -156,7 +156,7 @@ describe('MailTemplateFormComponent', () => {
   });
 
   it('preview substitutes sample data for tokens on body change', () => {
-    component.kind = 'COOKING';
+    component.kind = 'COOKING_REMINDER';
     fixture.detectChanges();
 
     component.form.patchValue({
@@ -167,7 +167,7 @@ describe('MailTemplateFormComponent', () => {
   });
 
   it('dragging a chip sets the token payload on the drag event', () => {
-    component.kind = 'COOKING';
+    component.kind = 'COOKING_REMINDER';
     fixture.detectChanges();
     const data: Record<string, string> = {};
     const event = { dataTransfer: { setData: (k: string, v: string) => (data[k] = v), effectAllowed: '' } } as unknown as DragEvent;
@@ -178,7 +178,7 @@ describe('MailTemplateFormComponent', () => {
   });
 
   it('dropping on the editor inserts a pill (falls back to end when caret is unresolved)', () => {
-    component.kind = 'COOKING';
+    component.kind = 'COOKING_REMINDER';
     fixture.detectChanges();
     const fakeQuill = {
       getLength: () => 5,
