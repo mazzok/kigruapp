@@ -30,7 +30,7 @@ describe('Kochdienst und Schließtage', () => {
     function createDialog(closedDates: string[]): CookingDutyDialogComponent {
       const data: CookingDutyDialogData = {
         groups: [], foodProperties: [], familyParents: [],
-        currentUserId: 'p1', canEdit: true, closedDates,
+        currentUserId: 'p1', canEdit: true, closedDates, reminderAvailable: true,
       };
       TestBed.configureTestingModule({
         imports: [CookingDutyDialogComponent, NoopAnimationsModule],

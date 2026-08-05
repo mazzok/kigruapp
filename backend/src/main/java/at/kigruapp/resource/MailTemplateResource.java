@@ -3,6 +3,7 @@ package at.kigruapp.resource;
 import at.kigruapp.entity.FieldDefinition;
 import at.kigruapp.entity.MailJob;
 import at.kigruapp.entity.MailTemplate;
+import at.kigruapp.service.CookingDutyTokens;
 import io.quarkus.panache.common.Sort;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -12,6 +13,7 @@ import org.owasp.html.HtmlPolicyBuilder;
 import org.owasp.html.PolicyFactory;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -49,20 +51,39 @@ public class MailTemplateResource {
      * Without this, stored {@code {{person.x}}} tokens are broken and neither the
      * renderer nor the editor's token→pill conversion can match them.
      */
-    private static String sanitizeBody(String bodyHtml) {
+    static String sanitizeBody(String bodyHtml) {
         return HTML_POLICY.sanitize(bodyHtml).replaceAll("<!--\\s*-->", "");
     }
 
-    public record PlaceholderTile(String token, String fieldName, Map<String, String> label) {}
+    private static final Set<String> COOKING_PERSON_FIELD_ALLOWLIST = Set.of("firstName", "lastName");
+
+    private static final String GROUP_PERSON = "PERSON";
+    private static final String GROUP_PERSON_LABEL = "Person";
+
+    public record PlaceholderTile(String token, String fieldName, Map<String, String> label,
+                                  String group, String groupLabel) {}
 
     @GET
     @Path("/placeholders")
-    public List<PlaceholderTile> placeholders() {
-        return FieldDefinition.findActive().stream()
-                .filter(def -> SCALAR_PERSON_FIELD_ALLOWLIST.contains(def.fieldName))
-                .map(def -> new PlaceholderTile("{{person." + def.fieldName + "}}", def.fieldName, def.label))
+    public List<PlaceholderTile> placeholders(@QueryParam("kind") String kind) {
+        boolean cooking = MailTemplate.KIND_COOKING_REMINDER.equals(kind);
+        List<PlaceholderTile> tiles = new ArrayList<>();
+        if (cooking) {
+            for (CookingDutyTokens.Token token : CookingDutyTokens.TOKENS) {
+                tiles.add(new PlaceholderTile(
+                        "{{duty." + token.fieldName() + "}}", token.fieldName(),
+                        Map.of("de", token.label()),
+                        CookingDutyTokens.GROUP, CookingDutyTokens.GROUP_LABEL));
+            }
+        }
+        Set<String> personFields = cooking ? COOKING_PERSON_FIELD_ALLOWLIST : SCALAR_PERSON_FIELD_ALLOWLIST;
+        tiles.addAll(FieldDefinition.findActive().stream()
+                .filter(def -> personFields.contains(def.fieldName))
+                .map(def -> new PlaceholderTile("{{person." + def.fieldName + "}}", def.fieldName, def.label,
+                        GROUP_PERSON, GROUP_PERSON_LABEL))
                 .sorted(Comparator.comparing(t -> labelSortKey(t.label())))
-                .collect(Collectors.toList());
+                .toList());
+        return tiles;
     }
 
     private String labelSortKey(Map<String, String> label) {
@@ -72,8 +93,14 @@ public class MailTemplateResource {
     }
 
     @GET
-    public List<MailTemplate> list() {
-        return MailTemplate.listAll(Sort.descending("updatedAt"));
+    public List<MailTemplate> list(@QueryParam("kind") String kind) {
+        List<MailTemplate> all = MailTemplate.listAll(Sort.descending("updatedAt"));
+        if (kind == null || kind.isBlank()) {
+            return all;
+        }
+        return all.stream()
+                .filter(t -> kind.equals(t.effectiveKind()))
+                .collect(Collectors.toList());
     }
 
     @GET
@@ -92,6 +119,7 @@ public class MailTemplateResource {
         MailTemplate template = new MailTemplate();
         template.name = request.name;
         template.bodyHtml = sanitizeBody(request.bodyHtml);
+        template.kind = MailTemplate.KIND_GENERAL;
         template.createdAt = Instant.now();
         template.updatedAt = template.createdAt;
         template.persist();
@@ -104,6 +132,10 @@ public class MailTemplateResource {
         MailTemplate template = MailTemplate.findById(new ObjectId(id));
         if (template == null) {
             throw new NotFoundException();
+        }
+        if (template.isCooking()) {
+            throw new WebApplicationException(
+                    "Kochdienst-Vorlagen werden in den Kochdienst-Einstellungen gepflegt", 409);
         }
         validate(request);
         template.name = request.name;
@@ -120,6 +152,10 @@ public class MailTemplateResource {
         MailTemplate template = MailTemplate.findById(templateId);
         if (template == null) {
             throw new NotFoundException();
+        }
+        if (template.isCooking()) {
+            throw new WebApplicationException(
+                    "Kochdienst-Vorlagen werden in den Kochdienst-Einstellungen gepflegt", 409);
         }
         List<MailJob> referencingJobs = MailJob.list("templateId", templateId);
         if (!referencingJobs.isEmpty()) {

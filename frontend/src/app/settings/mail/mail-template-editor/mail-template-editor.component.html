@@ -8,12 +8,15 @@
     </div>
 
     <nav class="tpls" *ngIf="templates.length; else emptyList">
-      <div class="tpl-item" *ngFor="let t of templates" [class.selected]="t.id === selectedId">
-        <button class="tpl-main" type="button" (click)="selectForEdit(t)">
+      <div class="tpl-item" *ngFor="let t of templates" [class.selected]="t.id === selectedId"
+           [style.opacity]="isCooking(t) ? 0.55 : 1">
+        <button class="tpl-main" type="button" (click)="selectForEdit(t)" [disabled]="isCooking(t)">
           <span class="tpl-name">{{ t.name }}</span>
         </button>
+        <span class="kind-chip" *ngIf="isCooking(t)"
+              [matTooltip]="kindChipTooltip(t)">{{ kindChipLabel(t) }}</span>
         <button mat-icon-button type="button" class="delete-btn"
-                (click)="$event.stopPropagation(); delete(t)" matTooltip="Löschen">
+                (click)="$event.stopPropagation(); delete(t)" matTooltip="Löschen" [disabled]="isCooking(t)">
           <mat-icon>delete_outline</mat-icon>
         </button>
       </div>
@@ -31,42 +34,18 @@
       „Neue Vorlage“ eine neue an.</p>
   </div>
 
-  <form *ngIf="editing" [formGroup]="form" class="template-form" (ngSubmit)="save()">
+  <form *ngIf="editing" class="template-form" (ngSubmit)="save()">
     <header class="form-head">
       <h2>{{ selectedId ? 'Vorlage bearbeiten' : 'Neue Vorlage' }}</h2>
     </header>
 
-    <mat-form-field appearance="outline">
-      <mat-label>Name</mat-label>
-      <input matInput formControlName="name" />
-    </mat-form-field>
-
-    <div class="chip-bar">
-      <span class="chip-hint">Platzhalter einfügen (klicken oder in den Text ziehen):</span>
-      <button class="chip" type="button"
-              *ngFor="let tile of placeholders"
-              draggable="true"
-              (dragstart)="onChipDragStart($event, tile)"
-              (click)="insertPlaceholder(tile)">
-        {{ tile.label['de'] || tile.fieldName }}
-      </button>
-    </div>
-
-    <label class="field-label">Inhalt</label>
-    <div class="editor-wrap" (dragover)="onEditorDragOver($event)" (drop)="onEditorDrop($event)">
-      <quill-editor formControlName="bodyHtml" [modules]="quillModules"
-                    (onEditorCreated)="onEditorCreated($event)"></quill-editor>
-    </div>
-
-    <div class="preview">
-      <label class="field-label">Vorschau <span class="muted">(mit Beispiel-Daten)</span></label>
-      <div class="preview-box" [innerHTML]="previewHtml"></div>
-    </div>
+    <app-mail-template-form [kind]="'GENERAL'" [value]="editorValue"
+                            (valueChange)="onFormValueChange($event)"></app-mail-template-form>
 
     <footer class="actions">
       <button mat-button type="button" (click)="closeEditor()">Verwerfen</button>
       <span class="spacer"></span>
-      <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid">Speichern</button>
+      <button mat-flat-button color="primary" type="submit" [disabled]="!formValid">Speichern</button>
     </footer>
   </form>
 </div>

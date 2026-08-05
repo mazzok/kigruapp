@@ -431,4 +431,28 @@ class SecurityFilterTest {
 
         assertForbidden();
     }
+
+    @Test
+    void cookingReminderSettingsGet_passesThrough_forNonAdmin() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/cooking-reminder-settings", "GET");
+        when(currentUserService.getCurrentPerson()).thenReturn(new Person());
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        filter.filter(ctx);
+
+        assertPassThrough();
+    }
+
+    @Test
+    void cookingReminderSettingsPut_isForbidden_forNonAdmin() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/cooking-reminder-settings", "PUT");
+        when(currentUserService.getCurrentPerson()).thenReturn(new Person());
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        filter.filter(ctx);
+
+        assertForbidden();
+    }
 }

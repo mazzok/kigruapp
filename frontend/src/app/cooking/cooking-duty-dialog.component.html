@@ -43,6 +43,32 @@
         </mat-checkbox>
       }
     </div>
+
+    @if (data.reminderAvailable) {
+      <div class="reminder-section">
+        <mat-checkbox formControlName="reminderEnabled" data-testid="reminder-toggle">
+          Erinnerung aktivieren
+        </mat-checkbox>
+
+        @if (form.get('reminderEnabled')?.value) {
+          <div class="reminder-details">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Tage vorher</mat-label>
+              <input matInput type="number" min="1" max="14"
+                     formControlName="reminderDaysBefore" data-testid="reminder-days">
+            </mat-form-field>
+
+            @if (reminderInPast) {
+              <p class="reminder-warning" data-testid="reminder-warning">
+                Erinnerung liegt in der Vergangenheit — es wird keine Mail versendet.
+              </p>
+            } @else if (reminderDate) {
+              <p class="reminder-hint">Erinnerung am {{ reminderDate }}</p>
+            }
+          </div>
+        }
+      </div>
+    }
   </form>
 </mat-dialog-content>
 

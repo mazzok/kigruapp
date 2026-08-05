@@ -12,4 +12,6 @@ public class CookingDutyDTO {
     public List<String> groups;
     public String description;
     public Map<String, Boolean> foodProperties;
+    public boolean reminderEnabled;
+    public Integer reminderDaysBefore;
 }

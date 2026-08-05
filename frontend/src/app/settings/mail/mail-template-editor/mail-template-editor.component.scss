@@ -185,56 +185,13 @@ $accent: #3f51b5;
   }
 }
 
-.field-label {
+.kind-chip {
+  align-self: center;
+  margin-left: 0.35rem;
+  font-size: 0.7rem;
   font-weight: 600;
-  .muted { font-weight: 400; color: rgba(0, 0, 0, 0.54); }
-}
-
-.chip-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem;
-
-  .chip-hint {
-    font-size: 0.8rem;
-    color: rgba(0, 0, 0, 0.6);
-    margin-right: 0.25rem;
-  }
-
-  .chip {
-    cursor: grab;
-    border: 1px solid #c9cff2;
-    background: #eef0fb;
-    color: #3f51b5;
-    border-radius: 14px;
-    padding: 0.2rem 0.7rem;
-    font-size: 0.8rem;
-    font-weight: 600;
-  }
-  .chip:active { cursor: grabbing; }
-}
-
-.editor-wrap ::ng-deep .ql-editor {
-  min-height: 300px;
-}
-
-/* Pill rendering inside the editor. */
-::ng-deep .mail-token {
-  background: #eef0fb;
-  color: #3f51b5;
-  border: 1px solid #c9cff2;
-  border-radius: 12px;
-  padding: 0.05rem 0.5rem;
-  font-size: 0.85em;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.preview-box {
-  border: 1px solid #e2e2e6;
-  border-radius: 8px;
-  padding: 0.75rem;
-  min-height: 60px;
-  background: #fafafb;
+  color: $muted;
+  border: 1px solid $border-strong;
+  border-radius: 10px;
+  padding: 0.1rem 0.5rem;
 }

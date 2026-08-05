@@ -1,3 +1,5 @@
+import { MailTemplateKind } from './mail-template.model';
+
 export type RecipientKind = 'GROUP' | 'TEAM' | 'ROLE';
 
 export interface RecipientSelection {
@@ -15,6 +17,8 @@ export interface MailJob {
   allParents: boolean;
   recipientSelections: RecipientSelection[];
   active: boolean;
+  kind: MailTemplateKind;
+  sendTime: string | null;
   lastRunAt: string | null;
   lastRunStatus: string | null;
   lastRunError: string | null;

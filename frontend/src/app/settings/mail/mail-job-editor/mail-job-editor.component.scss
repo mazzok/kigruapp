@@ -129,21 +129,22 @@ $accent: #3f51b5;
   }
 }
 
-.badge {
+.badge,
+.status-chip,
+.kind-chip {
   font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: #1e7e34;
-  background: #e6f4ea;
   padding: 0.05rem 0.4rem;
   border-radius: 999px;
 }
 
-.status-chip {
-  font-size: 0.7rem;
-  padding: 0.05rem 0.4rem;
-  border-radius: 999px;
+.badge {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #1e7e34;
+  background: #e6f4ea;
+}
 
+.status-chip {
   &.status-success {
     background: #e6f4ea;
     color: #1e7e34;
@@ -153,6 +154,12 @@ $accent: #3f51b5;
     background: #fdecea;
     color: #a94442;
   }
+}
+
+.kind-chip {
+  font-weight: 600;
+  color: $muted;
+  background: #f0f1f5;
 }
 
 /* ---------- Main: form ---------- */

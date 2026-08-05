@@ -92,7 +92,7 @@ export class MailJobEditorComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
-    this.mailTemplateService.list().subscribe((templates) => (this.templates = templates));
+    this.mailTemplateService.list('GENERAL').subscribe((templates) => (this.templates = templates));
     this.mailAccountService.list().subscribe((accounts) => (this.accounts = accounts));
     this.loadPool('groups', 'group', (i) => (this.groups = i));
     this.loadPool('parent-teams', 'parent-team', (i) => (this.parentTeams = i));
@@ -249,7 +249,24 @@ export class MailJobEditorComponent implements OnInit {
     });
   }
 
+  isCooking(job: MailJob): boolean {
+    return job.kind === 'COOKING_REMINDER' || job.kind === 'COOKING_OVERVIEW';
+  }
+
+  kindChipLabel(job: MailJob): string {
+    return job.kind === 'COOKING_REMINDER' ? 'Kochdienst-Erinnerung' : 'Kochdienst-Übersicht';
+  }
+
+  kindChipTooltip(job: MailJob): string {
+    return job.kind === 'COOKING_REMINDER'
+      ? 'Wird in Organisation → Dienst-Einstellungen → Erinnerungen gepflegt'
+      : 'Wird in Organisation → Dienst-Einstellungen → Übersichtsjobs gepflegt';
+  }
+
   selectForEdit(job: MailJob): void {
+    if (this.isCooking(job)) {
+      return;
+    }
     this.selectedId = job.id;
     this.editing = true;
     this.form.patchValue({

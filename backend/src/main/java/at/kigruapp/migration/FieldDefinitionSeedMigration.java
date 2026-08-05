@@ -110,7 +110,11 @@ public class FieldDefinitionSeedMigration {
                                 .append("date", new Document("type", "string").append("format", "date"))
                                 .append("groups", new Document("type", "array").append("items", new Document("type", "string")))
                                 .append("description", new Document("type", "string"))
-                                .append("foodProperties", new Document("type", "object")))
+                                .append("foodProperties", new Document("type", "object"))
+                                .append("reminderEnabled", new Document("type", "boolean"))
+                                .append("reminderDaysBefore", new Document("type", "integer")
+                                        .append("minimum", 1)
+                                        .append("maximum", 14)))
                         .append("required", List.of("date", "groups")),
                 false, null);
 

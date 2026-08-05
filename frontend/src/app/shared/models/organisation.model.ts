@@ -21,4 +21,6 @@ export interface CookingDutyDTO {
   groups: string[];
   description: string;
   foodProperties: Record<string, boolean>;
+  reminderEnabled: boolean;
+  reminderDaysBefore: number | null;
 }

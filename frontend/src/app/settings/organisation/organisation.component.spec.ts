@@ -17,6 +17,7 @@ import { RequiredHoursService } from '../../shared/services/required-hours.servi
 import { RequiredHours } from '../../shared/models/required-hours.model';
 import { AliquotConfigService } from '../../shared/services/aliquot-config.service';
 import { AliquotConfig } from '../../shared/models/aliquot-config.model';
+import { NotificationService } from '../../shared/services/notification.service';
 
 class FakeOrganisationService {
   updateCalls: { id: string; body: unknown }[] = [];
@@ -134,6 +135,14 @@ class FakeKostenDefinitionService {
   }
 }
 
+class FakeNotificationService {
+  success(_message: string): void {}
+  error(_message: string): void {}
+  extractError(_err: unknown): string {
+    return 'Speichern fehlgeschlagen';
+  }
+}
+
 function makeComponent(overrides: {
   orgService?: FakeOrganisationService;
   fieldDefService?: FakeFieldDefinitionService;
@@ -152,6 +161,7 @@ function makeComponent(overrides: {
   const kostenDefinitionService = overrides.kostenDefinitionService ?? new FakeKostenDefinitionService();
   const requiredHoursService = overrides.requiredHoursService ?? new FakeRequiredHoursService();
   const aliquotConfigService = overrides.aliquotConfigService ?? new FakeAliquotConfigService();
+  const notificationService = new FakeNotificationService();
   const fakeDialog = { open: () => ({ afterClosed: () => of(null) }) } as unknown as MatDialog;
 
   return new OrganisationComponent(
@@ -163,6 +173,7 @@ function makeComponent(overrides: {
     kostenDefinitionService as unknown as KostenDefinitionService,
     requiredHoursService as unknown as RequiredHoursService,
     aliquotConfigService as unknown as AliquotConfigService,
+    notificationService as unknown as NotificationService,
     fakeDialog,
   );
 }

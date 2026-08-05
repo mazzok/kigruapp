@@ -1,14 +1,15 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
-import { MailTemplate, PlaceholderTile, SaveMailTemplateRequest } from '../models/mail-template.model';
+import { MailTemplate, MailTemplateKind, PlaceholderTile, SaveMailTemplateRequest } from '../models/mail-template.model';
 
 @Injectable({ providedIn: 'root' })
 export class MailTemplateService {
   constructor(private api: ApiService) {}
 
-  list(): Observable<MailTemplate[]> {
-    return this.api.get<MailTemplate[]>('/mail-templates');
+  list(kind?: MailTemplateKind): Observable<MailTemplate[]> {
+    const query = kind ? `?kind=${kind}` : '';
+    return this.api.get<MailTemplate[]>(`/mail-templates${query}`);
   }
 
   get(id: string): Observable<MailTemplate> {
@@ -27,7 +28,8 @@ export class MailTemplateService {
     return this.api.delete(`/mail-templates/${id}`);
   }
 
-  placeholders(): Observable<PlaceholderTile[]> {
-    return this.api.get<PlaceholderTile[]>('/mail-templates/placeholders');
+  placeholders(kind?: MailTemplateKind): Observable<PlaceholderTile[]> {
+    const query = kind ? `?kind=${kind}` : '';
+    return this.api.get<PlaceholderTile[]>(`/mail-templates/placeholders${query}`);
   }
 }

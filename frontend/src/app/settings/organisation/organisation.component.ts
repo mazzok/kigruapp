@@ -23,6 +23,7 @@ import { CurrencyService } from '../../shared/services/currency.service';
 import { KostenDefinitionService } from '../../shared/services/kosten-definition.service';
 import { RequiredHoursService } from '../../shared/services/required-hours.service';
 import { AliquotConfigService } from '../../shared/services/aliquot-config.service';
+import { NotificationService } from '../../shared/services/notification.service';
 import { OrganisationDTO, DutyEntryDTO } from '../../shared/models/organisation.model';
 import { FieldDefinition } from '../../shared/models/field-definition.model';
 import { FieldInstanceDTO } from '../../shared/models/field-instance.model';
@@ -35,6 +36,7 @@ import { parseHhmm, formatMinutes } from '../../shared/util/time-format.util';
 import { familyMonthlyMinutes, groupCombinationMinutes } from './required-hours-preview.util';
 import { SchliesstageComponent } from '../schliesstage/schliesstage.component';
 import { ParentDirectoryAttributesComponent } from './parent-directory-attributes/parent-directory-attributes.component';
+import { CookingJobsComponent } from './cooking-jobs/cooking-jobs.component';
 
 interface GroupRateRow {
   groupInstanceId: string;
@@ -55,6 +57,7 @@ interface GroupRateRow {
     MatExpansionModule, MatDialogModule, MatDatepickerModule, MatSelectModule, MatTooltipModule,
     MatCheckboxModule, IconPickerDialogComponent,
     ParentDirectoryAttributesComponent,
+    CookingJobsComponent,
   ],
   templateUrl: './organisation.component.html',
   styleUrl: './organisation.component.scss',
@@ -143,6 +146,7 @@ export class OrganisationComponent implements OnInit {
     private kostenDefinitionService: KostenDefinitionService,
     private requiredHoursService: RequiredHoursService,
     private aliquotConfigService: AliquotConfigService,
+    private notificationService: NotificationService,
     private dialog: MatDialog,
   ) {}
 

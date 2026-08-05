@@ -55,6 +55,10 @@ public class MailJobScheduler {
 
     /** Registers (or re-registers) a job's cron schedule. Idempotent — unschedules any existing registration first. */
     public void schedule(MailJob job) {
+        if (job.isCookingReminder()) {
+            // Kochdienst-Jobs haben keinen Cron; sie laufen im CookingReminderScheduler.
+            return;
+        }
         String jobId = job.id.toHexString();
         if (scheduler.getScheduledJob(jobId) != null) {
             scheduler.unscheduleJob(jobId);

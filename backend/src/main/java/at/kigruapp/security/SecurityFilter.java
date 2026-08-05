@@ -111,6 +111,10 @@ public class SecurityFilter implements ContainerRequestFilter {
         if (path.equals("/api/v1/landing-page/context") && "GET".equals(method)) return true;
         // Eingebettete Bilder: lesend für alle Angemeldeten, der Upload bleibt admin-only.
         if (path.matches("/api/v1/landing-page/images/[^/]+") && "GET".equals(method)) return true;
+        // Kochdienst-Erinnerungen: Einstellungen lesen alle Angemeldeten, damit der
+        // Kochdienst-Dialog weiß, ob die Erinnerungsfunktion angeboten wird.
+        // PUT bleibt admin-only (Default-Deny).
+        if (path.equals("/api/v1/cooking-reminder-settings") && "GET".equals(method)) return true;
 
         // Default: admin-only (safe default — deny non-admins for anything not explicitly whitelisted above)
         return false;
