@@ -1,0 +1,105 @@
+<div class="overview-jobs">
+  <aside class="job-list">
+    <div class="list-head">
+      <h3>Übersichtsjobs</h3>
+      <button mat-stroked-button color="primary" type="button" (click)="newJob()">
+        <mat-icon>add</mat-icon> Neuer Übersichtsjob
+      </button>
+    </div>
+
+    <nav class="jobs" *ngIf="jobs.length; else emptyList">
+      <div class="job-item" *ngFor="let job of jobs" [class.selected]="job.id === selectedId">
+        <button class="job-main" type="button" (click)="selectForEdit(job)">
+          <span class="job-name">{{ job.name }}</span>
+        </button>
+        <mat-slide-toggle [checked]="job.active" (change)="toggleActive(job)"
+                          matTooltip="Aktiv"></mat-slide-toggle>
+        <button mat-icon-button type="button" (click)="delete(job)" matTooltip="Löschen">
+          <mat-icon>delete_outline</mat-icon>
+        </button>
+      </div>
+    </nav>
+
+    <ng-template #emptyList>
+      <p class="empty">Noch kein Übersichtsjob angelegt.</p>
+    </ng-template>
+  </aside>
+
+  <div class="job-placeholder" *ngIf="!editing">
+    <mat-icon>summarize</mat-icon>
+    <p class="placeholder-title">Kein Übersichtsjob ausgewählt</p>
+    <p class="placeholder-sub">Wähle links einen bestehenden Übersichtsjob oder lege über
+      „Neuer Übersichtsjob“ einen neuen an.</p>
+  </div>
+
+  <form *ngIf="editing" [formGroup]="form" class="job-form" (ngSubmit)="save()">
+    <header class="form-head">
+      <h3>{{ selectedId ? 'Übersichtsjob bearbeiten' : 'Neuer Übersichtsjob' }}</h3>
+    </header>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Name</mat-label>
+      <input matInput formControlName="name" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Mailkonto</mat-label>
+      <mat-select formControlName="senderAccountId">
+        <mat-option *ngFor="let account of accounts" [value]="account.id">{{ account.fromAddress }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Betreff</mat-label>
+      <input matInput formControlName="subject" />
+    </mat-form-field>
+
+    <section class="card">
+      <p class="eyebrow">Zeitplan</p>
+      <app-cron-schedule-builder formControlName="cron"></app-cron-schedule-builder>
+    </section>
+
+    <section class="card">
+      <p class="eyebrow">Empfänger</p>
+      <mat-checkbox formControlName="allParents">Alle Eltern</mat-checkbox>
+
+      <div class="recipient-select" *ngIf="!form.value.allParents">
+        <p class="sub-label">Zielgruppen auswählen</p>
+        <mat-form-field appearance="outline" class="recipient-field">
+          <mat-label>Gruppen, Teams und Rollen</mat-label>
+          <mat-select multiple
+                      [value]="recipientOptionValues"
+                      (selectionChange)="onRecipientSelectionChange($event.value)">
+            <mat-optgroup label="Gruppen" *ngIf="groups.length">
+              <mat-option *ngFor="let g of groups" [value]="optionValue('GROUP', g.id!)">{{ instanceLabel(g) }}</mat-option>
+            </mat-optgroup>
+            <mat-optgroup label="Elternteams" *ngIf="parentTeams.length">
+              <ng-container *ngFor="let group of parentTeamGroups">
+                <mat-option class="recipient-team-option" [value]="optionValue('TEAM', group.team.id!)">{{ instanceLabel(group.team) }}</mat-option>
+                <mat-option *ngFor="let r of group.roles" class="recipient-role-option" [value]="optionValue('ROLE', r.id!)">{{ instanceLabel(r) }}</mat-option>
+              </ng-container>
+            </mat-optgroup>
+            <mat-optgroup label="Vorstand" *ngIf="boardTeams.length">
+              <ng-container *ngFor="let group of boardTeamGroups">
+                <mat-option class="recipient-team-option" [value]="optionValue('TEAM', group.team.id!)">{{ instanceLabel(group.team) }}</mat-option>
+                <mat-option *ngFor="let r of group.roles" class="recipient-role-option" [value]="optionValue('ROLE', r.id!)">{{ instanceLabel(r) }}</mat-option>
+              </ng-container>
+            </mat-optgroup>
+          </mat-select>
+        </mat-form-field>
+      </div>
+    </section>
+
+    <mat-slide-toggle formControlName="active">Aktiv</mat-slide-toggle>
+
+    <app-mail-template-form [kind]="'COOKING_OVERVIEW'" nameLabel="Name der Vorlage"
+                            [value]="templateValue"
+                            (valueChange)="onTemplateChange($event)"></app-mail-template-form>
+
+    <footer class="actions">
+      <button mat-button type="button" (click)="closeEditor()">Verwerfen</button>
+      <span class="spacer"></span>
+      <button mat-flat-button color="primary" type="submit" [disabled]="!canSave">Speichern</button>
+    </footer>
+  </form>
+</div>
