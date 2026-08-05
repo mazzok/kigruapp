@@ -27,7 +27,7 @@ public class CookingReminderSettingsToJobMigration {
     }
 
     public void run() {
-        if (MailJob.count("kind", MailJob.KIND_COOKING) > 0) {
+        if (MailJob.count("kind", MailJob.KIND_COOKING_REMINDER) > 0) {
             return;
         }
         CookingReminderSettings settings = CookingReminderSettings.findSingleton();
@@ -44,7 +44,7 @@ public class CookingReminderSettingsToJobMigration {
         MailTemplate target = usedByGeneralJob(source) ? copyOf(source) : adopt(source);
 
         MailJob job = new MailJob();
-        job.kind = MailJob.KIND_COOKING;
+        job.kind = MailJob.KIND_COOKING_REMINDER;
         job.name = "Kochdienst-Erinnerung";
         job.templateId = target.id;
         job.subject = settings.subject;
@@ -67,7 +67,7 @@ public class CookingReminderSettingsToJobMigration {
     }
 
     private MailTemplate adopt(MailTemplate template) {
-        template.kind = MailTemplate.KIND_COOKING;
+        template.kind = MailTemplate.KIND_COOKING_REMINDER;
         template.updatedAt = Instant.now();
         template.update();
         return template;
@@ -77,7 +77,7 @@ public class CookingReminderSettingsToJobMigration {
         MailTemplate copy = new MailTemplate();
         copy.name = source.name + " (Kochdienst)";
         copy.bodyHtml = source.bodyHtml;
-        copy.kind = MailTemplate.KIND_COOKING;
+        copy.kind = MailTemplate.KIND_COOKING_REMINDER;
         copy.createdAt = Instant.now();
         copy.updatedAt = copy.createdAt;
         copy.persist();

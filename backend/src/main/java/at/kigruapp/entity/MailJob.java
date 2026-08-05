@@ -11,7 +11,8 @@ import java.util.List;
 @MongoEntity(collection = "mail_jobs")
 public class MailJob extends PanacheMongoEntity {
     public static final String KIND_GENERAL = "GENERAL";
-    public static final String KIND_COOKING = "COOKING";
+    public static final String KIND_COOKING_REMINDER = "COOKING_REMINDER";
+    public static final String KIND_COOKING_OVERVIEW = "COOKING_OVERVIEW";
 
     public String name;
     public ObjectId templateId;
@@ -32,8 +33,17 @@ public class MailJob extends PanacheMongoEntity {
     public Instant createdAt;
     public Instant updatedAt;
 
+    /** True for either Kochdienst-Job-Art — beide werden ausserhalb des allgemeinen Job-Endpunkts gepflegt. */
     public boolean isCooking() {
-        return KIND_COOKING.equals(kind);
+        return isCookingReminder() || isCookingOverview();
+    }
+
+    public boolean isCookingReminder() {
+        return KIND_COOKING_REMINDER.equals(kind);
+    }
+
+    public boolean isCookingOverview() {
+        return KIND_COOKING_OVERVIEW.equals(kind);
     }
 
     public String effectiveKind() {

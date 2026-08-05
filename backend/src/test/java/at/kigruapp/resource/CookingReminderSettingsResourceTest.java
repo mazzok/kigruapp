@@ -34,7 +34,7 @@ class CookingReminderSettingsResourceTest {
         MailTemplate template = new MailTemplate();
         template.name = "Erinnerung";
         template.bodyHtml = "<p>Hallo</p>";
-        template.kind = MailTemplate.KIND_COOKING;
+        template.kind = MailTemplate.KIND_COOKING_REMINDER;
         template.createdAt = Instant.now();
         template.updatedAt = template.createdAt;
         template.persist();
@@ -43,7 +43,7 @@ class CookingReminderSettingsResourceTest {
 
     private MailJob persistCookingJob(MailAccount account, MailTemplate template, boolean active) {
         MailJob job = new MailJob();
-        job.kind = MailJob.KIND_COOKING;
+        job.kind = MailJob.KIND_COOKING_REMINDER;
         job.name = "Erinnerung";
         job.subject = "Dein Kochdienst";
         job.sendTime = "07:00";

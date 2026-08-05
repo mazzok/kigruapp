@@ -47,7 +47,7 @@ class MailTemplateResourceTest {
 
     private MailTemplate persistCookingTemplate(String name) {
         MailTemplate t = persistTemplate(name, "<p>Kochdienst</p>");
-        t.kind = MailTemplate.KIND_COOKING;
+        t.kind = MailTemplate.KIND_COOKING_REMINDER;
         t.update();
         return t;
     }
@@ -172,7 +172,7 @@ class MailTemplateResourceTest {
         persistDefinition("email", "E-Mail");
 
         given()
-                .when().get("/api/v1/mail-templates/placeholders?kind=COOKING")
+                .when().get("/api/v1/mail-templates/placeholders?kind=COOKING_REMINDER")
                 .then().statusCode(200)
                 .body("token", hasItem("{{duty.date}}"))
                 .body("token", hasItem("{{duty.personName}}"))
@@ -181,6 +181,19 @@ class MailTemplateResourceTest {
                 .body("token", not(hasItem("{{person.email}}")))
                 .body("group", hasItem("KOCHDIENST"))
                 .body("group", hasItem("PERSON"));
+    }
+
+    @Test
+    void placeholdersForCookingOverviewStayGeneral() {
+        persistDefinition("firstName", "Vorname");
+        persistDefinition("email", "E-Mail");
+
+        given()
+                .when().get("/api/v1/mail-templates/placeholders?kind=COOKING_OVERVIEW")
+                .then().statusCode(200)
+                .body("token", hasItem("{{person.email}}"))
+                .body("token", not(hasItem("{{duty.date}}")))
+                .body("group", everyItem(is("PERSON")));
     }
 
     @Test
@@ -217,7 +230,7 @@ class MailTemplateResourceTest {
                 .body("name", not(hasItem("Kochdienst")));
 
         given()
-                .when().get("/api/v1/mail-templates?kind=COOKING")
+                .when().get("/api/v1/mail-templates?kind=COOKING_REMINDER")
                 .then().statusCode(200)
                 .body("name", hasItem("Kochdienst"))
                 .body("name", not(hasItem("Allgemein")));
@@ -239,7 +252,7 @@ class MailTemplateResourceTest {
     void createAlwaysProducesGeneralKind() {
         given()
                 .contentType(ContentType.JSON)
-                .body("{\"name\":\"Neu\",\"bodyHtml\":\"<p>x</p>\",\"kind\":\"COOKING\"}")
+                .body("{\"name\":\"Neu\",\"bodyHtml\":\"<p>x</p>\",\"kind\":\"COOKING_REMINDER\"}")
                 .when().post("/api/v1/mail-templates")
                 .then().statusCode(201)
                 .body("kind", is("GENERAL"));
@@ -258,6 +271,23 @@ class MailTemplateResourceTest {
 
         given()
                 .when().delete("/api/v1/mail-templates/" + id)
+                .then().statusCode(409);
+    }
+
+    @Test
+    void cookingOverviewTemplatesCannotBeChangedOnGeneralEndpoint() {
+        MailTemplate overview = persistTemplate("Uebersicht", "<p>x</p>");
+        overview.kind = MailTemplate.KIND_COOKING_OVERVIEW;
+        overview.update();
+
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"name\":\"Neu\",\"bodyHtml\":\"<p>neu</p>\"}")
+                .when().put("/api/v1/mail-templates/" + overview.id)
+                .then().statusCode(409);
+
+        given()
+                .when().delete("/api/v1/mail-templates/" + overview.id)
                 .then().statusCode(409);
     }
 }

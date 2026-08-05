@@ -8,7 +8,8 @@ import java.time.Instant;
 @MongoEntity(collection = "mail_templates")
 public class MailTemplate extends PanacheMongoEntity {
     public static final String KIND_GENERAL = "GENERAL";
-    public static final String KIND_COOKING = "COOKING";
+    public static final String KIND_COOKING_REMINDER = "COOKING_REMINDER";
+    public static final String KIND_COOKING_OVERVIEW = "COOKING_OVERVIEW";
 
     public String name;
     public String bodyHtml;
@@ -17,8 +18,17 @@ public class MailTemplate extends PanacheMongoEntity {
     public Instant createdAt;
     public Instant updatedAt;
 
+    /** True for either Kochdienst-Vorlagen-Art — beide werden ausserhalb des allgemeinen Vorlagen-Endpunkts gepflegt. */
     public boolean isCooking() {
-        return KIND_COOKING.equals(kind);
+        return isCookingReminder() || isCookingOverview();
+    }
+
+    public boolean isCookingReminder() {
+        return KIND_COOKING_REMINDER.equals(kind);
+    }
+
+    public boolean isCookingOverview() {
+        return KIND_COOKING_OVERVIEW.equals(kind);
     }
 
     /** Nie null — für Filter und Ausgabe. */

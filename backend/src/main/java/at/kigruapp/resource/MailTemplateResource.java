@@ -66,7 +66,7 @@ public class MailTemplateResource {
     @GET
     @Path("/placeholders")
     public List<PlaceholderTile> placeholders(@QueryParam("kind") String kind) {
-        boolean cooking = MailTemplate.KIND_COOKING.equals(kind);
+        boolean cooking = MailTemplate.KIND_COOKING_REMINDER.equals(kind);
         List<PlaceholderTile> tiles = new ArrayList<>();
         if (cooking) {
             for (CookingDutyTokens.Token token : CookingDutyTokens.TOKENS) {

@@ -23,7 +23,7 @@ public class CookingReminderSettingsResource {
 
     @GET
     public StatusDto get() {
-        for (MailJob job : MailJob.<MailJob>list("kind = ?1 and active = ?2", MailJob.KIND_COOKING, true)) {
+        for (MailJob job : MailJob.<MailJob>list("kind = ?1 and active = ?2", MailJob.KIND_COOKING_REMINDER, true)) {
             if (isSendable(job)) {
                 return new StatusDto(true);
             }

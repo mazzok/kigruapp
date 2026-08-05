@@ -55,7 +55,7 @@ class CookingReminderJobResourceTest {
                 .extract().path("templateId");
 
         MailTemplate template = MailTemplate.findById(new org.bson.types.ObjectId(templateId));
-        org.junit.jupiter.api.Assertions.assertEquals(MailTemplate.KIND_COOKING, template.kind);
+        org.junit.jupiter.api.Assertions.assertEquals(MailTemplate.KIND_COOKING_REMINDER, template.kind);
 
         given()
                 .when().get("/api/v1/cooking-reminder-jobs")

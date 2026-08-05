@@ -66,10 +66,25 @@ class MailJobSchedulerTest {
     void scheduleSkipsCookingJobsInsteadOfCrashingOnNullCron() {
         MailJob job = new MailJob();
         job.id = new org.bson.types.ObjectId();
-        job.kind = MailJob.KIND_COOKING;
+        job.kind = MailJob.KIND_COOKING_REMINDER;
         job.cron = null;
 
         assertDoesNotThrow(() -> mailJobScheduler.schedule(job));
         assertNull(scheduler.getScheduledJob(job.id.toHexString()));
+    }
+
+    /**
+     * Only COOKING_REMINDER jobs are driven by CookingReminderScheduler and
+     * therefore skipped here. COOKING_OVERVIEW jobs have a real cron and must
+     * schedule exactly like GENERAL jobs.
+     */
+    @Test
+    void scheduleRegistersCookingOverviewJobsNormally() {
+        MailJob job = newJob("0 0 8 * * ?");
+        job.kind = MailJob.KIND_COOKING_OVERVIEW;
+
+        mailJobScheduler.schedule(job);
+
+        assertNotNull(scheduler.getScheduledJob(job.id.toHexString()));
     }
 }

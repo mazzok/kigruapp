@@ -127,13 +127,13 @@ class CookingReminderMultiJobRunTest {
         MailTemplate template = new MailTemplate();
         template.name = name;
         template.bodyHtml = bodyHtml;
-        template.kind = MailTemplate.KIND_COOKING;
+        template.kind = MailTemplate.KIND_COOKING_REMINDER;
         template.createdAt = Instant.now();
         template.updatedAt = template.createdAt;
         template.persist();
 
         MailJob job = new MailJob();
-        job.kind = MailJob.KIND_COOKING;
+        job.kind = MailJob.KIND_COOKING_REMINDER;
         job.name = name;
         job.templateId = template.id;
         job.subject = "Dein Kochdienst — " + name;

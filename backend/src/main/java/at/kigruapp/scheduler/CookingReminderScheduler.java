@@ -122,7 +122,7 @@ public class CookingReminderScheduler {
         }
         registeredJobIds.clear();
 
-        List<MailJob> jobs = MailJob.list("kind = ?1 and active = ?2", MailJob.KIND_COOKING, true);
+        List<MailJob> jobs = MailJob.list("kind = ?1 and active = ?2", MailJob.KIND_COOKING_REMINDER, true);
         for (MailJob job : jobs) {
             String quartzId = jobId(job.id);
             ObjectId cookingJobId = job.id;

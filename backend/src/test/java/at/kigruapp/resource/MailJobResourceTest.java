@@ -381,7 +381,7 @@ class MailJobResourceTest {
     @Test
     void cookingJobsCannotBeChangedOnTheGeneralEndpoint() {
         MailJob cooking = new MailJob();
-        cooking.kind = MailJob.KIND_COOKING;
+        cooking.kind = MailJob.KIND_COOKING_REMINDER;
         cooking.name = "Erinnerung";
         cooking.subject = "x";
         cooking.sendTime = "07:00";
@@ -389,6 +389,34 @@ class MailJobResourceTest {
         cooking.updatedAt = cooking.createdAt;
         cooking.persist();
         String id = cooking.id.toHexString();
+
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"name\":\"Neu\",\"templateId\":null,\"subject\":\"y\",\"senderAccountId\":null,"
+                        + "\"cron\":\"0 0 8 * * ?\",\"allParents\":true,\"recipientSelections\":[]}")
+                .when().put("/api/v1/mail-jobs/" + id)
+                .then().statusCode(409);
+
+        given()
+                .when().delete("/api/v1/mail-jobs/" + id)
+                .then().statusCode(409);
+
+        given()
+                .when().post("/api/v1/mail-jobs/" + id + "/activate")
+                .then().statusCode(409);
+    }
+
+    @Test
+    void cookingOverviewJobsCannotBeChangedOnTheGeneralEndpoint() {
+        MailJob overview = new MailJob();
+        overview.kind = MailJob.KIND_COOKING_OVERVIEW;
+        overview.name = "Uebersicht";
+        overview.subject = "x";
+        overview.cron = "0 0 8 * * ?";
+        overview.createdAt = java.time.Instant.now();
+        overview.updatedAt = overview.createdAt;
+        overview.persist();
+        String id = overview.id.toHexString();
 
         given()
                 .contentType(ContentType.JSON)

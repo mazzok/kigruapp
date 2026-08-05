@@ -30,7 +30,7 @@ class CookingReminderSchedulerTest {
         MailJob.deleteAll();
         MailTemplate.deleteAll();
         MailAccount.deleteAll();
-        for (MailJob job : MailJob.<MailJob>list("kind", MailJob.KIND_COOKING)) {
+        for (MailJob job : MailJob.<MailJob>list("kind", MailJob.KIND_COOKING_REMINDER)) {
             String quartzId = CookingReminderScheduler.jobId(job.id);
             if (scheduler.getScheduledJob(quartzId) != null) {
                 scheduler.unscheduleJob(quartzId);
@@ -55,7 +55,7 @@ class CookingReminderSchedulerTest {
         MailTemplate template = new MailTemplate();
         template.name = "Erinnerung";
         template.bodyHtml = "<p>Kochdienst</p>";
-        template.kind = MailTemplate.KIND_COOKING;
+        template.kind = MailTemplate.KIND_COOKING_REMINDER;
         template.createdAt = Instant.now();
         template.persist();
         return template;
@@ -63,7 +63,7 @@ class CookingReminderSchedulerTest {
 
     private MailJob persistCookingJob(MailAccount account, MailTemplate template, String sendTime, boolean active) {
         MailJob job = new MailJob();
-        job.kind = MailJob.KIND_COOKING;
+        job.kind = MailJob.KIND_COOKING_REMINDER;
         job.name = "Kochdienst-Erinnerung";
         job.templateId = template.id;
         job.subject = "Dein Kochdienst";
@@ -111,7 +111,7 @@ class CookingReminderSchedulerTest {
     void rescheduleOhneAktiveJobsRegistriertNichts() {
         reminderScheduler.reschedule();
 
-        assertEquals(0, MailJob.count("kind", MailJob.KIND_COOKING));
+        assertEquals(0, MailJob.count("kind", MailJob.KIND_COOKING_REMINDER));
     }
 
     @Test

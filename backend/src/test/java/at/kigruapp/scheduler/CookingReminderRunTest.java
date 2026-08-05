@@ -79,12 +79,12 @@ class CookingReminderRunTest {
         template = new MailTemplate();
         template.name = "Erinnerung";
         template.bodyHtml = "<p>Hallo {{person.firstName}}, am {{duty.date}} kochst du.</p>";
-        template.kind = MailTemplate.KIND_COOKING;
+        template.kind = MailTemplate.KIND_COOKING_REMINDER;
         template.createdAt = Instant.now();
         template.persist();
 
         job = new MailJob();
-        job.kind = MailJob.KIND_COOKING;
+        job.kind = MailJob.KIND_COOKING_REMINDER;
         job.name = "Kochdienst-Erinnerung";
         job.templateId = template.id;
         job.subject = "Dein Kochdienst";
@@ -132,7 +132,7 @@ class CookingReminderRunTest {
         return person;
     }
 
-    /** Hängt einen Kochdienst an die Person und liefert die Instanz-Id zurück. */
+    /** HÃ¤ngt einen Kochdienst an die Person und liefert die Instanz-Id zurÃ¼ck. */
     private ObjectId persistDuty(Person person, String date, boolean reminderEnabled, Integer daysBefore) {
         return persistDuty(person, date, reminderEnabled, daysBefore, List.of("g1"));
     }
@@ -302,7 +302,7 @@ class CookingReminderRunTest {
     /**
      * value.groups eines Kochdienstes speichert Ids von FieldDefinitions (so wie
      * sie GET /api/v1/organisation/groups liefert), nicht Ids von field_instances.
-     * Die Auflösung muss also über FieldDefinition laufen.
+     * Die AuflÃ¶sung muss also Ã¼ber FieldDefinition laufen.
      */
     @Test
     void loestGruppenLabelsUeberFieldDefinitionAuf() throws Exception {
@@ -312,7 +312,7 @@ class CookingReminderRunTest {
         MailTemplate groupsTemplate = new MailTemplate();
         groupsTemplate.name = "Erinnerung mit Gruppen";
         groupsTemplate.bodyHtml = "<p>Gruppen: {{duty.groups}}</p>";
-        groupsTemplate.kind = MailTemplate.KIND_COOKING;
+        groupsTemplate.kind = MailTemplate.KIND_COOKING_REMINDER;
         groupsTemplate.createdAt = Instant.now();
         groupsTemplate.persist();
 
@@ -335,11 +335,11 @@ class CookingReminderRunTest {
      * Regression: ein defekter Log-Insert (echter Schreibfehler, nicht der
      * Duplicate-Key-Fall) darf nur den betroffenen Kochdienst treffen und
      * nicht die runFor-Schleife verlassen. Ein echter Mongo-Schreibfehler
-     * lässt sich im Test nicht sinnvoll provozieren (der Testcontainer läuft
+     * lÃ¤sst sich im Test nicht sinnvoll provozieren (der Testcontainer lÃ¤uft
      * durchgehend); stattdessen wird hier der bereits vorhandene
-     * Teilausfall-Pfad über einen fehlschlagenden Mailversand geprüft: bei
-     * zwei fälligen Kochdiensten scheitert der Versand für den einen
-     * (syntaktisch ungültige Empfängeradresse), der zweite wird trotzdem
+     * Teilausfall-Pfad Ã¼ber einen fehlschlagenden Mailversand geprÃ¼ft: bei
+     * zwei fÃ¤lligen Kochdiensten scheitert der Versand fÃ¼r den einen
+     * (syntaktisch ungÃ¼ltige EmpfÃ¤ngeradresse), der zweite wird trotzdem
      * zugestellt und beide werden korrekt geloggt.
      */
     @Test

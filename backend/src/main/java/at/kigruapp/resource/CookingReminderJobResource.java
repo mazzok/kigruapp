@@ -41,7 +41,7 @@ public class CookingReminderJobResource {
     public List<JobDto> list() {
         List<JobDto> result = new ArrayList<>();
         for (MailJob job : MailJob.<MailJob>listAll(Sort.descending("updatedAt"))) {
-            if (job.isCooking()) {
+            if (job.isCookingReminder()) {
                 result.add(toDto(job, loadTemplate(job)));
             }
         }
@@ -54,14 +54,14 @@ public class CookingReminderJobResource {
         MailTemplate template = new MailTemplate();
         template.name = request.templateName().trim();
         template.bodyHtml = MailTemplateResource.sanitizeBody(request.templateBodyHtml());
-        template.kind = MailTemplate.KIND_COOKING;
+        template.kind = MailTemplate.KIND_COOKING_REMINDER;
         template.createdAt = Instant.now();
         template.updatedAt = template.createdAt;
         template.persist();
 
         MailJob job = new MailJob();
         try {
-            job.kind = MailJob.KIND_COOKING;
+            job.kind = MailJob.KIND_COOKING_REMINDER;
             job.templateId = template.id;
             applyFields(job, request);
             job.createdAt = Instant.now();
@@ -85,7 +85,7 @@ public class CookingReminderJobResource {
         MailTemplate template = loadTemplate(job);
         if (template == null) {
             template = new MailTemplate();
-            template.kind = MailTemplate.KIND_COOKING;
+            template.kind = MailTemplate.KIND_COOKING_REMINDER;
             template.createdAt = Instant.now();
         }
         template.name = request.templateName().trim();
@@ -119,7 +119,7 @@ public class CookingReminderJobResource {
             throw new NotFoundException();
         }
         MailJob job = MailJob.findById(new ObjectId(id));
-        if (job == null || !job.isCooking()) {
+        if (job == null || !job.isCookingReminder()) {
             throw new NotFoundException();
         }
         return job;

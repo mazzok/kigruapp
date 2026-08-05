@@ -65,14 +65,14 @@ class CookingReminderSettingsToJobMigrationTest {
 
         migration.run();
 
-        MailJob job = MailJob.find("kind", MailJob.KIND_COOKING).firstResult();
+        MailJob job = MailJob.find("kind", MailJob.KIND_COOKING_REMINDER).firstResult();
         assertNotNull(job);
         assertEquals("Kochdienst-Erinnerung", job.name);
         assertEquals("Dein Kochdienst", job.subject);
         assertEquals("07:30", job.sendTime);
         assertTrue(job.active);
         assertEquals(template.id, job.templateId);
-        assertEquals(MailTemplate.KIND_COOKING,
+        assertEquals(MailTemplate.KIND_COOKING_REMINDER,
                 MailTemplate.<MailTemplate>findById(template.id).kind);
         assertEquals(1, MailTemplate.count());
     }
@@ -95,14 +95,14 @@ class CookingReminderSettingsToJobMigrationTest {
 
         migration.run();
 
-        MailJob job = MailJob.find("kind", MailJob.KIND_COOKING).firstResult();
+        MailJob job = MailJob.find("kind", MailJob.KIND_COOKING_REMINDER).firstResult();
         assertNotNull(job);
         assertEquals(2, MailTemplate.count());
         assertEquals(MailTemplate.KIND_GENERAL,
                 MailTemplate.<MailTemplate>findById(template.id).effectiveKind());
         MailTemplate copy = MailTemplate.findById(job.templateId);
         assertEquals("Geteilt (Kochdienst)", copy.name);
-        assertEquals(MailTemplate.KIND_COOKING, copy.kind);
+        assertEquals(MailTemplate.KIND_COOKING_REMINDER, copy.kind);
     }
 
     @Test
@@ -113,7 +113,7 @@ class CookingReminderSettingsToJobMigrationTest {
         migration.run();
         migration.run();
 
-        assertEquals(1, MailJob.count("kind", MailJob.KIND_COOKING));
+        assertEquals(1, MailJob.count("kind", MailJob.KIND_COOKING_REMINDER));
     }
 
     @Test
