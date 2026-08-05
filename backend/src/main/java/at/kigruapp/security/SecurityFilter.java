@@ -116,6 +116,12 @@ public class SecurityFilter implements ContainerRequestFilter {
         // PUT bleibt admin-only (Default-Deny).
         if (path.equals("/api/v1/cooking-reminder-settings") && "GET".equals(method)) return true;
 
+        // Schliesstage: Eltern muessen Arten und Zeitraeume lesen koennen (Schliesstage-Uebersicht,
+        // Kochdienst-Dialog). Schreiben bleibt admin-only (Default-Deny).
+        if (path.equals("/api/v1/closure-definitions") && "GET".equals(method)) return true;
+        if (path.equals("/api/v1/closure-periods") && "GET".equals(method)) return true;
+        if (path.equals("/api/v1/holidays") && "GET".equals(method)) return true;
+
         // Default: admin-only (safe default — deny non-admins for anything not explicitly whitelisted above)
         return false;
     }

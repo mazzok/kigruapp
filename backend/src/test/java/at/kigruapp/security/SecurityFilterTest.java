@@ -455,4 +455,64 @@ class SecurityFilterTest {
 
         assertForbidden();
     }
+
+    @Test
+    void getClosureDefinitions_nonAdmin_allowed() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/closure-definitions", "GET");
+        when(currentUserService.getCurrentPerson()).thenReturn(new Person());
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        filter.filter(ctx);
+
+        assertPassThrough();
+    }
+
+    @Test
+    void postClosureDefinitions_nonAdmin_forbidden() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/closure-definitions", "POST");
+        when(currentUserService.getCurrentPerson()).thenReturn(new Person());
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        filter.filter(ctx);
+
+        assertForbidden();
+    }
+
+    @Test
+    void getClosurePeriods_nonAdmin_allowed() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/closure-periods", "GET");
+        when(currentUserService.getCurrentPerson()).thenReturn(new Person());
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        filter.filter(ctx);
+
+        assertPassThrough();
+    }
+
+    @Test
+    void postClosurePeriodsApply_nonAdmin_forbidden() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/closure-periods/apply", "POST");
+        when(currentUserService.getCurrentPerson()).thenReturn(new Person());
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        filter.filter(ctx);
+
+        assertForbidden();
+    }
+
+    @Test
+    void getHolidays_nonAdmin_allowed() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/holidays", "GET");
+        when(currentUserService.getCurrentPerson()).thenReturn(new Person());
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        filter.filter(ctx);
+
+        assertPassThrough();
+    }
 }
