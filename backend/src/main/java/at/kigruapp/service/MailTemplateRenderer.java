@@ -61,11 +61,12 @@ public class MailTemplateRenderer {
             return null;
         }
         String normalized = EMPTY_COMMENT.matcher(bodyHtml).replaceAll("");
-        String withPlaceholders = renderPlaceholders(normalized, properties);
+        String withPlaceholders = renderPlaceholders(normalized, personProperties, dutyProperties);
         return renderBlocks(withPlaceholders);
     }
 
-    private String renderPlaceholders(String bodyHtml, Map<String, String> properties) {
+    private String renderPlaceholders(String bodyHtml, Map<String, String> personProperties,
+                                      Map<String, String> dutyProperties) {
         Matcher matcher = TOKEN_PATTERN.matcher(bodyHtml);
         StringBuilder result = new StringBuilder();
         while (matcher.find()) {
