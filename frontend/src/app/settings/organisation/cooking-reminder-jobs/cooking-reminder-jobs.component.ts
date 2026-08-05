@@ -60,7 +60,7 @@ export class CookingReminderJobsComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
-    this.mailAccountService.list().subscribe((accounts) => (this.accounts = accounts.filter((a) => a.enabled)));
+    this.mailAccountService.list().subscribe((accounts) => (this.accounts = accounts));
   }
 
   load(): void {

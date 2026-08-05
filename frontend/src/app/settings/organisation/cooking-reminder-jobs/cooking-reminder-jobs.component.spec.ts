@@ -26,7 +26,10 @@ describe('CookingReminderJobsComponent', () => {
     jobService.delete.and.returnValue(of(void 0));
 
     const accountService = jasmine.createSpyObj('MailAccountService', ['list']);
-    accountService.list.and.returnValue(of([{ id: 'a', name: 'Kindergarten', enabled: true }]));
+    accountService.list.and.returnValue(of([
+      { id: 'a', name: 'Kindergarten', enabled: true },
+      { id: 'b', name: 'Verein', enabled: false },
+    ]));
 
     await TestBed.configureTestingModule({
       imports: [CookingReminderJobsComponent, HttpClientTestingModule, NoopAnimationsModule],
@@ -43,6 +46,11 @@ describe('CookingReminderJobsComponent', () => {
 
   it('laedt die Jobs', () => {
     expect(component.jobs.length).toBe(1);
+  });
+
+  it('zeigt auch nicht aktivierte Mailkonten zur Auswahl an', () => {
+    expect(component.accounts.length).toBe(2);
+    expect(component.accounts.some((a) => a.id === 'b' && !a.enabled)).toBeTrue();
   });
 
   it('uebernimmt Job und Vorlage in die Maske', () => {
