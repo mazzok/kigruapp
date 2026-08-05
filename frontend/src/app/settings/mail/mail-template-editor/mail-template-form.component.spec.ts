@@ -280,4 +280,15 @@ describe('MailTemplateFormComponent', () => {
 
     expect(dialog.open).toHaveBeenCalled();
   });
+
+  it('wandelt eingefuegte Bloecke beim Auslesen in gespeicherte Marker um', () => {
+    component.kind = 'COOKING_OVERVIEW';
+    fixture.detectChanges();
+
+    component.insertBlock(component.blockDefinitions[0]);
+    const value = component.currentValue();
+
+    expect(value.bodyHtml).toMatch(/\{\{block\.cookingDuty:[A-Za-z0-9_-]+\}\}/);
+    expect(value.bodyHtml).not.toContain('data-block-type');
+  });
 });

@@ -147,7 +147,7 @@ export class MailTemplateFormComponent implements OnInit {
   currentValue(): { name: string; bodyHtml: string } {
     return {
       name: this.form.value.name ?? '',
-      bodyHtml: pillsToTokens(this.form.value.bodyHtml ?? ''),
+      bodyHtml: pillsToTokens(embedsToMarkers(this.form.value.bodyHtml ?? '')),
     };
   }
 
