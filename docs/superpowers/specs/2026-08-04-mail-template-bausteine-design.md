@@ -116,9 +116,9 @@ Konfiguration.
 
 ### Backend (Erweiterung)
 
-- `MailTemplateRenderer` — zusätzlicher Schritt: `{{block.<type>:<config>}}`-
-  Marker im `bodyHtml` per Regex scannen (kein Jsoup, siehe oben) und über die
-  `MailBlockRenderer`-Registry ersetzen, nach der bestehenden Token-Auflösung.
+- `MailTemplateRenderer` — zusätzlicher Schritt: `mail-block`-Divs im
+  `bodyHtml` scannen (Jsoup) und über die `MailBlockRenderer`-Registry
+  ersetzen, nach der bestehenden Token-Auflösung.
 
 ## Testing
 
@@ -136,11 +136,3 @@ Konfiguration.
 - Mehrere Gruppen pro Baustein (dafür mehrere Bausteine ins Template ziehen).
 - Personalisierung der Tabelle je Empfänger (Tabelle ist für alle Empfänger
   eines Versands identisch).
-
-## Nachtrag 2026-08-05: Kind-Beschränkung
-
-Seit der Rebase auf main (nach der Aufteilung in `MailTemplateKind.COOKING_REMINDER`/
-`COOKING_OVERVIEW`) ist der Kochdienst-Baustein ausschließlich im Editor für
-Kochdienst-Übersichtsjobs (`kind === 'COOKING_OVERVIEW'`) verfügbar, nicht mehr in
-allgemeinen Mail-Vorlagen oder bei Kochdienst-Erinnerungen. Details siehe
-[2026-08-05-mail-bausteine-rebase-kochdienst-scoping-design.md](2026-08-05-mail-bausteine-rebase-kochdienst-scoping-design.md).
