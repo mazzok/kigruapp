@@ -14,10 +14,15 @@ describe('CookingDutyDialogComponent — Erinnerung', () => {
   const baseData: CookingDutyDialogData = {
     groups: [{ id: 'g1', fieldName: 'group', label: { de: 'Gruppe 1' }, jsonSchema: {}, required: false }],
     foodProperties: [],
-    familyParents: [],
+    familyParents: [{ id: 'p1', firstName: 'Anna', lastName: 'Muster' }],
     currentUserId: 'p1',
     canEdit: true,
     reminderAvailable: true,
+    closurePeriods: [],
+    closureDefinitions: [],
+    holidays: [],
+    calendarFrom: '2026-09-01',
+    calendarTo: '2026-09-30',
   };
 
   async function createComponent(data: CookingDutyDialogData): Promise<void> {
@@ -163,5 +168,60 @@ describe('CookingDutyDialogComponent — Erinnerung', () => {
     const result = dialogRef.close.calls.mostRecent().args[0];
     expect(result.reminderEnabled).toBeTrue();
     expect(result.reminderDaysBefore).toBe(4);
+  });
+
+  describe('Wer kocht', () => {
+    it('zeigt Vor- und Nachname der Familienmitglieder an', async () => {
+      await createComponent(baseData);
+      fixture.detectChanges();
+
+      const option = fixture.nativeElement.textContent as string;
+      expect(component.getParentName(baseData.familyParents[0])).toBe('Muster Anna');
+      expect(option).toContain('Muster Anna');
+    });
+
+    it('zeigt keine Namen an, wenn firstName/lastName fehlen', async () => {
+      await createComponent({ ...baseData, familyParents: [{ id: 'p2', firstName: null, lastName: null }] });
+
+      expect(component.getParentName({ id: 'p2', firstName: null, lastName: null })).toBe('');
+    });
+  });
+
+  describe('Datumsauswahl ueber closure-calendar', () => {
+    it('setzt das Datum-Formularfeld bei Auswahl im Kalender', async () => {
+      await createComponent(baseData);
+
+      component.onDateSelected(['2026-09-15']);
+
+      expect(component.form.value.date).toEqual(new Date('2026-09-15T00:00:00'));
+    });
+
+    it('leert das Datum-Formularfeld, wenn die Auswahl aufgehoben wird', async () => {
+      await createComponent(baseData);
+      component.onDateSelected(['2026-09-15']);
+
+      component.onDateSelected([]);
+
+      expect(component.form.value.date).toBeNull();
+    });
+
+    it('setzt die initiale Kalenderauswahl beim Bearbeiten auf das bestehende Datum', async () => {
+      await createComponent({
+        ...baseData,
+        existingDuty: {
+          id: 'd1', personId: 'p1', familyId: 'f1', personName: 'Anna',
+          date: '2026-09-15', groups: [], description: '', foodProperties: {},
+          reminderEnabled: false, reminderDaysBefore: null,
+        },
+      });
+
+      expect(component.initialDateSelection).toEqual(['2026-09-15']);
+    });
+
+    it('hat keine initiale Kalenderauswahl beim Neuanlegen', async () => {
+      await createComponent(baseData);
+
+      expect(component.initialDateSelection).toEqual([]);
+    });
   });
 });
