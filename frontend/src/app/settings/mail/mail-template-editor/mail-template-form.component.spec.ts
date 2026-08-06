@@ -5,14 +5,29 @@ import { of } from 'rxjs';
 import Quill from 'quill';
 import { AlignStyle } from 'quill/formats/align';
 import { SizeStyle } from 'quill/formats/size';
+import { MatDialog } from '@angular/material/dialog';
 import { MailTemplateFormComponent } from './mail-template-form.component';
 import { MailTemplateService } from '../../../shared/services/mail-template.service';
 import { PlaceholderTile } from '../../../shared/models/mail-template.model';
+import { OrganisationService } from '../../../shared/services/organisation.service';
+import { FieldInstanceService } from '../../../shared/services/field-instance.service';
 
 const TILES: PlaceholderTile[] = [
   { token: '{{duty.date}}', fieldName: 'date', label: { de: 'Datum' }, group: 'KOCHDIENST', groupLabel: 'Kochdienst' },
   { token: '{{person.firstName}}', fieldName: 'firstName', label: { de: 'Vorname' }, group: 'PERSON', groupLabel: 'Person' },
 ];
+
+class FakeOrganisationService {
+  getByTag() {
+    return of({ definitions: [{ id: 'def1', fieldName: 'group', outdatedAt: null }] });
+  }
+}
+
+class FakeFieldInstanceService {
+  listByDefinitionId() {
+    return of([{ id: 'g1', fieldName: 'group', value: { label: 'Rote Gruppe' } }]);
+  }
+}
 
 describe('MailTemplateFormComponent', () => {
   let fixture: ComponentFixture<MailTemplateFormComponent>;
@@ -25,7 +40,11 @@ describe('MailTemplateFormComponent', () => {
 
     await TestBed.configureTestingModule({
       imports: [MailTemplateFormComponent, HttpClientTestingModule, NoopAnimationsModule],
-      providers: [{ provide: MailTemplateService, useValue: service }],
+      providers: [
+        { provide: MailTemplateService, useValue: service },
+        { provide: OrganisationService, useValue: new FakeOrganisationService() },
+        { provide: FieldInstanceService, useValue: new FakeFieldInstanceService() },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(MailTemplateFormComponent);
@@ -90,7 +109,7 @@ describe('MailTemplateFormComponent', () => {
       getLength: () => 10,
       insertEmbed: jasmine.createSpy('insertEmbed'),
       setSelection: jasmine.createSpy('setSelection'),
-      root: { innerHTML: '<p>Hal<span class="mail-token" data-token="{{person.firstName}}">Vorname</span>lo</p>' },
+      root: { innerHTML: '<p>Hal<span class="mail-token" data-token="{{person.firstName}}">Vorname</span>lo</p>', addEventListener: () => {} },
     };
     component.onEditorCreated(fakeQuill);
 
@@ -184,7 +203,7 @@ describe('MailTemplateFormComponent', () => {
       getLength: () => 5,
       insertEmbed: jasmine.createSpy('insertEmbed'),
       setSelection: jasmine.createSpy('setSelection'),
-      root: { innerHTML: '' },
+      root: { innerHTML: '', addEventListener: () => {} },
     };
     component.onEditorCreated(fakeQuill);
     const event = {
@@ -199,5 +218,77 @@ describe('MailTemplateFormComponent', () => {
     const args = (fakeQuill.insertEmbed as jasmine.Spy).calls.mostRecent().args;
     expect(args[1]).toBe('mail-token');
     expect(args[2]).toEqual({ token: '{{person.firstName}}', label: 'Vorname' });
+  });
+
+  it('zeigt den Kochdienst-Baustein nur bei kind=COOKING_OVERVIEW', () => {
+    component.kind = 'COOKING_OVERVIEW';
+    fixture.detectChanges();
+
+    expect(component.blockDefinitions.map((d) => d.type)).toEqual(['cookingDuty']);
+  });
+
+  it('zeigt keinen Baustein bei kind=GENERAL', () => {
+    component.kind = 'GENERAL';
+    fixture.detectChanges();
+
+    expect(component.blockDefinitions).toEqual([]);
+  });
+
+  it('zeigt keinen Baustein bei kind=COOKING_REMINDER', () => {
+    component.kind = 'COOKING_REMINDER';
+    fixture.detectChanges();
+
+    expect(component.blockDefinitions).toEqual([]);
+  });
+
+  it('fuegt beim Klick auf einen Baustein-Chip einen Block in den Editor ein (COOKING_OVERVIEW)', () => {
+    component.kind = 'COOKING_OVERVIEW';
+    fixture.detectChanges();
+
+    component.insertBlock(component.blockDefinitions[0]);
+
+    expect(component.form.value.bodyHtml).toContain('data-block-type="cookingDuty"');
+  });
+
+  it('laedt Gruppen fuer COOKING_OVERVIEW', () => {
+    component.kind = 'COOKING_OVERVIEW';
+    fixture.detectChanges();
+
+    expect(component.fieldInstanceGroups.map((g) => g.id)).toEqual(['g1']);
+  });
+
+  it('rendert einen gespeicherten Block-Marker als Baustein-Karte', () => {
+    component.kind = 'COOKING_OVERVIEW';
+    fixture.detectChanges();
+    const marker = '{{block.cookingDuty:eyJ0eXBlIjoiY29va2luZ0R1dHkiLCJncm91cElkIjoiZzEiLCJwZXJpb2RVbml0Ijoid2VlayIsInBlcmlvZEFtb3VudCI6Mn0}}';
+
+    component.value = { name: 'x', bodyHtml: marker };
+
+    expect(component.form.value.bodyHtml).toContain('data-block-type="cookingDuty"');
+  });
+
+  it('oeffnet den Konfigurations-Dialog beim Klick auf den Bearbeiten-Button eines Blocks', () => {
+    component.kind = 'COOKING_OVERVIEW';
+    fixture.detectChanges();
+    const dialog: MatDialog = (component as any).dialog;
+    spyOn(dialog, 'open').and.callThrough();
+    const node = document.createElement('div');
+    node.setAttribute('data-block-type', 'cookingDuty');
+    node.setAttribute('data-config', JSON.stringify({ type: 'cookingDuty', groupId: 'g1', periodUnit: 'week', periodAmount: 2 }));
+
+    (component as any).editBlock(node);
+
+    expect(dialog.open).toHaveBeenCalled();
+  });
+
+  it('wandelt eingefuegte Bloecke beim Auslesen in gespeicherte Marker um', () => {
+    component.kind = 'COOKING_OVERVIEW';
+    fixture.detectChanges();
+
+    component.insertBlock(component.blockDefinitions[0]);
+    const value = component.currentValue();
+
+    expect(value.bodyHtml).toMatch(/\{\{block\.cookingDuty:[A-Za-z0-9_-]+\}\}/);
+    expect(value.bodyHtml).not.toContain('data-block-type');
   });
 });

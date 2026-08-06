@@ -86,4 +86,71 @@ class MailTemplateRendererTest {
 
         assertEquals("<p>Hallo Anna</p>", result);
     }
+
+    private static class FakeBlockRenderer implements MailBlockRenderer {
+        private final String type;
+        private final String output;
+
+        FakeBlockRenderer(String type, String output) {
+            this.type = type;
+            this.output = output;
+        }
+
+        @Override
+        public boolean supports(String blockType) {
+            return type.equals(blockType);
+        }
+
+        @Override
+        public String render(com.fasterxml.jackson.databind.JsonNode config) {
+            return output;
+        }
+    }
+
+    @Test
+    void replacesABlockMarkerWithTheMatchingRendererOutput() {
+        MailTemplateRenderer renderer = new MailTemplateRenderer(java.util.List.of(new FakeBlockRenderer("cookingDuty", "<table></table>")));
+
+        String result = renderer.render("<p>Vorher</p>{{block.cookingDuty:eyJncm91cElkIjoiZzEifQ==}}<p>Nachher</p>", java.util.Map.of());
+
+        assertEquals("<p>Vorher</p><table></table><p>Nachher</p>", result);
+    }
+
+    @Test
+    void blanksABlockMarkerWhenTheMatchingRendererReturnsNull() {
+        MailTemplateRenderer renderer = new MailTemplateRenderer(java.util.List.of(new FakeBlockRenderer("cookingDuty", null)));
+
+        String result = renderer.render("<p>{{block.cookingDuty:eyJncm91cElkIjoiZzEifQ==}}</p>", java.util.Map.of());
+
+        assertEquals("<p></p>", result);
+    }
+
+    @Test
+    void blanksABlockMarkerWhenNoRendererSupportsItsType() {
+        MailTemplateRenderer renderer = new MailTemplateRenderer(java.util.List.of(new FakeBlockRenderer("cookingDuty", "<table></table>")));
+
+        String result = renderer.render("<p>{{block.unknownType:eyJ4IjoxfQ==}}</p>", java.util.Map.of());
+
+        assertEquals("<p></p>", result);
+    }
+
+    @Test
+    void blanksABlockMarkerWhoseDecodedConfigIsNotValidJson() {
+        // "bm90IGpzb24=" is valid base64url (matches the marker pattern) but decodes to
+        // the plain text "not json" — readTree() throws, exercising the catch path.
+        MailTemplateRenderer renderer = new MailTemplateRenderer(java.util.List.of(new FakeBlockRenderer("cookingDuty", "<table></table>")));
+
+        String result = renderer.render("<p>{{block.cookingDuty:bm90IGpzb24=}}</p>", java.util.Map.of());
+
+        assertEquals("<p></p>", result);
+    }
+
+    @Test
+    void personTokenAndBlockMarkerBothResolveInTheSameBody() {
+        MailTemplateRenderer renderer = new MailTemplateRenderer(java.util.List.of(new FakeBlockRenderer("cookingDuty", "<table></table>")));
+
+        String result = renderer.render("<p>Hallo {{person.firstName}}</p>{{block.cookingDuty:eyJncm91cElkIjoiZzEifQ==}}", java.util.Map.of("firstName", "Anna"));
+
+        assertEquals("<p>Hallo Anna</p><table></table>", result);
+    }
 }

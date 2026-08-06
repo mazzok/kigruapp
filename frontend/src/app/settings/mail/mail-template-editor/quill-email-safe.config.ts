@@ -2,6 +2,7 @@ import Quill from 'quill';
 import { AlignStyle } from 'quill/formats/align';
 import { SizeStyle } from 'quill/formats/size';
 import { registerMailTokenBlot } from './mail-token.blot';
+import { registerMailBlockBlot } from './mail-block.blot';
 
 /**
  * Quill formats CSS classes (ql-align-*, ql-size-*, ...) by default, which
@@ -26,6 +27,7 @@ export function configureQuillForEmailSafeOutput(): void {
   Quill.register('formats/align', AlignStyle, true);
   Quill.register('formats/size', SizeStyle, true);
   registerMailTokenBlot();
+  registerMailBlockBlot();
 }
 
 /** Toolbar limited to formats that serialize to inline styles or semantic tags (G-003). */

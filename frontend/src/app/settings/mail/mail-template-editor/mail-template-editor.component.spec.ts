@@ -1,8 +1,11 @@
 import { of, throwError } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { HttpClientTestingModule } from '@angular/common/http/testing';
+import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { MailTemplateEditorComponent } from './mail-template-editor.component';
 import { MailTemplateService } from '../../../shared/services/mail-template.service';
-import { MailTemplate, SaveMailTemplateRequest } from '../../../shared/models/mail-template.model';
+import { MailTemplate, PlaceholderTile, SaveMailTemplateRequest } from '../../../shared/models/mail-template.model';
 import { NotificationService } from '../../../shared/services/notification.service';
 
 class FakeNotificationService {
@@ -166,5 +169,33 @@ describe('MailTemplateEditorComponent', () => {
     component.delete(service.templates[0]);
 
     expect(service.deleteCalls).toEqual(['t1']);
+  });
+});
+
+describe('MailTemplateEditorComponent (rendered)', () => {
+  let fixture: ComponentFixture<MailTemplateEditorComponent>;
+
+  beforeEach(async () => {
+    const templateService = jasmine.createSpyObj('MailTemplateService', ['list', 'placeholders']);
+    templateService.list.and.returnValue(of([]));
+    const tiles: PlaceholderTile[] = [];
+    templateService.placeholders.and.returnValue(of(tiles));
+
+    await TestBed.configureTestingModule({
+      imports: [MailTemplateEditorComponent, HttpClientTestingModule, NoopAnimationsModule],
+      providers: [{ provide: MailTemplateService, useValue: templateService }],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(MailTemplateEditorComponent);
+  });
+
+  it('reicht kind=GENERAL an die eingebettete Vorlagen-Maske durch, ohne Baustein-Palette', () => {
+    fixture.detectChanges();
+    fixture.componentInstance.newTemplate();
+    fixture.detectChanges();
+
+    const formEl = fixture.nativeElement.querySelector('app-mail-template-form');
+    expect(formEl).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.block-bar')).toBeNull();
   });
 });
