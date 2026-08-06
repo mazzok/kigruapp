@@ -28,6 +28,12 @@ export class ClosureCalendarComponent implements OnChanges, OnInit {
   @Input() readonly = false;
   /** 'stacked' (Default, Elternansicht): Monate untereinander. 'row': Monate horizontal scrollbar (Admin-Maske). */
   @Input() layout: 'stacked' | 'row' = 'stacked';
+  /** 'single': ein Klick ersetzt die Auswahl (kein Ziehen), genutzt fuer Tagesauswahl (z. B. Kochdienst). */
+  @Input() mode: 'range' | 'single' = 'range';
+  /** false erlaubt die Auswahl von Wochenendtagen — nur relevant im 'single'-Modus. */
+  @Input() restrictWeekends = true;
+  /** Vorbelegte Auswahl im 'single'-Modus, z. B. beim Bearbeiten eines bestehenden Eintrags. */
+  @Input() initialSelection: string[] = [];
 
   @Output() selectionChange = new EventEmitter<string[]>();
 
@@ -56,8 +62,12 @@ export class ClosureCalendarComponent implements OnChanges, OnInit {
   }
 
   private rebuild(): void {
-    this.months = buildMonths(this.from, this.to, this.periods, this.definitions, this.holidays);
-    this.clearSelection();
+    this.months = buildMonths(
+      this.from, this.to, this.periods, this.definitions, this.holidays, this.restrictWeekends);
+    const seed = this.mode === 'single' ? this.initialSelection : [];
+    this.selected = new Set(seed);
+    this.base = new Set(seed);
+    this.selectedDays = [...seed].sort();
   }
 
   isSelected(day: CalendarDay): boolean {
@@ -65,10 +75,19 @@ export class ClosureCalendarComponent implements OnChanges, OnInit {
   }
 
   onDayMouseDown(day: CalendarDay, event: MouseEvent): void {
-    if (this.readonly || !day.selectable) {
+    if (this.readonly || !this.effectivelySelectable(day)) {
       return;
     }
     event.preventDefault();
+
+    if (this.mode === 'single') {
+      this.selected = new Set([day.date]);
+      this.base = new Set(this.selected);
+      this.selectedDays = [day.date];
+      this.selectionChange.emit(this.selectedDays);
+      return;
+    }
+
     const additive = event.ctrlKey || event.metaKey;
     // Mit STRG bleibt Bestehendes erhalten; ohne STRG ersetzt die Ziehung alles.
     this.base = new Set(additive ? this.selected : []);
@@ -144,6 +163,14 @@ export class ClosureCalendarComponent implements OnChanges, OnInit {
       parts.unshift(day.holidayName);
     }
     return parts.join(' · ');
+  }
+
+  /** 'single': Tage innerhalb einer Schliessperiode sind sichtbar, aber nicht anklickbar. */
+  effectivelySelectable(day: CalendarDay): boolean {
+    if (this.mode === 'single' && day.colors.length > 0) {
+      return false;
+    }
+    return day.selectable;
   }
 
   blanks(month: CalendarMonth): number[] {

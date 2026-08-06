@@ -190,4 +190,68 @@ describe('ClosureCalendarComponent', () => {
       expect(style.flexWrap).toBe('nowrap');
     });
   });
+
+  describe('mode: single', () => {
+    beforeEach(() => {
+      component.mode = 'single';
+      component.restrictWeekends = false;
+      component.ngOnChanges();
+      fixture.detectChanges();
+    });
+
+    it('ersetzt die Auswahl bei jedem Klick statt sie zu erweitern', () => {
+      const emitted: string[][] = [];
+      component.selectionChange.subscribe(days => emitted.push(days));
+
+      press('2026-09-08');
+      press('2026-09-10');
+
+      expect(emitted).toEqual([['2026-09-08'], ['2026-09-10']]);
+      expect(component.selectedDays).toEqual(['2026-09-10']);
+    });
+
+    it('ignoriert Ziehen (kein Range-Select)', () => {
+      const emitted: string[][] = [];
+      component.selectionChange.subscribe(days => emitted.push(days));
+
+      press('2026-09-07');
+      moveOver('2026-09-09');
+
+      expect(component.selectedDays).toEqual(['2026-09-07']);
+      expect(emitted).toEqual([['2026-09-07']]);
+    });
+
+    it('erlaubt die Auswahl von Wochenendtagen, wenn restrictWeekends=false', () => {
+      press('2026-09-12');
+
+      expect(component.selectedDays).toEqual(['2026-09-12']);
+    });
+
+    it('blockiert Tage, die einer Schliessperiode zugeordnet sind', () => {
+      component.periods = [{ id: 'p1', from: '2026-09-08', to: '2026-09-08', definitionId: 'def-ferien' }];
+      component.ngOnChanges();
+      fixture.detectChanges();
+
+      const emitted: string[][] = [];
+      component.selectionChange.subscribe(days => emitted.push(days));
+
+      press('2026-09-08');
+
+      expect(emitted.length).toBe(0);
+      expect(component.selectedDays).toEqual([]);
+    });
+
+    it('zeigt eine initiale Auswahl aus initialSelection', () => {
+      component.initialSelection = ['2026-09-09'];
+      component.ngOnChanges();
+      fixture.detectChanges();
+
+      expect(component.selectedDays).toEqual(['2026-09-09']);
+      expect(component.isSelected(findDayFixture('2026-09-09'))).toBe(true);
+    });
+  });
+
+  function findDayFixture(iso: string) {
+    return component.months.flatMap(m => m.days).find(d => d.date === iso)!;
+  }
 });

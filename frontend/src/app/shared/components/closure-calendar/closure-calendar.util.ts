@@ -57,6 +57,7 @@ export function buildMonths(
   periods: ClosurePeriod[],
   definitions: ClosureDefinition[],
   holidays: Holiday[],
+  restrictWeekends: boolean = true,
 ): CalendarMonth[] {
   if (!from || !to || from > to) {
     return [];
@@ -109,7 +110,7 @@ export function buildMonths(
     current.days.push({
       date: iso,
       dayOfMonth: cursor.getDate(),
-      selectable: !isWeekend(iso) && holidayName === null,
+      selectable: (!restrictWeekends || !isWeekend(iso)) && holidayName === null,
       holidayName,
       colors,
       labels,

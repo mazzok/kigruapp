@@ -64,6 +64,20 @@ describe('closure-calendar.util', () => {
       expect(findDay(months, '2026-09-13').selectable).toBe(false);
     });
 
+    it('erlaubt Wochenenden als auswaehlbar, wenn restrictWeekends=false', () => {
+      const months = buildMonths('2026-09-07', '2026-09-13', [], [], [], false);
+
+      expect(findDay(months, '2026-09-12').selectable).toBe(true);
+      expect(findDay(months, '2026-09-13').selectable).toBe(true);
+    });
+
+    it('blockiert Feiertage weiterhin, auch wenn restrictWeekends=false', () => {
+      const holiday: Holiday = { date: '2026-09-08', name: 'Test-Feiertag' };
+      const months = buildMonths('2026-09-07', '2026-09-09', [], [], [holiday], false);
+
+      expect(findDay(months, '2026-09-08').selectable).toBe(false);
+    });
+
     it('markiert Feiertage als nicht auswaehlbar und traegt den Namen ein', () => {
       const holidays: Holiday[] = [{ date: '2026-10-26', name: 'Nationalfeiertag' }];
       const months = buildMonths('2026-10-26', '2026-10-27', [], [], holidays);
