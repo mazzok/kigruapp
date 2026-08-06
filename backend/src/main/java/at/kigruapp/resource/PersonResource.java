@@ -163,6 +163,12 @@ public class PersonResource {
         String exitDate
     ) {}
 
+    public record ParentDTO(
+        String id,
+        String firstName,
+        String lastName
+    ) {}
+
     public record GroupAssignmentRequest(String definitionId, String fieldInstanceId) {}
 
     public record EnrollmentDatesRequest(String entryDate, String exitDate) {}
@@ -391,6 +397,24 @@ public class PersonResource {
         for (Person person : all) {
             if (!isChild(person)) continue;
             result.add(toChildDTO(person, semesterId));
+        }
+        return result;
+    }
+
+    @GET
+    @Path("/parents")
+    public List<ParentDTO> listParents(@QueryParam("familyId") String familyId) {
+        if (familyId == null || familyId.isBlank()) {
+            throw new BadRequestException("familyId is required");
+        }
+        List<Person> familyPersons = Person.findByFamilyId(new ObjectId(familyId));
+        List<ParentDTO> result = new ArrayList<>();
+        for (Person person : familyPersons) {
+            if (!personLookup.isParent(person)) continue;
+            result.add(new ParentDTO(
+                person.id.toHexString(),
+                resolveBasicValue(person, "firstName"),
+                resolveBasicValue(person, "lastName")));
         }
         return result;
     }

@@ -61,12 +61,12 @@ public class SecurityFilter implements ContainerRequestFilter {
             return;
         }
 
-        if (!isAllowed(path, method, person)) {
+        if (!isAllowed(ctx, path, method, person)) {
             abort(ctx);
         }
     }
 
-    private boolean isAllowed(String path, String method, Person person) {
+    private boolean isAllowed(ContainerRequestContext ctx, String path, String method, Person person) {
         boolean isAdmin = currentUserService.isAdmin();
 
         if (isAdmin) return true;
@@ -122,6 +122,11 @@ public class SecurityFilter implements ContainerRequestFilter {
         if (path.equals("/api/v1/closure-periods") && "GET".equals(method)) return true;
         if (path.equals("/api/v1/holidays") && "GET".equals(method)) return true;
 
+        // Wer-kocht-Auswahl im Kochdienst-Dialog: nur die eigene Familie einsehbar.
+        if (path.equals("/api/v1/persons/parents") && "GET".equals(method)) {
+            return checkOwnFamilyByQueryParam(ctx, person);
+        }
+
         // Default: admin-only (safe default — deny non-admins for anything not explicitly whitelisted above)
         return false;
     }
@@ -159,6 +164,12 @@ public class SecurityFilter implements ContainerRequestFilter {
 
         Person owner = Person.findById(ownerPersonId);
         return owner != null && person.familyId != null && person.familyId.equals(owner.familyId);
+    }
+
+    private boolean checkOwnFamilyByQueryParam(ContainerRequestContext ctx, Person person) {
+        String familyId = ctx.getUriInfo().getQueryParameters().getFirst("familyId");
+        if (familyId == null || !ObjectId.isValid(familyId)) return false;
+        return person.familyId != null && person.familyId.equals(new ObjectId(familyId));
     }
 
     private void abort(ContainerRequestContext ctx) {
