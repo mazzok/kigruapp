@@ -60,3 +60,9 @@ export interface ChildDTO {
   entryDate: string | null;
   exitDate: string | null;
 }
+
+export interface ParentSummaryDTO {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+}

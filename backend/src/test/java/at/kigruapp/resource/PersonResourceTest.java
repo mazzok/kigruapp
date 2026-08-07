@@ -143,6 +143,80 @@ public class PersonResourceTest {
     }
 
     @Test
+    public void testListParentsFiltersByFamilyAndPersonType() {
+        String familyId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"name\": \"Testfamilie-Eltern\"}")
+            .when().post("/api/v1/families")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String otherFamilyId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"name\": \"Andere-Familie\"}")
+            .when().post("/api/v1/families")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String personTypeDefId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"fieldName\": \"personType\", \"label\": {\"de\": \"Typ\"}, \"jsonSchema\": {\"type\": \"string\"}, \"required\": false}")
+            .when().post("/api/v1/field-definitions")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String firstNameDefId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"fieldName\": \"firstName\", \"label\": {\"de\": \"Vorname\"}, \"jsonSchema\": {\"type\": \"string\"}, \"required\": false}")
+            .when().post("/api/v1/field-definitions")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String lastNameDefId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"fieldName\": \"lastName\", \"label\": {\"de\": \"Nachname\"}, \"jsonSchema\": {\"type\": \"string\"}, \"required\": false}")
+            .when().post("/api/v1/field-definitions")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String parentId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"familyId\": \"" + familyId + "\", \"basicProperties\": ["
+                + "{\"definitionId\": \"" + personTypeDefId + "\", \"value\": \"PARENT\"},"
+                + "{\"definitionId\": \"" + firstNameDefId + "\", \"value\": \"Anna\"},"
+                + "{\"definitionId\": \"" + lastNameDefId + "\", \"value\": \"Muster\"}]}")
+            .when().post("/api/v1/persons")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        String childId = given()
+            .contentType(ContentType.JSON)
+            .body("{\"familyId\": \"" + familyId + "\", \"basicProperties\": ["
+                + "{\"definitionId\": \"" + personTypeDefId + "\", \"value\": \"CHILD\"},"
+                + "{\"definitionId\": \"" + firstNameDefId + "\", \"value\": \"Ben\"}]}")
+            .when().post("/api/v1/persons")
+            .then().statusCode(201)
+            .extract().path("id");
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"familyId\": \"" + otherFamilyId + "\", \"basicProperties\": ["
+                + "{\"definitionId\": \"" + personTypeDefId + "\", \"value\": \"PARENT\"}]}")
+            .when().post("/api/v1/persons")
+            .then().statusCode(201);
+
+        given()
+            .when().get("/api/v1/persons/parents?familyId=" + familyId)
+            .then()
+            .statusCode(200)
+            .body("size()", is(1))
+            .body("[0].id", is(parentId))
+            .body("[0].firstName", is("Anna"))
+            .body("[0].lastName", is("Muster"))
+            .body("find { it.id == '" + childId + "' }", nullValue());
+    }
+
+    @Test
     public void testChildEntryExitDatesDefaultNull() {
         String familyId = given()
             .contentType(ContentType.JSON)

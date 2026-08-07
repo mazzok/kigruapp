@@ -2,13 +2,20 @@
 
 <mat-dialog-content>
   <form [formGroup]="form">
-    <mat-form-field appearance="outline" class="full-width">
-      <mat-label>Wann</mat-label>
-      <input matInput [matDatepicker]="picker" formControlName="date"
-             [matDatepickerFilter]="dateFilter">
-      <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
-      <mat-datepicker #picker></mat-datepicker>
-    </mat-form-field>
+    <div class="date-field">
+      <label class="group-label">Wann *</label>
+      <app-closure-calendar
+        mode="single"
+        [restrictWeekends]="false"
+        [from]="calendarFrom"
+        [to]="calendarTo"
+        [periods]="closurePeriods"
+        [definitions]="closureDefinitions"
+        [holidays]="holidays"
+        [initialSelection]="initialDateSelection"
+        (selectionChange)="onDateSelected($event)">
+      </app-closure-calendar>
+    </div>
 
     <div class="checkbox-group">
       <label class="group-label">Fuer welche Gruppen *</label>

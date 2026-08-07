@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { ApiService } from '../../core/services/api.service';
-import { Person, CreatePersonRequest, PersonDTO, ChildDTO } from '../models/person.model';
+import { Person, CreatePersonRequest, PersonDTO, ChildDTO, ParentSummaryDTO } from '../models/person.model';
 import { Observable } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
@@ -24,6 +24,10 @@ export class PersonService {
   getChildren(semesterId?: string): Observable<ChildDTO[]> {
     const params = semesterId ? `?semesterId=${semesterId}` : '';
     return this.api.get<ChildDTO[]>(`/persons/children${params}`);
+  }
+
+  listParents(familyId: string): Observable<ParentSummaryDTO[]> {
+    return this.api.get<ParentSummaryDTO[]>(`/persons/parents?familyId=${familyId}`);
   }
 
   create(request: CreatePersonRequest): Observable<Person> {

@@ -4,6 +4,7 @@ import at.kigruapp.entity.Person;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
+import org.bson.types.ObjectId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -449,6 +450,116 @@ class SecurityFilterTest {
         filter.oidcEnabled = true;
         givenPath("/api/v1/cooking-reminder-settings", "PUT");
         when(currentUserService.getCurrentPerson()).thenReturn(new Person());
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        filter.filter(ctx);
+
+        assertForbidden();
+    }
+
+    @Test
+    void getClosureDefinitions_nonAdmin_allowed() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/closure-definitions", "GET");
+        when(currentUserService.getCurrentPerson()).thenReturn(new Person());
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        filter.filter(ctx);
+
+        assertPassThrough();
+    }
+
+    @Test
+    void postClosureDefinitions_nonAdmin_forbidden() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/closure-definitions", "POST");
+        when(currentUserService.getCurrentPerson()).thenReturn(new Person());
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        filter.filter(ctx);
+
+        assertForbidden();
+    }
+
+    @Test
+    void getClosurePeriods_nonAdmin_allowed() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/closure-periods", "GET");
+        when(currentUserService.getCurrentPerson()).thenReturn(new Person());
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        filter.filter(ctx);
+
+        assertPassThrough();
+    }
+
+    @Test
+    void postClosurePeriodsApply_nonAdmin_forbidden() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/closure-periods/apply", "POST");
+        when(currentUserService.getCurrentPerson()).thenReturn(new Person());
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        filter.filter(ctx);
+
+        assertForbidden();
+    }
+
+    @Test
+    void getHolidays_nonAdmin_allowed() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/holidays", "GET");
+        when(currentUserService.getCurrentPerson()).thenReturn(new Person());
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        filter.filter(ctx);
+
+        assertPassThrough();
+    }
+
+    @Test
+    void getPersonsParents_ownFamily_allowed() {
+        filter.oidcEnabled = true;
+        String familyId = "000000000000000000000001";
+        givenPath("/api/v1/persons/parents", "GET");
+        jakarta.ws.rs.core.MultivaluedMap<String, String> params = new jakarta.ws.rs.core.MultivaluedHashMap<>();
+        params.add("familyId", familyId);
+        when(uriInfo.getQueryParameters()).thenReturn(params);
+        Person person = new Person();
+        person.familyId = new ObjectId(familyId);
+        when(currentUserService.getCurrentPerson()).thenReturn(person);
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        filter.filter(ctx);
+
+        assertPassThrough();
+    }
+
+    @Test
+    void getPersonsParents_otherFamily_forbidden() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/persons/parents", "GET");
+        jakarta.ws.rs.core.MultivaluedMap<String, String> otherParams = new jakarta.ws.rs.core.MultivaluedHashMap<>();
+        otherParams.add("familyId", "000000000000000000000002");
+        when(uriInfo.getQueryParameters()).thenReturn(otherParams);
+        Person person = new Person();
+        person.familyId = new ObjectId("000000000000000000000001");
+        when(currentUserService.getCurrentPerson()).thenReturn(person);
+        when(currentUserService.isAdmin()).thenReturn(false);
+
+        filter.filter(ctx);
+
+        assertForbidden();
+    }
+
+    @Test
+    void getPersonsParents_missingFamilyId_forbidden() {
+        filter.oidcEnabled = true;
+        givenPath("/api/v1/persons/parents", "GET");
+        when(uriInfo.getQueryParameters()).thenReturn(new jakarta.ws.rs.core.MultivaluedHashMap<>());
+        Person person = new Person();
+        person.familyId = new ObjectId("000000000000000000000001");
+        when(currentUserService.getCurrentPerson()).thenReturn(person);
         when(currentUserService.isAdmin()).thenReturn(false);
 
         filter.filter(ctx);

@@ -9,6 +9,7 @@ import {
 } from 'angular-calendar';
 import { forkJoin, Subject } from 'rxjs';
 import { ClosurePeriodService } from '../shared/services/closure-period.service';
+import { ClosureDefinitionService } from '../shared/services/closure-definition.service';
 import { HolidayService } from '../shared/services/holiday.service';
 import { closedDatesFrom, toIsoDate } from './cooking-closure.util';
 import { OrganisationService } from '../shared/services/organisation.service';
@@ -20,7 +21,8 @@ import { CookingReminderSettingsService } from '../shared/services/cooking-remin
 import { FieldDefinitionService } from '../settings/custom-fields/services/field-definition.service';
 import { FieldDefinition } from '../shared/models/field-definition.model';
 import { CookingDutyDTO } from '../shared/models/organisation.model';
-import { PersonDTO, SectionInput } from '../shared/models/person.model';
+import { ParentSummaryDTO, SectionInput } from '../shared/models/person.model';
+import { ClosureDefinition, ClosurePeriod, Holiday } from '../shared/models/closure.model';
 import {
   CookingDutyDialogComponent,
   CookingDutyDialogData,
@@ -50,7 +52,7 @@ export class CookingComponent implements OnInit {
   duties: CookingDutyDTO[] = [];
 
   // Current user family data
-  familyParents: PersonDTO[] = [];
+  familyParents: ParentSummaryDTO[] = [];
   currentFamilyId = '';
   currentPersonId = '';
 
@@ -67,6 +69,7 @@ export class CookingComponent implements OnInit {
     private currentUserService: CurrentUserService,
     private dialog: MatDialog,
     private closurePeriodService: ClosurePeriodService,
+    private closureDefinitionService: ClosureDefinitionService,
     private holidayService: HolidayService,
     private cookingReminderSettingsService: CookingReminderSettingsService,
     private fieldDefinitionService: FieldDefinitionService,
@@ -74,6 +77,11 @@ export class CookingComponent implements OnInit {
 
   /** ISO-Tage des angezeigten Monats, an denen der Kindergarten geschlossen hat. */
   closedDates = new Set<string>();
+  closurePeriods: ClosurePeriod[] = [];
+  closureDefinitions: ClosureDefinition[] = [];
+  holidays: Holiday[] = [];
+  calendarFrom = '';
+  calendarTo = '';
 
   beforeMonthViewRender(event: CalendarMonthViewBeforeRenderEvent): void {
     for (const day of event.body) {
@@ -94,12 +102,18 @@ export class CookingComponent implements OnInit {
     const month = this.viewDate.getMonth();
     const from = toIsoDate(new Date(year, month, 1));
     const to = toIsoDate(new Date(year, month + 1, 0));
+    this.calendarFrom = from;
+    this.calendarTo = to;
 
     forkJoin({
       periods: this.closurePeriodService.getRange(from, to),
       holidays: this.holidayService.getRange(from, to),
+      definitions: this.closureDefinitionService.getAll(),
     }).subscribe(result => {
       this.closedDates = closedDatesFrom(result.periods, result.holidays);
+      this.closurePeriods = result.periods;
+      this.holidays = result.holidays;
+      this.closureDefinitions = result.definitions;
       this.refresh.next();
     });
   }
@@ -135,8 +149,8 @@ export class CookingComponent implements OnInit {
 
     const familyId = this.currentUserService.currentFamilyId;
     if (familyId) {
-      this.personService.list(familyId).subscribe((persons) => {
-        this.familyParents = persons.filter(p => !!p.id) as unknown as PersonDTO[];
+      this.personService.listParents(familyId).subscribe((parents) => {
+        this.familyParents = parents;
       });
     }
 
@@ -238,8 +252,12 @@ export class CookingComponent implements OnInit {
       currentUserId: this.currentPersonId,
       existingDuty,
       canEdit,
-      closedDates: [...this.closedDates],
       reminderAvailable: this.reminderAvailable,
+      closurePeriods: this.closurePeriods,
+      closureDefinitions: this.closureDefinitions,
+      holidays: this.holidays,
+      calendarFrom: this.calendarFrom,
+      calendarTo: this.calendarTo,
     };
 
     const dialogRef = this.dialog.open(CookingDutyDialogComponent, {

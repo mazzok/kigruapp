@@ -4,29 +4,29 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { FieldDefinition } from '../shared/models/field-definition.model';
 import { CookingDutyDTO } from '../shared/models/organisation.model';
-import { PersonDTO } from '../shared/models/person.model';
-import { toIsoDate } from './cooking-closure.util';
+import { ParentSummaryDTO } from '../shared/models/person.model';
+import { ClosureDefinition, ClosurePeriod, Holiday } from '../shared/models/closure.model';
+import { ClosureCalendarComponent } from '../shared/components/closure-calendar/closure-calendar.component';
 
 export interface CookingDutyDialogData {
   groups: FieldDefinition[];
   foodProperties: FieldDefinition[];
-  familyParents: PersonDTO[];
+  familyParents: ParentSummaryDTO[];
   currentUserId: string;
   existingDuty?: CookingDutyDTO;
   canEdit: boolean;
-  /**
-   * ISO-Tage, an denen geschlossen ist — im Datepicker gesperrt.
-   * Optional, damit vorhandene Aufrufstellen und Specs nicht brechen.
-   */
-  closedDates?: string[];
   reminderAvailable: boolean;
+  closurePeriods?: ClosurePeriod[];
+  closureDefinitions?: ClosureDefinition[];
+  holidays?: Holiday[];
+  calendarFrom?: string;
+  calendarTo?: string;
 }
 
 export interface CookingDutyDialogResult {
@@ -46,8 +46,8 @@ export interface CookingDutyDialogResult {
   imports: [
     CommonModule, ReactiveFormsModule,
     MatDialogModule, MatFormFieldModule, MatInputModule,
-    MatDatepickerModule, MatCheckboxModule,
-    MatSelectModule, MatButtonModule, MatIconModule,
+    MatCheckboxModule, MatSelectModule, MatButtonModule, MatIconModule,
+    ClosureCalendarComponent,
   ],
   templateUrl: './cooking-duty-dialog.component.html',
   styleUrl: './cooking-duty-dialog.component.scss',
@@ -57,14 +57,13 @@ export class CookingDutyDialogComponent implements OnInit {
   isEdit: boolean;
   canEdit: boolean;
 
-  private closedDates = new Set<string>();
-
-  /**
-   * Als Property gebunden, damit `this` im Datepicker-Filter erhalten bleibt.
-   * null ist zulaessig, sonst liesse sich das Feld nicht leeren.
-   */
-  dateFilter = (date: Date | null): boolean =>
-    date === null || !this.closedDates.has(toIsoDate(date));
+  closurePeriods: ClosurePeriod[];
+  closureDefinitions: ClosureDefinition[];
+  holidays: Holiday[];
+  calendarFrom: string;
+  calendarTo: string;
+  /** Vorbelegte Kalenderauswahl beim Bearbeiten eines bestehenden Kochdienstes. */
+  initialDateSelection: string[] = [];
 
   /** Klartextdatum der Erinnerung, null solange Datum oder Vorlaufzeit fehlen. */
   reminderDate: string | null = null;
@@ -76,11 +75,16 @@ export class CookingDutyDialogComponent implements OnInit {
   ) {
     this.isEdit = !!data.existingDuty;
     this.canEdit = data.canEdit;
-    this.closedDates = new Set(data.closedDates ?? []);
+    this.closurePeriods = data.closurePeriods ?? [];
+    this.closureDefinitions = data.closureDefinitions ?? [];
+    this.holidays = data.holidays ?? [];
+    this.calendarFrom = data.calendarFrom ?? '';
+    this.calendarTo = data.calendarTo ?? '';
   }
 
   ngOnInit(): void {
     const duty = this.data.existingDuty;
+    this.initialDateSelection = duty ? [duty.date] : [];
 
     this.form = new FormGroup({
       date: new FormControl(duty ? new Date(duty.date) : null, Validators.required),
@@ -156,15 +160,13 @@ export class CookingDutyDialogComponent implements OnInit {
     });
   }
 
-  getParentName(parent: PersonDTO): string {
-    const lastName = this.getFieldValue(parent, 'lastName');
-    const firstName = this.getFieldValue(parent, 'firstName');
-    return `${lastName} ${firstName}`.trim();
+  getParentName(parent: ParentSummaryDTO): string {
+    return `${parent.lastName ?? ''} ${parent.firstName ?? ''}`.trim();
   }
 
-  private getFieldValue(person: PersonDTO, fieldName: string): string {
-    const field = person.basicProperties?.find((f) => f.fieldName === fieldName);
-    return (field?.value as string) ?? '';
+  onDateSelected(dates: string[]): void {
+    const iso = dates[0] ?? null;
+    this.form.get('date')?.setValue(iso ? new Date(`${iso}T00:00:00`) : null);
   }
 
   hasSelectedGroups(): boolean {

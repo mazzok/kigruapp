@@ -22,7 +22,7 @@
                 [class.holiday]="!!day.holidayName"
                 [class.assigned]="day.colors.length > 0"
                 [class.selected]="isSelected(day)"
-                [class.selectable]="day.selectable && !readonly"
+                [class.selectable]="effectivelySelectable(day) && !readonly"
                 [style.background]="background(day)"
                 [matTooltip]="tooltip(day)"
                 [matTooltipDisabled]="tooltip(day) === ''"

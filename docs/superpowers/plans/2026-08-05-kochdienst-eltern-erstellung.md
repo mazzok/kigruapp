@@ -49,7 +49,7 @@
 **Interfaces:**
 - Produces: keine neuen Methoden, nur zusaetzliche `isAllowed(...)`-Whitelist-Bedingungen fuer `GET /api/v1/closure-definitions`, `GET /api/v1/closure-periods`, `GET /api/v1/holidays`.
 
-- [ ] **Step 1: Failing Tests schreiben**
+- [x] **Step 1: Failing Tests schreiben**
 
 In `backend/src/test/java/at/kigruapp/security/SecurityFilterTest.java`, nach dem letzten Test (`cookingReminderSettingsPut_isForbidden_forNonAdmin`) einfuegen:
 
@@ -115,12 +115,12 @@ In `backend/src/test/java/at/kigruapp/security/SecurityFilterTest.java`, nach de
     }
 ```
 
-- [ ] **Step 2: Tests laufen lassen, sicherstellen dass sie fehlschlagen**
+- [x] **Step 2: Tests laufen lassen, sicherstellen dass sie fehlschlagen**
 
 Run: `cd backend && mvnw.cmd test -Dtest=SecurityFilterTest`
 Expected: `getClosureDefinitions_nonAdmin_allowed`, `getClosurePeriods_nonAdmin_allowed`, `getHolidays_nonAdmin_allowed` schlagen fehl (FORBIDDEN statt PassThrough); `postClosureDefinitions_nonAdmin_forbidden` und `postClosurePeriodsApply_nonAdmin_forbidden` sind bereits gruen (Default-Deny greift schon).
 
-- [ ] **Step 3: Whitelist-Eintraege ergaenzen**
+- [x] **Step 3: Whitelist-Eintraege ergaenzen**
 
 In `backend/src/main/java/at/kigruapp/security/SecurityFilter.java`, nach Zeile 117 (`if (path.equals("/api/v1/cooking-reminder-settings") && "GET".equals(method)) return true;`) einfuegen:
 
@@ -132,12 +132,12 @@ In `backend/src/main/java/at/kigruapp/security/SecurityFilter.java`, nach Zeile 
         if (path.equals("/api/v1/holidays") && "GET".equals(method)) return true;
 ```
 
-- [ ] **Step 4: Tests erneut laufen lassen**
+- [x] **Step 4: Tests erneut laufen lassen**
 
 Run: `cd backend && mvnw.cmd test -Dtest=SecurityFilterTest`
 Expected: alle Tests PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src/main/java/at/kigruapp/security/SecurityFilter.java backend/src/test/java/at/kigruapp/security/SecurityFilterTest.java
@@ -158,7 +158,7 @@ git commit -m "fix(be): Closure- und Feiertags-GETs fuer angemeldete Eltern frei
 - Consumes: `PersonLookupService.isParent(Person)` (bereits vorhanden, `backend/src/main/java/at/kigruapp/service/PersonLookupService.java:39`), `Person.findByFamilyId(ObjectId)` (bereits vorhanden).
 - Produces: `PersonResource.ParentDTO(String id, String firstName, String lastName)` (record), Endpoint `GET /api/v1/persons/parents?familyId=<id>` → `List<ParentDTO>`. Spaeter genutzt von Task 4 (Frontend `PersonService.listParents`).
 
-- [ ] **Step 1: Failing Backend-Test schreiben**
+- [x] **Step 1: Failing Backend-Test schreiben**
 
 In `backend/src/test/java/at/kigruapp/resource/PersonResourceTest.java`, nach `testGroupAssignmentIsolatedPerSemester` (nach Zeile 143) einfuegen:
 
@@ -238,12 +238,12 @@ In `backend/src/test/java/at/kigruapp/resource/PersonResourceTest.java`, nach `t
     }
 ```
 
-- [ ] **Step 2: Test laufen lassen, sicherstellen dass er fehlschlaegt**
+- [x] **Step 2: Test laufen lassen, sicherstellen dass er fehlschlaegt**
 
 Run: `cd backend && mvnw.cmd test -Dtest=PersonResourceTest#testListParentsFiltersByFamilyAndPersonType`
 Expected: FAIL — 404, da `/persons/parents` noch nicht existiert.
 
-- [ ] **Step 3: `ParentDTO`-Record und Endpoint implementieren**
+- [x] **Step 3: `ParentDTO`-Record und Endpoint implementieren**
 
 In `backend/src/main/java/at/kigruapp/resource/PersonResource.java`, den `ParentDTO`-Record direkt nach dem bestehenden `ChildDTO`-Record einfuegen (nach Zeile 164):
 
@@ -277,12 +277,12 @@ Direkt nach der bestehenden `listChildren`-Methode (nach Zeile 396, vor `@PATCH 
     }
 ```
 
-- [ ] **Step 4: Test laufen lassen**
+- [x] **Step 4: Test laufen lassen**
 
 Run: `cd backend && mvnw.cmd test -Dtest=PersonResourceTest#testListParentsFiltersByFamilyAndPersonType`
 Expected: PASS.
 
-- [ ] **Step 5: Failing SecurityFilter-Test fuer den neuen Endpoint schreiben**
+- [x] **Step 5: Failing SecurityFilter-Test fuer den neuen Endpoint schreiben**
 
 In `backend/src/test/java/at/kigruapp/security/SecurityFilterTest.java`, nach den in Task 1 hinzugefuegten Tests einfuegen:
 
@@ -337,12 +337,12 @@ In `backend/src/test/java/at/kigruapp/security/SecurityFilterTest.java`, nach de
     }
 ```
 
-- [ ] **Step 6: Tests laufen lassen, sicherstellen dass sie fehlschlagen**
+- [x] **Step 6: Tests laufen lassen, sicherstellen dass sie fehlschlagen**
 
 Run: `cd backend && mvnw.cmd test -Dtest=SecurityFilterTest#getPersonsParents_ownFamily_allowed+getPersonsParents_otherFamily_forbidden+getPersonsParents_missingFamilyId_forbidden`
 Expected: `getPersonsParents_ownFamily_allowed` FAILS (403 statt PassThrough), die anderen beiden sind bereits gruen (Default-Deny).
 
-- [ ] **Step 7: `isAllowed` um familien-gescopte Pruefung erweitern**
+- [x] **Step 7: `isAllowed` um familien-gescopte Pruefung erweitern**
 
 In `backend/src/main/java/at/kigruapp/security/SecurityFilter.java` die Signatur von `isAllowed` anpassen, damit sie auf Query-Parameter zugreifen kann. Zeile 64 aendern von:
 
@@ -387,17 +387,17 @@ Am Ende der Klasse, nach `checkFieldInstanceFamily` (nach Zeile 156), die neue H
     }
 ```
 
-- [ ] **Step 8: Tests laufen lassen**
+- [x] **Step 8: Tests laufen lassen**
 
 Run: `cd backend && mvnw.cmd test -Dtest=SecurityFilterTest`
 Expected: alle Tests PASS (auch die aus Task 1).
 
-- [ ] **Step 9: Vollen Backend-Testlauf pruefen**
+- [x] **Step 9: Vollen Backend-Testlauf pruefen**
 
 Run: `cd backend && mvnw.cmd test`
 Expected: keine neuen Fehlschlaege gegenueber dem bekannten Baseline-Stand (siehe `project_broken_baseline`-Notiz: 13 vorbestehende fehlschlagende Tests sind unabhaengig von dieser Aenderung).
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add backend/src/main/java/at/kigruapp/resource/PersonResource.java backend/src/main/java/at/kigruapp/security/SecurityFilter.java backend/src/test/java/at/kigruapp/resource/PersonResourceTest.java backend/src/test/java/at/kigruapp/security/SecurityFilterTest.java
@@ -418,7 +418,7 @@ git commit -m "feat(be): GET /persons/parents liefert aufgeloeste Elternteile de
 
 Kein eigener Testschritt: reine Service-/Modell-Ergaenzung ohne Verzweigungslogik, wird ueber die Tests aus Task 5/6 (dort wird der Service gemockt bzw. real durchlaufen) und den Backend-Test aus Task 2 abgedeckt. Ein isolierter Unit-Test ohne Verzweigung waere reines Getter-Testing ohne Aussagekraft.
 
-- [ ] **Step 1: `ParentSummaryDTO` ergaenzen**
+- [x] **Step 1: `ParentSummaryDTO` ergaenzen**
 
 In `frontend/src/app/shared/models/person.model.ts`, nach dem `ChildDTO`-Interface (nach Zeile 62) einfuegen:
 
@@ -430,7 +430,7 @@ export interface ParentSummaryDTO {
 }
 ```
 
-- [ ] **Step 2: `listParents` in `PersonService` ergaenzen**
+- [x] **Step 2: `listParents` in `PersonService` ergaenzen**
 
 In `frontend/src/app/shared/services/person.service.ts`, Import in Zeile 3 erweitern:
 
@@ -446,12 +446,12 @@ Nach der bestehenden `getChildren`-Methode (nach Zeile 27) einfuegen:
   }
 ```
 
-- [ ] **Step 3: Frontend-Build pruefen**
+- [x] **Step 3: Frontend-Build pruefen**
 
 Run: `cd frontend && npm run build`
 Expected: Build erfolgreich, keine neuen TypeScript-Fehler.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add frontend/src/app/shared/models/person.model.ts frontend/src/app/shared/services/person.service.ts
@@ -473,7 +473,7 @@ git commit -m "feat(fe): PersonService.listParents fuer aufgeloeste Elternteile"
 - Consumes: nichts Neues von aussen.
 - Produces: `buildMonths(from, to, periods, definitions, holidays, restrictWeekends = true)`, `ClosureCalendarComponent` Inputs `mode: 'range' | 'single' = 'range'`, `restrictWeekends = true`, `initialSelection: string[] = []`, Methode `effectivelySelectable(day: CalendarDay): boolean`. Genutzt von Task 6 (`CookingDutyDialogComponent`-Template).
 
-- [ ] **Step 1: Failing Util-Tests schreiben**
+- [x] **Step 1: Failing Util-Tests schreiben**
 
 In `frontend/src/app/shared/components/closure-calendar/closure-calendar.util.spec.ts`, im `describe('buildMonths', ...)`-Block nach dem Test `'markiert Wochenenden als nicht auswaehlbar'` einfuegen:
 
@@ -499,12 +499,12 @@ In `frontend/src/app/shared/components/closure-calendar/closure-calendar.util.sp
 import { ClosureDefinition, ClosurePeriod, Holiday } from '../../models/closure.model';
 ```
 
-- [ ] **Step 2: Tests laufen lassen, sicherstellen dass sie fehlschlagen**
+- [x] **Step 2: Tests laufen lassen, sicherstellen dass sie fehlschlagen**
 
 Run: `cd frontend && npx ng test --include='**/closure-calendar.util.spec.ts' --watch=false`
 Expected: FAIL — `buildMonths` akzeptiert noch keinen sechsten Parameter (TS-Fehler) bzw. `selectable` ist bei Wochenendtagen `false`.
 
-- [ ] **Step 3: `buildMonths` um `restrictWeekends` erweitern**
+- [x] **Step 3: `buildMonths` um `restrictWeekends` erweitern**
 
 In `frontend/src/app/shared/components/closure-calendar/closure-calendar.util.ts`, Signatur (Zeile 54-60) aendern zu:
 
@@ -531,12 +531,12 @@ zu:
       selectable: (!restrictWeekends || !isWeekend(iso)) && holidayName === null,
 ```
 
-- [ ] **Step 4: Tests laufen lassen**
+- [x] **Step 4: Tests laufen lassen**
 
 Run: `cd frontend && npx ng test --include='**/closure-calendar.util.spec.ts' --watch=false`
 Expected: PASS, alle bisherigen Tests in dieser Datei bleiben ebenfalls gruen.
 
-- [ ] **Step 5: Failing Komponenten-Tests schreiben**
+- [x] **Step 5: Failing Komponenten-Tests schreiben**
 
 In `frontend/src/app/shared/components/closure-calendar/closure-calendar.component.spec.ts`, am Ende der Datei, vor dem letzten schliessenden `});` der aeussersten `describe`, einen neuen Block einfuegen:
 
@@ -605,12 +605,12 @@ In `frontend/src/app/shared/components/closure-calendar/closure-calendar.compone
   }
 ```
 
-- [ ] **Step 6: Tests laufen lassen, sicherstellen dass sie fehlschlagen**
+- [x] **Step 6: Tests laufen lassen, sicherstellen dass sie fehlschlagen**
 
 Run: `cd frontend && npx ng test --include='**/closure-calendar.component.spec.ts' --watch=false`
 Expected: FAIL — `mode`, `restrictWeekends`, `initialSelection` existieren noch nicht als Inputs; Verhalten entspricht noch dem `range`-Default.
 
-- [ ] **Step 7: Component um `mode`, `restrictWeekends`, `initialSelection` und `effectivelySelectable` erweitern**
+- [x] **Step 7: Component um `mode`, `restrictWeekends`, `initialSelection` und `effectivelySelectable` erweitern**
 
 In `frontend/src/app/shared/components/closure-calendar/closure-calendar.component.ts`:
 
@@ -706,7 +706,7 @@ Nach `tooltip(day)` (nach Zeile 147) eine neue Methode einfuegen:
   }
 ```
 
-- [ ] **Step 8: Template um `effectivelySelectable` erweitern**
+- [x] **Step 8: Template um `effectivelySelectable` erweitern**
 
 In `frontend/src/app/shared/components/closure-calendar/closure-calendar.component.html`, Zeile 25 aendern von:
 
@@ -720,12 +720,12 @@ zu:
                 [class.selectable]="effectivelySelectable(day) && !readonly"
 ```
 
-- [ ] **Step 9: Tests laufen lassen**
+- [x] **Step 9: Tests laufen lassen**
 
 Run: `cd frontend && npx ng test --include='**/closure-calendar.component.spec.ts' --include='**/closure-calendar.util.spec.ts' --watch=false`
 Expected: alle Tests PASS, inklusive aller bestehenden (Range-Modus unveraendert).
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add frontend/src/app/shared/components/closure-calendar
@@ -745,7 +745,7 @@ git commit -m "feat(fe): closure-calendar unterstuetzt Einzeltag-Auswahl (mode: 
 
 Kein isolierter Unit-Test fuer diese Ladeorchestrierung — es gibt keine bestehende `cooking.component.spec.ts` und der Verkabelungscode besteht nur aus Service-Aufrufen ohne eigene Verzweigungslogik; die Wirkung wird end-to-end durch den manuellen Smoke-Test in Task 7 sowie die Dialog-Tests in Task 6 abgedeckt.
 
-- [ ] **Step 1: Imports und Felder anpassen**
+- [x] **Step 1: Imports und Felder anpassen**
 
 In `frontend/src/app/cooking/cooking.component.ts`:
 
@@ -808,7 +808,7 @@ Konstruktor (Zeile 62-73) um `ClosureDefinitionService` erweitern:
   ) {}
 ```
 
-- [ ] **Step 2: `loadClosedDates` um Definitions/Periods/Holidays-Speicherung erweitern**
+- [x] **Step 2: `loadClosedDates` um Definitions/Periods/Holidays-Speicherung erweitern**
 
 Zeilen 92-105 aendern von:
 
@@ -854,7 +854,7 @@ zu:
   }
 ```
 
-- [ ] **Step 3: `loadOrganisationData` auf `listParents` umstellen**
+- [x] **Step 3: `loadOrganisationData` auf `listParents` umstellen**
 
 Zeilen 136-141 aendern von:
 
@@ -878,7 +878,7 @@ zu:
     }
 ```
 
-- [ ] **Step 4: `openDialog` um die neuen Felder erweitern**
+- [x] **Step 4: `openDialog` um die neuen Felder erweitern**
 
 Zeilen 234-243 aendern von:
 
@@ -916,12 +916,12 @@ zu:
 
 (Das bisherige Feld `closedDates` entfaellt hier — es wird in Task 6 auch aus `CookingDutyDialogData` entfernt, da die Datumsauswahl jetzt ueber `closurePeriods`/`closureDefinitions`/`holidays` direkt im Dialog berechnet wird.)
 
-- [ ] **Step 5: Build pruefen**
+- [x] **Step 5: Build pruefen**
 
 Run: `cd frontend && npm run build`
 Expected: schlaegt zu diesem Zeitpunkt fehl, weil `CookingDutyDialogData` das Feld `closedDates` noch verlangt bzw. die neuen Felder noch nicht kennt — das wird in Task 6 behoben. Dieser Schritt dient nur der Kontrolle, dass keine anderen unerwarteten Fehler auftreten (z. B. Tippfehler). Notiere die erwartete Fehlermeldung (fehlende/unbekannte Properties in `CookingDutyDialogData`) und fahre mit Task 6 fort, bevor der Build erneut gepruft wird.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/src/app/cooking/cooking.component.ts
@@ -943,7 +943,7 @@ git commit -m "feat(fe): CookingComponent laedt aufgeloeste Eltern und Closure-D
 - Consumes: `ClosureCalendarComponent` mit `mode: 'single'`, `restrictWeekends`, `initialSelection`, `selectionChange` (Task 4); `ParentSummaryDTO` (Task 3); `CookingComponent`s erweiterte `CookingDutyDialogData` (Task 5).
 - Produces: unveraendertes `CookingDutyDialogResult` (keine Breaking Changes fuer `CookingComponent.createCookingDuty`/`updateCookingDuty`).
 
-- [ ] **Step 1: Failing Tests schreiben**
+- [x] **Step 1: Failing Tests schreiben**
 
 In `frontend/src/app/cooking/cooking-duty-dialog.component.spec.ts`, `baseData` (Zeile 14-21) erweitern:
 
@@ -1022,12 +1022,12 @@ Am Ende der Datei, vor dem letzten `});`, einen neuen `describe`-Block einfuegen
   });
 ```
 
-- [ ] **Step 2: Tests laufen lassen, sicherstellen dass sie fehlschlagen**
+- [x] **Step 2: Tests laufen lassen, sicherstellen dass sie fehlschlagen**
 
 Run: `cd frontend && npx ng test --include='**/cooking-duty-dialog.component.spec.ts' --watch=false`
 Expected: FAIL — Compile-Fehler, da `CookingDutyDialogData` die neuen Felder noch nicht kennt, `getParentName` noch `PersonDTO` erwartet, `onDateSelected`/`initialDateSelection` noch nicht existieren.
 
-- [ ] **Step 3: `CookingDutyDialogData`, Imports und Klassenfelder anpassen**
+- [x] **Step 3: `CookingDutyDialogData`, Imports und Klassenfelder anpassen**
 
 In `frontend/src/app/cooking/cooking-duty-dialog.component.ts`:
 
@@ -1083,7 +1083,7 @@ export interface CookingDutyDialogData {
   ],
 ```
 
-- [ ] **Step 4: `dateFilter`/`closedDates`-Feld durch Closure-Calendar-Felder ersetzen**
+- [x] **Step 4: `dateFilter`/`closedDates`-Feld durch Closure-Calendar-Felder ersetzen**
 
 Zeilen 56-80 (Klassenkoerper von `form!` bis Ende Konstruktor) aendern von:
 
@@ -1150,7 +1150,7 @@ export class CookingDutyDialogComponent implements OnInit {
   }
 ```
 
-- [ ] **Step 5: `ngOnInit` um `initialDateSelection` ergaenzen, `onDateSelected` und `getParentName` anpassen**
+- [x] **Step 5: `ngOnInit` um `initialDateSelection` ergaenzen, `onDateSelected` und `getParentName` anpassen**
 
 `ngOnInit` (Zeile 82-83) direkt nach `const duty = this.data.existingDuty;` ergaenzen:
 
@@ -1186,7 +1186,7 @@ zu:
   }
 ```
 
-- [ ] **Step 6: Template anpassen**
+- [x] **Step 6: Template anpassen**
 
 In `frontend/src/app/cooking/cooking-duty-dialog.component.html`, Zeilen 5-11 aendern von:
 
@@ -1219,17 +1219,17 @@ zu:
     </div>
 ```
 
-- [ ] **Step 7: Tests laufen lassen**
+- [x] **Step 7: Tests laufen lassen**
 
 Run: `cd frontend && npx ng test --include='**/cooking-duty-dialog.component.spec.ts' --watch=false`
 Expected: PASS — inklusive aller bestehenden Erinnerungs-Tests (die den `date`-FormControl weiterhin direkt per `patchValue` setzen, unabhaengig vom Kalender).
 
-- [ ] **Step 8: Frontend-Build und vollen Testlauf pruefen**
+- [x] **Step 8: Frontend-Build und vollen Testlauf pruefen**
 
 Run: `cd frontend && npm run build && npx ng test --watch=false`
 Expected: Build erfolgreich; keine neuen Testfehlschlaege gegenueber dem bekannten Baseline-Stand (siehe `project_broken_baseline`-Notiz: 1 vorbestehender fehlschlagender Frontend-Test ist unabhaengig von dieser Aenderung).
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add frontend/src/app/cooking/cooking-duty-dialog.component.ts frontend/src/app/cooking/cooking-duty-dialog.component.html frontend/src/app/cooking/cooking-duty-dialog.component.spec.ts frontend/src/app/cooking/cooking.component.ts
